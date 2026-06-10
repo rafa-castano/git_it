@@ -1,0 +1,40 @@
+# .codex/config.toml
+
+# MCP servers for git-it.
+# Keep this file free of secrets.
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.filesystem]
+command = "npx"
+args = [
+  "-y",
+  "@modelcontextprotocol/server-filesystem",
+  ".agents",
+  ".codex",
+  ".prompts",
+  "ADR",
+  "checklists",
+  "docs",
+  "evals",
+  "skills",
+  "SPECS",
+  "src",
+  "tests",
+]
+
+[mcp_servers.git]
+command = "uvx"
+args = [
+  "mcp-server-git",
+  "--repository",
+  ".",
+]
+
+
+# Filesystem MCP is intentionally scoped to explicit workspace subdirectories.
+# Do not mount the repository root, home directory, .git, virtualenvs, or secret files.
+# Git MCP is repository-scoped and governed by AGENTS.md read-only policy.
+# Add postgres/playwright only after validating the first MCP servers.
