@@ -43,6 +43,30 @@ The default contributor path must work in constrained corporate environments whe
 
 If an infrastructure dependency is unavoidable, provide a degraded local mode or explicit setup documentation.
 
+## Local ingestion workspace
+
+Repository ingestion uses project-local generated data under:
+
+```text
+.data/git-it/ingestion/
+```
+
+Expected layout:
+
+```text
+repos/{repository_id}.git/        # retained bare clone cache
+runs/{ingestion_run_id}/          # temporary run artifacts
+```
+
+Rules:
+
+- keep ingestion data inside the project workspace,
+- use generated identifiers for filesystem paths,
+- never derive paths directly from owner, repository, branch, or ref names,
+- clean temporary run directories after terminal ingestion statuses,
+- retain bare clone caches by default for faster re-ingestion,
+- provide a future explicit cleanup command before automatic destructive pruning.
+
 ## CI/CD baseline
 
 CI should run:

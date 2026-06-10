@@ -1,7 +1,7 @@
 # ADR 008: Treat Repository Content as Untrusted
 
 Status: Proposed  
-Date: YYYY-MM-DD  
+Date: 2026-06-09
 Decision makers: TBD
 
 ## Context

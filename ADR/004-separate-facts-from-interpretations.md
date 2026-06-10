@@ -1,7 +1,7 @@
 # ADR 004: Separate Facts from Interpretations
 
 Status: Proposed  
-Date: YYYY-MM-DD  
+Date: 2026-06-09
 Decision makers: TBD
 
 ## Context

@@ -1,48 +1,75 @@
-# ADR 006: Use PostgreSQL with pgvector
+# ADR 006: Use SQLite for MVP Facts and PostgreSQL with pgvector for Future Semantic Retrieval
 
 Status: Proposed  
-Date: YYYY-MM-DD  
+Date: 2026-06-10
 Decision makers: TBD
 
 ## Context
 
-The project needs relational facts and semantic retrieval.
+Git It needs to persist repository ingestion facts such as repositories, ingestion runs, commits, file changes, and branch/ref membership.
+
+Those facts are relational and must support idempotency, traceability, and later commit-level and pattern-level analysis.
+
+The project has also adopted a local-first, no-container MVP strategy. The default contributor path must not require PostgreSQL, Docker, Docker Compose, Kubernetes, cloud services, or privileged local setup.
+
+At the same time, future versions may need semantic retrieval over generated analyses, lessons, narratives, or documentation. That future capability may justify PostgreSQL with pgvector.
 
 ## Decision
 
-Use PostgreSQL as the primary database and pgvector for embeddings before adding a separate vector database.
+For the MVP repository ingestion workflow, persist raw ingestion facts in a local SQLite database behind a storage port.
+
+SQLite is the default MVP persistence target because it provides relational constraints, transactions, idempotency support, and local-first contributor ergonomics without requiring a daemon or container.
+
+PostgreSQL remains a planned future adapter for larger deployments or multi-user operation.
+
+Use pgvector with PostgreSQL only when semantic search or embedding-backed retrieval is required. Do not require pgvector for the MVP ingestion path.
+
+Application code must depend on storage ports rather than directly coupling domain logic to SQLite, PostgreSQL, or pgvector-specific APIs.
 
 ## Consequences
 
 ### Positive
 
-- Improves reliability and reviewability.
-- Supports disciplined AI-assisted development.
-- Reduces ambiguity for Codex sessions.
+- Keeps the MVP aligned with the local-first, no-container infrastructure decision.
+- Preserves relational integrity for ingestion facts without requiring external services.
+- Keeps the default contributor setup simple and fast.
+- Allows future PostgreSQL and pgvector adoption without forcing it prematurely.
+- Encourages clean storage boundaries through ports/adapters.
 
 ### Negative
 
-- Adds initial process overhead.
-- Requires keeping documentation synchronized.
+- Requires designing storage interfaces before PostgreSQL is introduced.
+- SQLite behavior may differ from PostgreSQL in concurrency, SQL dialect, migrations, and type handling.
+- Future migration to PostgreSQL will require deliberate compatibility tests and migration planning.
 
 ### Neutral
 
-- This decision can be revisited through a superseding ADR.
+- SQLite is a local MVP persistence choice, not a rejection of PostgreSQL.
+- PostgreSQL with pgvector remains the preferred direction for future semantic retrieval if requirements justify it.
 
 ## Alternatives considered
 
-- Ad hoc implementation.
-- Conversation-only memory.
-- Tool-specific configuration without repository documentation.
+- PostgreSQL with pgvector from the start.
+- JSON files for local MVP storage.
+- In-memory storage only.
+- Separate vector database from the beginning.
 
 ## Security impact
 
-Review security implications before accepting.
+- SQLite database files must remain inside the controlled project workspace.
+- Repository content stored in SQLite remains untrusted data and must not be executed.
+- Future PostgreSQL deployments must use least-privilege credentials and avoid exposing secrets through MCP or logs.
+- Embeddings must not include secrets or unsupported claims.
 
 ## Quality impact
 
-Tests and documentation should enforce the decision.
+- MVP tests must run without PostgreSQL, Docker, or external database services.
+- Storage behavior must be tested through the storage port.
+- SQLite idempotency, uniqueness, and transaction behavior must be covered by tests.
+- Future PostgreSQL support must include adapter parity tests against the same behavioral contract.
 
 ## Documentation impact
 
-Update related specs and docs.
+- Update repository ingestion specs to identify SQLite as the MVP fact store.
+- Document PostgreSQL and pgvector as future deployment/semantic retrieval options.
+- Document migration and adapter expectations before introducing PostgreSQL as a required runtime dependency.

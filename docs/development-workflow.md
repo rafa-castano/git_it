@@ -15,6 +15,16 @@ Idea
 → Review
 ```
 
+Repository ingestion MVP starts with a local CLI and application service.
+
+Do not introduce FastAPI endpoints, background workers, containers, or cloud services for repository ingestion until the local application service contract is specified, tested, and accepted.
+
+The CLI may provide human-readable output for local contributors, but tests and automation should use stable JSON output.
+
+Future GUI services should consume application/query services or dedicated read models, not parse human-readable CLI output.
+
+Repository ingestion MVP should expose stable application/query DTOs for future adapters, but should not introduce GUI-specific read models before the GUI/API behavior is specified.
+
 ## Codex session workflow
 
 1. Ask Codex to read `CODEX.md` and `AGENTS.md`.
