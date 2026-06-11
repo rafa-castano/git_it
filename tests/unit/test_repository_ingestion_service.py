@@ -73,10 +73,13 @@ def test_ingestion_service_starts_clone_or_fetch_with_canonical_url(raw_url: str
     ("error_code", "expected_stage", "expected_retryable"),
     [
         ("REPOSITORY_NOT_FOUND", "FETCHING_METADATA", False),
+        ("REPOSITORY_PRIVATE_OR_INACCESSIBLE", "FETCHING_METADATA", False),
+        ("METADATA_UNAVAILABLE", "FETCHING_METADATA", True),
         ("CLONE_TIMEOUT", "CLONING_OR_FETCHING", True),
+        ("GIT_FETCH_FAILED", "CLONING_OR_FETCHING", True),
     ],
 )
-def test_ingestion_service_maps_git_gateway_failures_to_safe_failure_result(
+def test_ingestion_service_maps_known_git_gateway_failures_to_safe_failure_result(
     error_code: str,
     expected_stage: str,
     expected_retryable: bool,

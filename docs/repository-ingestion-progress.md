@@ -1,0 +1,293 @@
+# Repository ingestion implementation progress
+
+## Purpose
+
+This document keeps a lightweight running summary of the main repository ingestion implementation batches.
+
+It exists so the project can preserve the reasoning, examples, and incremental learning while the work advances, instead of reconstructing it at the end.
+
+## Maintenance rule
+
+Update this document after each meaningful implementation batch.
+
+Each entry should include:
+
+- batch goal,
+- source of truth used,
+- examples covered,
+- tests added or updated,
+- production behavior added,
+- relevant follow-up.
+
+## Batch 1 — Repository URL contract
+
+### Goal
+
+Define the smallest public contract for accepting repository URLs before any Git, network, or persistence work exists.
+
+### Source of truth
+
+- `specs/001-repository-ingestion.md`
+- local-first MVP constraints
+- public GitHub repository-only scope
+
+### Examples
+
+Accepted:
+
+```text
+https://github.com/owner/repo
+https://github.com/owner/repo.git
+```
+
+Rejected safely:
+
+```text
+not-a-url
+https://gitlab.com/owner/repo
+https://github.com/owner
+https://github.com/owner/repo/tree/main
+```
+
+### Tests
+
+Added unit tests for URL parsing, canonicalization, and safe validation failures.
+
+### Production behavior
+
+Added `parse_repository_url`, `ParsedRepositoryUrl`, and `RepositoryUrlValidationError`.
+
+The parser returns a canonical URL and rejects unsupported or malformed inputs with machine-readable error codes.
+
+### Follow-up
+
+Later CLI and API layers should reuse this contract instead of re-validating URLs differently.
+
+## Batch 2 — Failure mapping
+
+### Goal
+
+Centralize ingestion failure status, error code, stage, and retryability rules.
+
+### Source of truth
+
+- `specs/001-repository-ingestion.md` failure mapping table
+
+### Examples
+
+```text
+INVALID_URL -> FAILED_VALIDATION / VALIDATING_URL / retryable=false
+REPOSITORY_NOT_FOUND -> FAILED_FETCH / FETCHING_METADATA / retryable=false
+CLONE_TIMEOUT -> FAILED_FETCH / CLONING_OR_FETCHING / retryable=true
+STORAGE_FAILED -> FAILED_PERSISTENCE / PERSISTING_FACTS / retryable=true
+```
+
+Dynamic examples require a caller-provided stage:
+
+```text
+LIMIT_EXCEEDED
+INGESTION_TIMEOUT
+CANCELLED_BY_USER
+```
+
+### Tests
+
+Added unit tests for static mappings, dynamic mappings, missing dynamic stage, and unknown codes.
+
+### Production behavior
+
+Added `IngestionFailure` and `failure_for_error_code`.
+
+### Follow-up
+
+Application services should delegate failure classification to this mapper instead of duplicating status logic.
+
+## Batch 3 — Workspace path safety
+
+### Goal
+
+Define safe local workspace paths before clone/fetch implementation.
+
+### Source of truth
+
+- controlled workspace lifecycle in `specs/001-repository-ingestion.md`
+- local-first, no-container MVP strategy
+
+### Examples
+
+Repository cache:
+
+```text
+.data/git-it/ingestion/repos/{repository_id}.git
+```
+
+Run artifacts:
+
+```text
+.data/git-it/ingestion/runs/{ingestion_run_id}
+```
+
+Rejected identifiers:
+
+```text
+../outside
+owner/repo
+branch/name
+""
+.
+..
+```
+
+### Tests
+
+Added unit tests for root derivation, repository cache path derivation, run artifact path derivation, and unsafe identifier rejection.
+
+### Production behavior
+
+Added `ingestion_workspace_root`, `repository_cache_path`, `run_artifacts_path`, and `UnsafeWorkspaceIdentifierError`.
+
+### Follow-up
+
+The Git adapter must use these helpers instead of manually joining user-controlled path fragments.
+
+## Batch 4 — Application validation boundary
+
+### Goal
+
+Introduce the repository ingestion application service without real Git mining.
+
+### Source of truth
+
+- URL contract
+- failure mapping
+- no network/live repository default test policy
+
+### Examples
+
+Invalid input:
+
+```text
+not-a-url -> FAILED_VALIDATION / INVALID_URL / VALIDATING_URL
+```
+
+Unsupported host:
+
+```text
+https://gitlab.com/owner/repo -> FAILED_VALIDATION / UNSUPPORTED_URL / VALIDATING_URL
+```
+
+### Tests
+
+Added service tests proving invalid URLs fail safely and do not call Git tooling.
+
+### Production behavior
+
+Added `RepositoryIngestionService`, `GitGateway` protocol, and `IngestionResult`.
+
+### Follow-up
+
+The service became the stable seam for CLI/query/API layers.
+
+## Batch 5 — Valid URL starts clone/fetch lifecycle
+
+### Goal
+
+Make valid repository inputs cross the application boundary into the Git gateway using canonical URLs.
+
+### Source of truth
+
+- URL contract
+- ingestion lifecycle stages from `specs/001-repository-ingestion.md`
+
+### Examples
+
+Both inputs call the gateway with the same canonical URL:
+
+```text
+https://github.com/owner/repo
+https://github.com/owner/repo.git
+
+=> https://github.com/owner/repo
+```
+
+### Tests
+
+Added service tests for valid URL and `.git` suffix normalization.
+
+### Production behavior
+
+`RepositoryIngestionService.ingest` now calls `GitGateway.clone_or_fetch(canonical_url)` and returns `CLONING_OR_FETCHING` for the current lifecycle boundary.
+
+### Follow-up
+
+Future batches should replace the spy gateway with a safe local Git adapter contract, still without executing repository code.
+
+## Batch 6 — Gateway failure mapping
+
+### Goal
+
+Convert controlled Git gateway failures into safe ingestion results.
+
+### Source of truth
+
+- failure mapping table in `specs/001-repository-ingestion.md`
+- security requirement to avoid stack traces and unsafe details in user-facing failures
+
+### Examples
+
+```text
+REPOSITORY_NOT_FOUND -> FAILED_FETCH / FETCHING_METADATA / retryable=false
+CLONE_TIMEOUT -> FAILED_FETCH / CLONING_OR_FETCHING / retryable=true
+```
+
+### Tests
+
+Added service tests using a fake failing gateway.
+
+### Production behavior
+
+Added `GitGatewayError` and service handling that maps gateway error codes through `failure_for_error_code`.
+
+The safe message is:
+
+```text
+Repository fetch failed safely before analysis could start.
+```
+
+### Follow-up
+
+The next batch should avoid inventing behavior for unknown gateway error codes unless the specification is updated. The current specification defines known error-code mappings but does not define an unknown-code fallback.
+
+## Batch 7 — Known gateway failure coverage
+
+### Goal
+
+Ensure the application service covers every known fetch/Git gateway failure currently defined by the repository ingestion specification.
+
+### Source of truth
+
+- `specs/001-repository-ingestion.md` default failure mapping table
+
+### Examples
+
+```text
+REPOSITORY_NOT_FOUND -> FAILED_FETCH / FETCHING_METADATA / retryable=false
+REPOSITORY_PRIVATE_OR_INACCESSIBLE -> FAILED_FETCH / FETCHING_METADATA / retryable=false
+METADATA_UNAVAILABLE -> FAILED_FETCH / FETCHING_METADATA / retryable=true
+CLONE_TIMEOUT -> FAILED_FETCH / CLONING_OR_FETCHING / retryable=true
+GIT_FETCH_FAILED -> FAILED_FETCH / CLONING_OR_FETCHING / retryable=true
+```
+
+### Tests
+
+Expanded the service-level gateway failure parametrization to include all known fetch/Git failure codes.
+
+This batch did not need production changes because the batch 6 implementation already delegated classification to `failure_for_error_code` instead of hard-coding individual cases. That is GOOD architecture: one mapper, one source of truth.
+
+### Production behavior
+
+No production code changed in this batch.
+
+### Follow-up
+
+Unknown gateway error-code behavior remains intentionally unspecified. Do not add a fallback until the spec defines whether unknown codes should fail fast for developers or become a safe generic failure for users.
