@@ -56,3 +56,17 @@ def test_preserves_dynamic_stage_for_limit_timeout_and_cancellation_failures(
     assert failure.error_code == error_code
     assert failure.stage == detected_stage
     assert failure.retryable is expected_retryable
+
+
+@pytest.mark.parametrize(
+    "error_code",
+    ["LIMIT_EXCEEDED", "INGESTION_TIMEOUT", "CANCELLED_BY_USER"],
+)
+def test_requires_stage_for_dynamic_stage_failures(error_code: str) -> None:
+    with pytest.raises(ValueError, match=f"stage is required for {error_code}"):
+        failure_for_error_code(error_code)
+
+
+def test_rejects_unknown_error_code() -> None:
+    with pytest.raises(KeyError):
+        failure_for_error_code("SOMETHING_ELSE")
