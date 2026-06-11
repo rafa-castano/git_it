@@ -1,6 +1,9 @@
 import pytest
 
-from git_it.repository_ingestion.application_service import RepositoryIngestionService
+from git_it.repository_ingestion.application_service import (
+    GitGatewayError,
+    RepositoryIngestionService,
+)
 
 
 class SpyGitGateway:
@@ -9,6 +12,16 @@ class SpyGitGateway:
 
     def clone_or_fetch(self, canonical_url: str) -> None:
         self.clone_or_fetch_calls.append(canonical_url)
+
+
+class FailingGitGateway:
+    def __init__(self, *, error_code: str) -> None:
+        self.error_code = error_code
+        self.clone_or_fetch_calls: list[str] = []
+
+    def clone_or_fetch(self, canonical_url: str) -> None:
+        self.clone_or_fetch_calls.append(canonical_url)
+        raise GitGatewayError(error_code=self.error_code)
 
 
 @pytest.mark.parametrize(
@@ -53,4 +66,29 @@ def test_ingestion_service_starts_clone_or_fetch_with_canonical_url(raw_url: str
     assert result.stage == "CLONING_OR_FETCHING"
     assert result.retryable is False
     assert result.safe_message is None
+    assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
+
+
+@pytest.mark.parametrize(
+    ("error_code", "expected_stage", "expected_retryable"),
+    [
+        ("REPOSITORY_NOT_FOUND", "FETCHING_METADATA", False),
+        ("CLONE_TIMEOUT", "CLONING_OR_FETCHING", True),
+    ],
+)
+def test_ingestion_service_maps_git_gateway_failures_to_safe_failure_result(
+    error_code: str,
+    expected_stage: str,
+    expected_retryable: bool,
+) -> None:
+    git_gateway = FailingGitGateway(error_code=error_code)
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.status == "FAILED_FETCH"
+    assert result.error_code == error_code
+    assert result.stage == expected_stage
+    assert result.retryable is expected_retryable
+    assert result.safe_message == "Repository fetch failed safely before analysis could start."
     assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
