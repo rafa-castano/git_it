@@ -1,6 +1,9 @@
+import os
+import subprocess
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from git_it.repository_ingestion.application_service import GitGatewayError
 
@@ -24,6 +27,43 @@ class GitCommandTimeoutError(TimeoutError):
 
 class GitCommandRunner(Protocol):
     def run(self, plan: GitCommandPlan) -> GitCommandResult: ...
+
+
+class CompletedGitProcess(Protocol):
+    returncode: int
+
+
+SubprocessRun = Callable[..., CompletedGitProcess]
+
+
+class SubprocessGitCommandRunner:
+    def __init__(
+        self,
+        *,
+        run_command: SubprocessRun | None = None,
+        base_env: Mapping[str, str] | None = None,
+    ) -> None:
+        self._run_command = (
+            cast(SubprocessRun, subprocess.run) if run_command is None else run_command
+        )
+        self._base_env = dict(os.environ if base_env is None else base_env)
+
+    def run(self, plan: GitCommandPlan) -> GitCommandResult:
+        try:
+            completed = self._run_command(
+                plan.args,
+                cwd=plan.cwd,
+                env=self._base_env | plan.env,
+                timeout=plan.timeout_seconds,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise GitCommandTimeoutError from error
+
+        return GitCommandResult(exit_code=completed.returncode)
 
 
 class SafeGitGateway:

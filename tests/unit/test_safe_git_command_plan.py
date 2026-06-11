@@ -1,15 +1,26 @@
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from git_it.repository_ingestion.application_service import GitGatewayError
 from git_it.repository_ingestion.safe_git import (
+    CompletedGitProcess,
     GitCommandPlan,
     GitCommandResult,
     GitCommandTimeoutError,
     SafeGitGateway,
+    SubprocessGitCommandRunner,
     plan_clone_or_fetch,
 )
+
+
+@dataclass(frozen=True)
+class FakeCompletedProcess(CompletedGitProcess):
+    returncode: int
+    stderr: str | None = None
 
 
 def test_safe_git_plan_uses_bare_clone_without_checkout_submodules_or_lfs(tmp_path: Path) -> None:
@@ -128,3 +139,65 @@ def test_safe_git_gateway_maps_non_zero_exit_to_git_fetch_failed(tmp_path: Path)
 
     assert raised_error.value.error_code == "GIT_FETCH_FAILED"
     assert str(raised_error.value) == "Repository fetch failed safely before analysis could start."
+
+
+def test_subprocess_git_command_runner_forwards_safe_plan_without_shell() -> None:
+    calls = []
+
+    def fake_run(args: list[str], **kwargs: Any) -> FakeCompletedProcess:
+        calls.append((args, kwargs))
+        return FakeCompletedProcess(returncode=0)
+
+    plan = GitCommandPlan(
+        args=["git", "status"],
+        env={"GIT_TERMINAL_PROMPT": "0"},
+        timeout_seconds=300,
+        cwd=None,
+    )
+    runner = SubprocessGitCommandRunner(
+        run_command=fake_run,
+        base_env={"PATH": "test-path", "GIT_TERMINAL_PROMPT": "1"},
+    )
+
+    result = runner.run(plan)
+
+    assert result == GitCommandResult(exit_code=0)
+    assert calls == [
+        (
+            ["git", "status"],
+            {
+                "cwd": None,
+                "env": {"PATH": "test-path", "GIT_TERMINAL_PROMPT": "0"},
+                "timeout": 300,
+                "capture_output": True,
+                "text": True,
+                "check": False,
+                "shell": False,
+            },
+        )
+    ]
+
+
+def test_subprocess_git_command_runner_maps_timeout_without_exposing_stderr() -> None:
+    def fake_run(args: list[str], **kwargs: Any) -> FakeCompletedProcess:
+        raise subprocess.TimeoutExpired(cmd=args, timeout=kwargs["timeout"], stderr="secret")
+
+    runner = SubprocessGitCommandRunner(run_command=fake_run, base_env={})
+    plan = GitCommandPlan(args=["git", "fetch"], env={}, timeout_seconds=1, cwd=None)
+
+    with pytest.raises(GitCommandTimeoutError) as raised_error:
+        runner.run(plan)
+
+    assert "secret" not in str(raised_error.value)
+
+
+def test_subprocess_git_command_runner_returns_exit_code_without_exposing_stderr() -> None:
+    def fake_run(args: list[str], **kwargs: Any) -> FakeCompletedProcess:
+        return FakeCompletedProcess(returncode=128, stderr="secret")
+
+    runner = SubprocessGitCommandRunner(run_command=fake_run, base_env={})
+    plan = GitCommandPlan(args=["git", "fetch"], env={}, timeout_seconds=1, cwd=None)
+
+    result = runner.run(plan)
+
+    assert result == GitCommandResult(exit_code=128)
