@@ -14,7 +14,9 @@ At the same time, missing, private, or inaccessible repositories must fail safel
 
 ## Decision
 
-Use local git/PyDriller for commit facts and GitHub MCP/API for PRs, issues, releases, and metadata.
+Use local git/PyDriller for MVP commit, file-change, branch/ref, and tag facts, and use GitHub MCP/API for MVP repository metadata.
+
+PRs, issues, GitHub Releases, release assets, changelog parsing, and richer GitHub metadata are future enrichment sources. They are not part of the MVP repository ingestion path unless specified separately.
 
 For MVP repository ingestion, local Git mining also stores Git tag ref metadata because tags can mark meaningful chapters in repository history.
 
@@ -56,7 +58,7 @@ Local Git metadata may be used as fallback evidence for default branch detection
 ### Neutral
 
 - GitHub metadata enriches ingestion facts but is not the only evidence source for commit history.
-- PR, issue, release, and richer metadata ingestion remain outside the MVP repository ingestion path unless specified separately.
+- PR, issue, release, and richer metadata ingestion remain future enrichment work outside the MVP repository ingestion path unless specified separately.
 - Git tags are repository markers, not proof of release quality, deployment, or operational events.
 
 ## Alternatives considered

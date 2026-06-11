@@ -655,6 +655,7 @@ COMPLETED
 FAILED_VALIDATION
 FAILED_FETCH
 FAILED_EXTRACTION
+FAILED_PERSISTENCE
 LIMIT_EXCEEDED
 CANCELLED
 ```
@@ -677,6 +678,25 @@ EXTRACTION_FAILED
 STORAGE_FAILED
 CANCELLED_BY_USER
 ```
+
+Default failure mapping:
+
+| Terminal status | Error code | Stage | Retryable |
+|---|---|---|---|
+| `FAILED_VALIDATION` | `INVALID_URL` | `VALIDATING_URL` | false |
+| `FAILED_VALIDATION` | `UNSUPPORTED_URL` | `VALIDATING_URL` | false |
+| `FAILED_FETCH` | `REPOSITORY_NOT_FOUND` | `FETCHING_METADATA` | false |
+| `FAILED_FETCH` | `REPOSITORY_PRIVATE_OR_INACCESSIBLE` | `FETCHING_METADATA` | false |
+| `FAILED_FETCH` | `METADATA_UNAVAILABLE` | `FETCHING_METADATA` | true |
+| `FAILED_FETCH` | `CLONE_TIMEOUT` | `CLONING_OR_FETCHING` | true |
+| `FAILED_FETCH` | `GIT_FETCH_FAILED` | `CLONING_OR_FETCHING` | true |
+| `FAILED_EXTRACTION` | `EXTRACTION_FAILED` | `EXTRACTING_COMMITS` | false |
+| `FAILED_PERSISTENCE` | `STORAGE_FAILED` | `PERSISTING_FACTS` | true |
+| `LIMIT_EXCEEDED` | `LIMIT_EXCEEDED` | stage where the limit was detected | false |
+| `LIMIT_EXCEEDED` | `INGESTION_TIMEOUT` | stage where the timeout was detected | true |
+| `CANCELLED` | `CANCELLED_BY_USER` | stage where cancellation was observed | false |
+
+`retryable` means the operation is safe to attempt again. It does not guarantee that a retry will succeed without changed inputs, limits, credentials, or network conditions.
 
 Failure records must include:
 
@@ -726,7 +746,7 @@ Rules:
 - ingestion run paths must use generated ingestion run identifiers,
 - the bare clone cache may be reused across ingestion runs for the same repository,
 - each ingestion run gets its own run directory,
-- temporary run directories must be cleaned after `COMPLETED`, `FAILED_VALIDATION`, `FAILED_FETCH`, `FAILED_EXTRACTION`, `LIMIT_EXCEEDED`, or `CANCELLED`,
+- temporary run directories must be cleaned after `COMPLETED`, `FAILED_VALIDATION`, `FAILED_FETCH`, `FAILED_EXTRACTION`, `FAILED_PERSISTENCE`, `LIMIT_EXCEEDED`, or `CANCELLED`,
 - bare clone cache is retained by default for faster re-ingestion,
 - a future cleanup command may prune unused bare clone caches,
 - cancellation must stop clone/fetch or extraction work and leave the ingestion run in `CANCELLED`.
@@ -799,6 +819,7 @@ Full diff responses must indicate whether they came from:
 - Branch/ref mapper stores membership without duplicating commits.
 - Ingestion status transitions are valid.
 - Failure mapper records error code, stage, retryable flag, and safe user-facing message.
+- Failure mapper applies the specified status, error code, stage, and retryable mapping.
 - Failure mapper distinguishes degraded success limitations from failed runs.
 - Limit checks produce `LIMIT_EXCEEDED`.
 - Idempotency rules preserve unique repositories, commits, file changes, refs, and memberships.
@@ -849,6 +870,7 @@ Full diff responses must indicate whether they came from:
 - Continue ingestion with degraded metadata when metadata fetch is temporarily unavailable but clone/fetch succeeds.
 - Fail with `FAILED_FETCH` when metadata confirms the repository is missing, private, or inaccessible.
 - Persist machine-readable failure details for validation, fetch, extraction, storage, timeout, limit, and cancellation failures.
+- Persist terminal statuses according to the specified status, error code, stage, and retryable mapping.
 - Preserve retryable flags for failures.
 - Preserve contributor identity source and confidence for commits.
 - Avoid raw email persistence during ingestion.
@@ -932,8 +954,8 @@ Affected ADRs:
 
 - local Git mining plus GitHub metadata,
 - controlled workspace layout,
-- repository size limits.
-- SQLite MVP persistence with future PostgreSQL/pgvector adapter.
+- repository size limits,
+- SQLite MVP persistence with future PostgreSQL/pgvector adapter,
 - treating repository content as untrusted data.
 
 ## 20. Definition of Done
@@ -944,7 +966,7 @@ Repository ingestion is implementation-ready when:
 - branch scope and `include_all_branches` behavior are specified,
 - tag metadata behavior is specified,
 - storage entities and idempotency rules are specified,
-- ingestion statuses and failure modes are specified,
+- ingestion statuses, failure modes, and status/error mappings are specified,
 - machine-readable failure/error model is specified,
 - controlled workspace and cleanup behavior are specified,
 - MVP limits are specified and testable,

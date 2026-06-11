@@ -1,0 +1,1 @@
+"""Git It application package."""
