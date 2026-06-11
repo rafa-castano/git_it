@@ -23,6 +23,9 @@ dependencies = [
     "uvicorn>=0.49.0",
 ]
 
+[project.scripts]
+git-it = "git_it.cli:main"
+
 [dependency-groups]
 dev = [
     "coverage>=7.14.1",
