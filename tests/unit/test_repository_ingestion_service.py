@@ -33,3 +33,24 @@ def test_ingestion_service_returns_validation_failure_without_git_tooling(
     assert result.retryable is False
     assert result.safe_message == "Repository URL must be a public GitHub HTTPS repository URL."
     assert git_gateway.clone_or_fetch_calls == []
+
+
+@pytest.mark.parametrize(
+    "raw_url",
+    [
+        "https://github.com/owner/repo",
+        "https://github.com/owner/repo.git",
+    ],
+)
+def test_ingestion_service_starts_clone_or_fetch_with_canonical_url(raw_url: str) -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest(raw_url)
+
+    assert result.status == "CLONING_OR_FETCHING"
+    assert result.error_code is None
+    assert result.stage == "CLONING_OR_FETCHING"
+    assert result.retryable is False
+    assert result.safe_message is None
+    assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]

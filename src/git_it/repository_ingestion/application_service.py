@@ -27,7 +27,7 @@ class RepositoryIngestionService:
 
     def ingest(self, raw_url: str) -> IngestionResult:
         try:
-            parse_repository_url(raw_url)
+            parsed_url = parse_repository_url(raw_url)
         except RepositoryUrlValidationError as error:
             failure = failure_for_error_code(error.error_code)
             return IngestionResult(
@@ -38,4 +38,11 @@ class RepositoryIngestionService:
                 safe_message=error.safe_message,
             )
 
-        raise NotImplementedError("valid repository ingestion is not implemented yet")
+        self._git_gateway.clone_or_fetch(parsed_url.canonical_url)
+        return IngestionResult(
+            status="CLONING_OR_FETCHING",
+            error_code=None,
+            stage="CLONING_OR_FETCHING",
+            retryable=False,
+            safe_message=None,
+        )
