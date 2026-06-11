@@ -6,7 +6,7 @@ Documentation is part of the product and must remain synchronized with specs, te
 
 ## Required documentation types
 
-- Specs under `SPECS/`.
+- Specs under `specs/`.
 - ADRs under `ADR/`.
 - Prompt contracts under `docs/prompt-contracts/`.
 - Development workflow docs under `docs/`.

@@ -39,14 +39,14 @@ Repository ingestion MVP should expose stable application/query DTOs for future 
 ```text
 Read CODEX.md and AGENTS.md.
 Act as the Quality Agent.
-Write failing tests for SPECS/001-repository-ingestion.md.
+Write failing tests for specs/001-repository-ingestion.md.
 Do not implement production code.
 ```
 
 ```text
 Read CODEX.md and AGENTS.md.
 Act as the Software Engineering Agent.
-Implement only what is needed to pass the tests for SPECS/001.
+Implement only what is needed to pass the tests for specs/001.
 ```
 
 ```text

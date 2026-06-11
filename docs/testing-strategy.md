@@ -40,7 +40,7 @@ Repository ingestion integration tests must cover:
 - stable CLI JSON output for automation,
 - safe non-zero CLI failure output without secrets, raw emails, stack traces, or credential-bearing URLs,
 - machine-readable ingestion error codes, stages, retryable flags, and safe messages,
-- status/error/stage/retryable mappings matching `SPECS/001-repository-ingestion.md`, including:
+- status/error/stage/retryable mappings matching `specs/001-repository-ingestion.md`, including:
   - `INVALID_URL`,
   - `UNSUPPORTED_URL`,
   - `REPOSITORY_NOT_FOUND`,

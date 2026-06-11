@@ -7,13 +7,15 @@ description: Guides test-driven development with red-green-refactor tracer bulle
 
 ## Core rule
 
-Write one failing behavior test before implementation, then add the minimum production code needed to pass it.
+Write failing behavior tests before implementation, then add the minimum production code needed to pass them.
 
-Do not write all tests first and then all implementation. That is horizontal slicing. Git It uses vertical tracer bullets:
+Default to one tracer bullet at a time. When the user asks for more agility, group several closely related behavior tests into one small batch, then implement only what is needed for that batch.
+
+Do not write all tests first and then all implementation. That is horizontal slicing. Git It uses vertical tracer bullets or small vertical batches:
 
 ```text
-RED: one behavior test fails
-GREEN: minimum code passes that test
+RED: one behavior test or one small related batch fails
+GREEN: minimum code passes that test or batch
 REFACTOR: clean up only while green
 repeat
 ```
@@ -33,16 +35,16 @@ repeat
 Before writing a test:
 
 - [ ] Identify the authoritative spec or ADR.
-- [ ] Select exactly one behavior for the next tracer bullet.
+- [ ] Select exactly one behavior for the next tracer bullet, or one small related behavior batch when the user has requested grouped TDD.
 - [ ] Confirm the public interface under test.
 - [ ] Define the observable expected outcome.
 - [ ] Avoid asserting private functions, internal class names, or storage internals unless the storage contract itself is the behavior.
 
 ## RED checklist
 
-For the next test:
+For the next test or grouped batch:
 
-- [ ] Test name describes behavior in domain language.
+- [ ] Each test name describes behavior in domain language.
 - [ ] Test uses public interfaces or stable ports.
 - [ ] Test fails for the right reason.
 - [ ] Test does not require network or external services unless explicitly marked integration/network.
@@ -52,7 +54,7 @@ For the next test:
 
 For the minimum implementation:
 
-- [ ] Add only enough code to pass the current failing test.
+- [ ] Add only enough code to pass the current failing test or small related batch.
 - [ ] Do not implement speculative future behavior.
 - [ ] Preserve existing docs and ADR decisions.
 - [ ] Keep security boundaries intact.
@@ -68,7 +70,7 @@ Only refactor while tests are green:
 
 ## Repository ingestion starting point
 
-For `SPECS/001-repository-ingestion.md`, start with the smallest security boundary:
+For `specs/001-repository-ingestion.md`, start with the smallest security boundary:
 
 1. URL contract and validation errors.
 2. Lifecycle status/error/stage/retryable mapping.
@@ -77,4 +79,4 @@ For `SPECS/001-repository-ingestion.md`, start with the smallest security bounda
 5. Persistence/idempotency.
 6. CLI and query DTO contracts.
 
-One tracer bullet at a time. If a test forces a design decision not covered by the spec, stop and update the spec before implementing.
+Use one tracer bullet at a time by default. If the user requests fewer interruptions, use small grouped batches of related tests. If a test forces a design decision not covered by the spec, stop and update the spec before implementing.

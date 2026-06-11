@@ -15,9 +15,9 @@ Recommended first Codex prompt:
 
 ```text
 Read CODEX.md and AGENTS.md.
-Then read SPECS/000-template.md and SPECS/001-repository-ingestion.md.
+Then read specs/000-template.md and specs/001-repository-ingestion.md.
 Act as the Quality Agent.
-Write the first failing tests for SPECS/001 without implementing production code.
+Write the first failing tests for specs/001 without implementing production code.
 ```
 
 ## Main rules
