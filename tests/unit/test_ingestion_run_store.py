@@ -1,13 +1,11 @@
 from pathlib import Path
 
+from git_it.repository_ingestion.application.ports import IngestionRunRecord
 from git_it.repository_ingestion.application.query_service import (
     IngestionRunSummaryDTO,
     RepositoryIngestionQueryService,
 )
-from git_it.repository_ingestion.infrastructure.sqlite import (
-    IngestionRunRecord,
-    SqliteIngestionRunStore,
-)
+from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
 
 
 def test_sqlite_ingestion_run_store_round_trips_run_summary(tmp_path: Path) -> None:

@@ -1,20 +1,7 @@
 import sqlite3
-from dataclasses import dataclass
 from pathlib import Path
 
-
-@dataclass(frozen=True)
-class IngestionRunRecord:
-    run_id: str
-    repository_id: str
-    canonical_url: str
-    status: str
-    started_at: str
-    completed_at: str | None
-    error_code: str | None
-    error_stage: str | None
-    retryable: bool | None
-    safe_message: str | None
+from git_it.repository_ingestion.application.ports import IngestionRunRecord
 
 
 class SqliteIngestionRunStore:

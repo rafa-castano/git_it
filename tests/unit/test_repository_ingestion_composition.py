@@ -2,6 +2,8 @@ from pathlib import Path
 
 from git_it.repository_ingestion.composition import build_repository_ingestion_service
 from git_it.repository_ingestion.infrastructure.git import GitCommandPlan, GitCommandResult
+from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
+from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
 
 
 class RecordingGitCommandRunner:
@@ -70,3 +72,25 @@ def test_build_repository_ingestion_service_reuses_existing_bare_cache(
         "+refs/heads/*:refs/heads/*",
         "+refs/tags/*:refs/tags/*",
     ]
+
+
+def test_build_repository_ingestion_service_wires_default_sqlite_run_store(
+    tmp_path: Path,
+) -> None:
+    runner = RecordingGitCommandRunner()
+    service = build_repository_ingestion_service(
+        project_root=tmp_path,
+        repository_id="repo-123",
+        runner=runner,
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    store = SqliteIngestionRunStore(ingestion_workspace_root(tmp_path) / "git-it.sqlite3")
+    runs = store.list_ingestion_runs_for_repository("repo-123")
+    assert result.run_id is not None
+    assert len(runs) == 1
+    assert runs[0].run_id == result.run_id
+    assert runs[0].repository_id == "repo-123"
+    assert runs[0].canonical_url == "https://github.com/owner/repo"
+    assert runs[0].status == "CLONING_OR_FETCHING"

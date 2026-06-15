@@ -1,6 +1,6 @@
 import pytest
 
-from git_it.repository_ingestion.application.ports import GitGatewayError
+from git_it.repository_ingestion.application.ports import GitGatewayError, IngestionRunRecord
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 
 
@@ -20,6 +20,14 @@ class FailingGitGateway:
     def clone_or_fetch(self, canonical_url: str) -> None:
         self.clone_or_fetch_calls.append(canonical_url)
         raise GitGatewayError(error_code=self.error_code)
+
+
+class RecordingIngestionRunWriter:
+    def __init__(self) -> None:
+        self.records: list[IngestionRunRecord] = []
+
+    def save_ingestion_run(self, record: IngestionRunRecord) -> None:
+        self.records.append(record)
 
 
 @pytest.mark.parametrize(
@@ -93,3 +101,94 @@ def test_ingestion_service_maps_known_git_gateway_failures_to_safe_failure_resul
     assert result.retryable is expected_retryable
     assert result.safe_message == "Repository fetch failed safely before analysis could start."
     assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
+
+
+def test_ingestion_service_persists_success_like_run_result() -> None:
+    git_gateway = SpyGitGateway()
+    run_writer = RecordingIngestionRunWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        run_writer=run_writer,
+        run_id_factory=lambda: "run-1",
+        clock=lambda: "2026-06-15T10:00:00Z",
+    )
+
+    result = service.ingest("https://github.com/owner/repo.git")
+
+    assert result.run_id == "run-1"
+    assert run_writer.records == [
+        IngestionRunRecord(
+            run_id="run-1",
+            repository_id="repo-1",
+            canonical_url="https://github.com/owner/repo",
+            status="CLONING_OR_FETCHING",
+            started_at="2026-06-15T10:00:00Z",
+            completed_at=None,
+            error_code=None,
+            error_stage=None,
+            retryable=None,
+            safe_message=None,
+        )
+    ]
+
+
+def test_ingestion_service_persists_validation_failure_without_raw_invalid_url() -> None:
+    git_gateway = SpyGitGateway()
+    run_writer = RecordingIngestionRunWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        run_writer=run_writer,
+        run_id_factory=lambda: "run-1",
+        clock=lambda: "2026-06-15T10:00:00Z",
+    )
+
+    result = service.ingest("https://token@github.com/owner/repo")
+
+    assert result.run_id == "run-1"
+    assert run_writer.records == [
+        IngestionRunRecord(
+            run_id="run-1",
+            repository_id="repo-1",
+            canonical_url="",
+            status="FAILED_VALIDATION",
+            started_at="2026-06-15T10:00:00Z",
+            completed_at="2026-06-15T10:00:00Z",
+            error_code="UNSUPPORTED_URL",
+            error_stage="VALIDATING_URL",
+            retryable=False,
+            safe_message="Repository URL must be a public GitHub HTTPS repository URL.",
+        )
+    ]
+    assert "token" not in run_writer.records[0].canonical_url
+
+
+def test_ingestion_service_persists_git_gateway_failure() -> None:
+    git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
+    run_writer = RecordingIngestionRunWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        run_writer=run_writer,
+        run_id_factory=lambda: "run-1",
+        clock=lambda: "2026-06-15T10:00:00Z",
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.run_id == "run-1"
+    assert run_writer.records == [
+        IngestionRunRecord(
+            run_id="run-1",
+            repository_id="repo-1",
+            canonical_url="https://github.com/owner/repo",
+            status="FAILED_FETCH",
+            started_at="2026-06-15T10:00:00Z",
+            completed_at="2026-06-15T10:00:00Z",
+            error_code="CLONE_TIMEOUT",
+            error_stage="CLONING_OR_FETCHING",
+            retryable=True,
+            safe_message="Repository fetch failed safely before analysis could start.",
+        )
+    ]

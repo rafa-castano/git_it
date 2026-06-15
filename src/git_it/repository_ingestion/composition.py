@@ -6,7 +6,11 @@ from git_it.repository_ingestion.infrastructure.git import (
     SafeGitGateway,
     SubprocessGitCommandRunner,
 )
-from git_it.repository_ingestion.infrastructure.workspace import repository_cache_path
+from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
+from git_it.repository_ingestion.infrastructure.workspace import (
+    ingestion_workspace_root,
+    repository_cache_path,
+)
 
 
 def build_repository_ingestion_service(
@@ -20,4 +24,10 @@ def build_repository_ingestion_service(
         cache_path=cache_path,
         runner=SubprocessGitCommandRunner() if runner is None else runner,
     )
-    return RepositoryIngestionService(git_gateway=git_gateway)
+    run_store = SqliteIngestionRunStore(ingestion_workspace_root(project_root) / "git-it.sqlite3")
+    run_store.initialize()
+    return RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id=repository_id,
+        run_writer=run_store,
+    )
