@@ -1,5 +1,9 @@
 from pathlib import Path
 
+from git_it.repository_ingestion.application.query_service import (
+    IngestionRunSummaryDTO,
+    RepositoryIngestionQueryService,
+)
 from git_it.repository_ingestion.infrastructure.sqlite import (
     IngestionRunRecord,
     SqliteIngestionRunStore,
@@ -82,3 +86,36 @@ def test_sqlite_ingestion_run_store_keeps_runs_append_only_per_repository(
     store.save_ingestion_run(second_run)
 
     assert store.list_ingestion_runs_for_repository("repo-1") == [first_run, second_run]
+
+
+def test_sqlite_ingestion_run_store_can_back_query_service(tmp_path: Path) -> None:
+    store = SqliteIngestionRunStore(tmp_path / "git-it.db")
+    store.initialize()
+    store.save_ingestion_run(
+        IngestionRunRecord(
+            run_id="run-1",
+            repository_id="repo-1",
+            canonical_url="https://github.com/owner/repo",
+            status="COMPLETED",
+            started_at="2026-06-15T10:00:00Z",
+            completed_at="2026-06-15T10:01:00Z",
+            error_code=None,
+            error_stage=None,
+            retryable=None,
+            safe_message=None,
+        )
+    )
+    query_service = RepositoryIngestionQueryService(reader=store)
+
+    assert query_service.get_ingestion_run_summary("run-1") == IngestionRunSummaryDTO(
+        run_id="run-1",
+        repository_id="repo-1",
+        canonical_url="https://github.com/owner/repo",
+        status="COMPLETED",
+        started_at="2026-06-15T10:00:00Z",
+        completed_at="2026-06-15T10:01:00Z",
+        error_code=None,
+        error_stage=None,
+        retryable=None,
+        safe_message=None,
+    )
