@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from git_it.repository_ingestion.application_service import RepositoryIngestionService
-from git_it.repository_ingestion.safe_git import (
+from git_it.repository_ingestion.application.service import RepositoryIngestionService
+from git_it.repository_ingestion.infrastructure.git import (
     GitCommandRunner,
     SafeGitGateway,
     SubprocessGitCommandRunner,
 )
-from git_it.repository_ingestion.workspace_paths import repository_cache_path
+from git_it.repository_ingestion.infrastructure.workspace import repository_cache_path
 
 
 def build_repository_ingestion_service(

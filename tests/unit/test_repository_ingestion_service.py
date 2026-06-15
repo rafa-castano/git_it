@@ -1,9 +1,7 @@
 import pytest
 
-from git_it.repository_ingestion.application_service import (
-    GitGatewayError,
-    RepositoryIngestionService,
-)
+from git_it.repository_ingestion.application.ports import GitGatewayError
+from git_it.repository_ingestion.application.service import RepositoryIngestionService
 
 
 class SpyGitGateway:

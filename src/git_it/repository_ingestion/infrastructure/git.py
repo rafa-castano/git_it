@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
-from git_it.repository_ingestion.application_service import GitGatewayError
+from git_it.repository_ingestion.application.ports import GitGatewayError
 
 
 @dataclass(frozen=True)

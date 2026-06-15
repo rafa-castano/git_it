@@ -1,6 +1,6 @@
 import pytest
 
-from git_it.repository_ingestion.failure_mapping import failure_for_error_code
+from git_it.repository_ingestion.domain.failure_mapping import failure_for_error_code
 
 
 @pytest.mark.parametrize(

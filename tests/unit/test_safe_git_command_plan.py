@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from git_it.repository_ingestion.application_service import GitGatewayError
-from git_it.repository_ingestion.safe_git import (
+from git_it.repository_ingestion.application.ports import GitGatewayError
+from git_it.repository_ingestion.infrastructure.git import (
     CompletedGitProcess,
     GitCommandPlan,
     GitCommandResult,

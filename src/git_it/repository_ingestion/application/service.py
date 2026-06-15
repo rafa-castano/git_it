@@ -1,23 +1,11 @@
 from dataclasses import dataclass
-from typing import Protocol
 
-from git_it.repository_ingestion.failure_mapping import failure_for_error_code
-from git_it.repository_ingestion.url_contract import (
+from git_it.repository_ingestion.application.ports import GitGateway, GitGatewayError
+from git_it.repository_ingestion.domain.failure_mapping import failure_for_error_code
+from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )
-
-
-class GitGatewayError(Exception):
-    safe_message = "Repository fetch failed safely before analysis could start."
-
-    def __init__(self, *, error_code: str) -> None:
-        super().__init__(self.safe_message)
-        self.error_code = error_code
-
-
-class GitGateway(Protocol):
-    def clone_or_fetch(self, canonical_url: str) -> None: ...
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from git_it.repository_ingestion.composition import build_repository_ingestion_service
-from git_it.repository_ingestion.safe_git import GitCommandPlan, GitCommandResult
+from git_it.repository_ingestion.infrastructure.git import GitCommandPlan, GitCommandResult
 
 
 class RecordingGitCommandRunner:

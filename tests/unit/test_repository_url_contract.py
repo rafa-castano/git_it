@@ -1,6 +1,6 @@
 import pytest
 
-from git_it.repository_ingestion.url_contract import (
+from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )

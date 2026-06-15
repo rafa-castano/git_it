@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from git_it.cli import main, repository_id_for_url
-from git_it.repository_ingestion.application_service import IngestionResult
+from git_it.repository_ingestion.application.service import IngestionResult
 
 
 @dataclass

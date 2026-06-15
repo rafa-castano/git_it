@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from git_it.repository_ingestion.workspace_paths import (
+from git_it.repository_ingestion.infrastructure.workspace import (
     UnsafeWorkspaceIdentifierError,
     ingestion_workspace_root,
     repository_cache_path,

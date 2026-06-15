@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from git_it.repository_ingestion.storage import (
+from git_it.repository_ingestion.infrastructure.sqlite import (
     IngestionRunRecord,
     SqliteIngestionRunStore,
 )
