@@ -163,6 +163,65 @@ def test_ingest_cli_prints_run_id_in_failure_output_when_present(
     assert "Repository URL must be a public GitHub HTTPS repository URL." in captured.out
 
 
+def test_ingest_cli_prints_commit_count_in_success_output_when_present(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="CLONING_OR_FETCHING",
+            error_code=None,
+            stage="CLONING_OR_FETCHING",
+            retryable=False,
+            safe_message=None,
+            commits_extracted=5,
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    exit_code = main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Commits: 5 extracted" in captured.out
+
+
+def test_ingest_cli_omits_commit_count_when_absent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="CLONING_OR_FETCHING",
+            error_code=None,
+            stage="CLONING_OR_FETCHING",
+            retryable=False,
+            safe_message=None,
+            commits_extracted=None,
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert "Commits:" not in captured.out
+
+
 def test_ingest_cli_prints_repository_and_canonical_url_in_success_output(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

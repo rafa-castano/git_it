@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from git_it.repository_ingestion.application.ports import (
+    CommitExtractor,
     GitGateway,
     GitGatewayError,
     IngestionRunRecord,
@@ -25,6 +26,7 @@ class IngestionResult:
     safe_message: str | None
     run_id: str | None = None
     canonical_url: str | None = None
+    commits_extracted: int | None = None
 
 
 class RepositoryIngestionService:
@@ -32,12 +34,14 @@ class RepositoryIngestionService:
         self,
         *,
         git_gateway: GitGateway,
+        commit_extractor: CommitExtractor | None = None,
         repository_id: str | None = None,
         run_writer: IngestionRunWriter | None = None,
         run_id_factory: Callable[[], str] | None = None,
         clock: Callable[[], str] | None = None,
     ) -> None:
         self._git_gateway = git_gateway
+        self._commit_extractor = commit_extractor
         self._repository_id = repository_id
         self._run_writer = run_writer
         self._run_id_factory = run_id_factory or (lambda: f"run-{uuid4().hex}")
@@ -87,6 +91,10 @@ class RepositoryIngestionService:
             )
             return result
 
+        commits_extracted: int | None = None
+        if self._commit_extractor is not None:
+            commits_extracted = len(self._commit_extractor.extract_commits())
+
         result = IngestionResult(
             status="CLONING_OR_FETCHING",
             error_code=None,
@@ -95,6 +103,7 @@ class RepositoryIngestionService:
             safe_message=None,
             run_id=run_id,
             canonical_url=parsed_url.canonical_url,
+            commits_extracted=commits_extracted,
         )
         self._persist_run_result(
             result=result,

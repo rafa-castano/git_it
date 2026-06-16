@@ -1,6 +1,10 @@
 import pytest
 
-from git_it.repository_ingestion.application.ports import GitGatewayError, IngestionRunRecord
+from git_it.repository_ingestion.application.ports import (
+    ExtractedCommit,
+    GitGatewayError,
+    IngestionRunRecord,
+)
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 
 
@@ -101,6 +105,70 @@ def test_ingestion_service_maps_known_git_gateway_failures_to_safe_failure_resul
     assert result.retryable is expected_retryable
     assert result.safe_message == "Repository fetch failed safely before analysis could start."
     assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
+
+
+def _make_commit(sha: str) -> ExtractedCommit:
+    return ExtractedCommit(
+        sha=sha,
+        committed_at="2026-01-01T00:00:00Z",
+        message="test commit",
+        author_name="Author",
+        committer_name="Committer",
+        parent_shas=(),
+    )
+
+
+def test_ingestion_service_extracts_commits_after_successful_clone_or_fetch() -> None:
+    git_gateway = SpyGitGateway()
+
+    class FakeCommitExtractor:
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def extract_commits(self) -> list[ExtractedCommit]:
+            self.call_count += 1
+            return [_make_commit("sha1"), _make_commit("sha2"), _make_commit("sha3")]
+
+    extractor = FakeCommitExtractor()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.commits_extracted == 3
+    assert extractor.call_count == 1
+
+
+def test_ingestion_service_skips_extraction_when_no_extractor_is_wired() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.commits_extracted is None
+
+
+def test_ingestion_service_does_not_extract_commits_on_gateway_failure() -> None:
+    class FakeCommitExtractor:
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def extract_commits(self) -> list[ExtractedCommit]:
+            self.call_count += 1
+            return []
+
+    extractor = FakeCommitExtractor()
+    git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert extractor.call_count == 0
 
 
 def test_ingestion_service_includes_canonical_url_in_success_like_result() -> None:

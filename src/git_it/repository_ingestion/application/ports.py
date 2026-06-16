@@ -1,6 +1,17 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from git_it.repository_ingestion.domain.commits import ExtractedCommit
+
+__all__ = [
+    "CommitExtractor",
+    "ExtractedCommit",
+    "GitGateway",
+    "GitGatewayError",
+    "IngestionRunRecord",
+    "IngestionRunWriter",
+]
+
 
 @dataclass(frozen=True)
 class IngestionRunRecord:
@@ -26,6 +37,10 @@ class GitGatewayError(Exception):
     def __init__(self, *, error_code: str) -> None:
         super().__init__(self.safe_message)
         self.error_code = error_code
+
+
+class CommitExtractor(Protocol):
+    def extract_commits(self) -> list[ExtractedCommit]: ...
 
 
 class GitGateway(Protocol):
