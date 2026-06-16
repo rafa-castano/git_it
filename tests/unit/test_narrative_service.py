@@ -2,15 +2,13 @@ from git_it.repository_ingestion.application.narrative_service import (
     NarrativeResult,
     NarrativeService,
 )
-from git_it.repository_ingestion.application.ports import (
-    FileChurnRecord,
-    LLMMessage,
-)
+from git_it.repository_ingestion.application.ports import LLMMessage
 from git_it.repository_ingestion.domain.analysis import (
     CommitAnalysis,
     CommitCategory,
     RiskLevel,
 )
+from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
 
 
 def _make_analysis(sha: str = "abc1234", summary: str = "Added feature") -> CommitAnalysis:
@@ -28,8 +26,8 @@ def _make_analysis(sha: str = "abc1234", summary: str = "Added feature") -> Comm
     )
 
 
-def _make_churn(file_path: str = "src/main.py", commit_count: int = 10) -> FileChurnRecord:
-    return FileChurnRecord(
+def _make_hotspot(file_path: str = "src/main.py", commit_count: int = 10) -> Hotspot:
+    return Hotspot(
         file_path=file_path,
         commit_count=commit_count,
         total_insertions=50,
@@ -50,12 +48,14 @@ class FakeAnalysisReader:
         return None
 
 
-class FakeFileFactReader:
-    def __init__(self, records: list[FileChurnRecord] | None = None) -> None:
-        self._records = records or []
+class FakePatternService:
+    def __init__(self, hotspots: list[Hotspot] | None = None) -> None:
+        self._hotspots = hotspots or []
+        self.calls: list[str] = []
 
-    def get_file_churn(self, repository_id: str) -> list[FileChurnRecord]:
-        return list(self._records)
+    def detect(self, repository_id: str, *, hotspot_threshold: int = 5) -> PatternReport:
+        self.calls.append(repository_id)
+        return PatternReport(repository_id=repository_id, hotspots=list(self._hotspots))
 
 
 class FakeLLMClient:
@@ -70,13 +70,13 @@ class FakeLLMClient:
 
 def _make_service(
     analyses: list[CommitAnalysis] | None = None,
-    churn: list[FileChurnRecord] | None = None,
+    hotspots: list[Hotspot] | None = None,
     response: str = "A great case study.",
 ) -> tuple[NarrativeService, FakeLLMClient]:
     client = FakeLLMClient(response)
     service = NarrativeService(
         analysis_reader=FakeAnalysisReader(analyses),
-        file_fact_reader=FakeFileFactReader(churn),
+        pattern_service=FakePatternService(hotspots),
         llm_client=client,
     )
     return service, client
@@ -89,6 +89,18 @@ def test_generate_returns_narrative_result() -> None:
     assert result.repository_id == "repo-1"
 
 
+def test_generate_calls_pattern_service_detect() -> None:
+    pattern_service = FakePatternService()
+    client = FakeLLMClient()
+    service = NarrativeService(
+        analysis_reader=FakeAnalysisReader([_make_analysis()]),
+        pattern_service=pattern_service,
+        llm_client=client,
+    )
+    service.generate("repo-1")
+    assert "repo-1" in pattern_service.calls
+
+
 def test_generate_includes_commit_summaries_in_prompt() -> None:
     service, client = _make_service(analyses=[_make_analysis(summary="Implement auth")])
     service.generate("repo-1")
@@ -99,11 +111,20 @@ def test_generate_includes_commit_summaries_in_prompt() -> None:
 def test_generate_includes_hotspot_files_in_prompt() -> None:
     service, client = _make_service(
         analyses=[_make_analysis()],
-        churn=[_make_churn("src/auth.py", commit_count=12)],
+        hotspots=[_make_hotspot("src/auth.py", commit_count=12)],
     )
     service.generate("repo-1")
     combined = " ".join(m.content for m in client.calls[0])
     assert "src/auth.py" in combined
+
+
+def test_generate_hotspot_count_reflects_pattern_report() -> None:
+    service, _ = _make_service(
+        analyses=[_make_analysis()],
+        hotspots=[_make_hotspot("a.py"), _make_hotspot("b.py")],
+    )
+    result = service.generate("repo-1")
+    assert result.hotspot_count == 2
 
 
 def test_generate_wraps_data_in_repository_tags() -> None:

@@ -1,13 +1,13 @@
 from dataclasses import dataclass
+from typing import Protocol
 
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisReader,
-    FileChurnRecord,
-    FileFactReader,
     LLMClient,
     LLMMessage,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
+from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
 
 _SYSTEM_PROMPT = """\
 You are a senior software engineering educator. Your task is to produce an educational case \
@@ -27,8 +27,6 @@ Write a structured case study in Markdown using these sections:
 ## Limitations
 """
 
-_DEFAULT_HOTSPOT_DISPLAY = 10
-
 
 @dataclass(frozen=True)
 class NarrativeResult:
@@ -38,16 +36,20 @@ class NarrativeResult:
     narrative: str
 
 
+class HotspotDetector(Protocol):
+    def detect(self, repository_id: str, *, hotspot_threshold: int = ...) -> PatternReport: ...
+
+
 class NarrativeService:
     def __init__(
         self,
         *,
         analysis_reader: CommitAnalysisReader,
-        file_fact_reader: FileFactReader,
+        pattern_service: HotspotDetector,
         llm_client: LLMClient,
     ) -> None:
         self._analysis_reader = analysis_reader
-        self._file_fact_reader = file_fact_reader
+        self._pattern_service = pattern_service
         self._llm_client = llm_client
 
     def generate(self, repository_id: str) -> NarrativeResult:
@@ -59,9 +61,8 @@ class NarrativeService:
                 hotspot_count=0,
                 narrative="",
             )
-        churn_records = self._file_fact_reader.get_file_churn(repository_id)
-        hotspots = churn_records[:_DEFAULT_HOTSPOT_DISPLAY]
-        user_content = self._build_user_message(analyses, hotspots)
+        report = self._pattern_service.detect(repository_id)
+        user_content = self._build_user_message(analyses, report.hotspots)
         messages = [
             LLMMessage(role="system", content=_SYSTEM_PROMPT),
             LLMMessage(role="user", content=user_content),
@@ -70,14 +71,14 @@ class NarrativeService:
         return NarrativeResult(
             repository_id=repository_id,
             commit_count=len(analyses),
-            hotspot_count=len(churn_records),
+            hotspot_count=len(report.hotspots),
             narrative=narrative,
         )
 
     @staticmethod
     def _build_user_message(
         analyses: list[CommitAnalysis],
-        hotspots: list[FileChurnRecord],
+        hotspots: list[Hotspot],
     ) -> str:
         lines = [
             f"Generate a case study for a repository with {len(analyses)} analyzed commits.\n",

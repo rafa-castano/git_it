@@ -126,6 +126,6 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     return NarrativeService(
         analysis_reader=SqliteCommitAnalysisStore(db_path),
-        file_fact_reader=SqliteFileFactReader(db_path),
+        pattern_service=build_pattern_detection_service(project_root=project_root),
         llm_client=LiteLLMLLMClient(model=model),
     )
