@@ -79,3 +79,18 @@ def test_git_commit_extractor_records_parent_shas(
     assert len(commits[0].parent_shas) == 1
     assert commits[0].parent_shas[0] == commits[1].sha
     assert len(commits[2].parent_shas) == 0
+
+
+def test_git_commit_extractor_populates_file_changes_per_commit(
+    bare_fixture_repo: Path,
+) -> None:
+    extractor = GitPythonCommitExtractor(cache_path=bare_fixture_repo)
+
+    commits = extractor.extract_commits()
+
+    # every commit in the fixture adds exactly one file
+    for commit in commits:
+        assert len(commit.file_changes) == 1
+        assert commit.file_changes[0].path.endswith(".txt")
+        assert commit.file_changes[0].insertions >= 0
+        assert commit.file_changes[0].deletions >= 0

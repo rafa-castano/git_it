@@ -89,5 +89,7 @@ def _print_ingestion_result(result: IngestionResult) -> None:
         print(f"Canonical URL: {result.canonical_url}")
     if result.commits_inserted is not None and result.commits_reused is not None:
         print(f"Commits: {result.commits_inserted} inserted, {result.commits_reused} reused")
+    if result.files_inserted is not None and result.files_reused is not None:
+        print(f"Files: {result.files_inserted} inserted, {result.files_reused} reused")
     if result.run_id is not None:
         print(f"Run ID: {result.run_id}")

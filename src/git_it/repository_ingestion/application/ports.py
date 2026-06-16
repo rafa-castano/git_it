@@ -8,6 +8,7 @@ __all__ = [
     "CommitFactWriter",
     "CommitPersistenceResult",
     "ExtractedCommit",
+    "FileFactWriter",
     "GitGateway",
     "GitGatewayError",
     "IngestionRunRecord",
@@ -41,6 +42,15 @@ class CommitPersistenceResult:
 
 class CommitFactWriter(Protocol):
     def save_commit_facts(
+        self,
+        commits: list[ExtractedCommit],
+        *,
+        repository_id: str,
+    ) -> CommitPersistenceResult: ...
+
+
+class FileFactWriter(Protocol):
+    def save_file_facts(
         self,
         commits: list[ExtractedCommit],
         *,

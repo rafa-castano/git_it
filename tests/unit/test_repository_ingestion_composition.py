@@ -36,7 +36,7 @@ def test_build_repository_ingestion_service_wires_safe_git_gateway_to_workspace_
 
     result = service.ingest("https://github.com/owner/repo.git")
 
-    assert result.status == "CLONING_OR_FETCHING"
+    assert result.status == "COMPLETED"
     assert len(runner.plans) == 1
     assert runner.plans[0].args == [
         "git",
@@ -66,7 +66,7 @@ def test_build_repository_ingestion_service_reuses_existing_bare_cache(
 
     result = service.ingest("https://github.com/owner/repo")
 
-    assert result.status == "CLONING_OR_FETCHING"
+    assert result.status == "COMPLETED"
     assert len(runner.plans) == 1
     assert runner.plans[0].args == [
         "git",
@@ -104,7 +104,7 @@ def test_build_repository_ingestion_service_wires_default_sqlite_run_store(
     assert runs[0].run_id == result.run_id
     assert runs[0].repository_id == "repo-123"
     assert runs[0].canonical_url == "https://github.com/owner/repo"
-    assert runs[0].status == "CLONING_OR_FETCHING"
+    assert runs[0].status == "COMPLETED"
 
 
 def test_build_repository_ingestion_service_wires_gitpython_extractor_by_default(
@@ -137,3 +137,5 @@ def test_build_repository_ingestion_service_wires_gitpython_extractor_by_default
 
     assert result.commits_inserted == 2
     assert result.commits_reused == 0
+    assert result.files_inserted is not None
+    assert result.files_inserted >= 2

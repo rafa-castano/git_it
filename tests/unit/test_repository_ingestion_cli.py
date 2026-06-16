@@ -32,7 +32,7 @@ def test_ingest_cli_invokes_application_service_and_prints_human_summary(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -62,7 +62,7 @@ def test_ingest_cli_invokes_application_service_and_prints_human_summary(
     assert service_factory_calls == [
         (tmp_path, repository_id_for_url("https://github.com/owner/repo.git"))
     ]
-    assert "Ingestion status: CLONING_OR_FETCHING" in captured.out
+    assert "Ingestion status: COMPLETED" in captured.out
 
 
 def test_ingest_cli_returns_non_zero_and_prints_safe_error(
@@ -106,7 +106,7 @@ def test_ingest_cli_prints_run_id_in_success_output_when_present(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -127,7 +127,7 @@ def test_ingest_cli_prints_run_id_in_success_output_when_present(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "Ingestion status: CLONING_OR_FETCHING" in captured.out
+    assert "Ingestion status: COMPLETED" in captured.out
     assert "Run ID: run-abc123" in captured.out
 
 
@@ -169,7 +169,7 @@ def test_ingest_cli_prints_commit_count_in_success_output_when_present(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -200,7 +200,7 @@ def test_ingest_cli_omits_commit_count_when_absent(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -230,7 +230,7 @@ def test_ingest_cli_prints_repository_and_canonical_url_in_success_output(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -261,7 +261,7 @@ def test_ingest_cli_omits_repository_lines_when_canonical_url_is_absent(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -291,7 +291,7 @@ def test_ingest_cli_omits_run_id_line_when_run_id_is_absent(
 ) -> None:
     service = RecordingIngestionService(
         result=IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
             stage="CLONING_OR_FETCHING",
             retryable=False,
@@ -312,6 +312,67 @@ def test_ingest_cli_omits_run_id_line_when_run_id_is_absent(
 
     captured = capsys.readouterr()
     assert "Run ID:" not in captured.out
+
+
+def test_ingest_cli_prints_file_count_in_success_output_when_present(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="COMPLETED",
+            error_code=None,
+            stage="COMPLETED",
+            retryable=False,
+            safe_message=None,
+            files_inserted=7,
+            files_reused=2,
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    exit_code = main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Files: 7 inserted, 2 reused" in captured.out
+
+
+def test_ingest_cli_omits_file_count_when_absent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="COMPLETED",
+            error_code=None,
+            stage="COMPLETED",
+            retryable=False,
+            safe_message=None,
+            files_inserted=None,
+            files_reused=None,
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert "Files:" not in captured.out
 
 
 def test_cli_rejects_unknown_command_without_calling_service(tmp_path: Path) -> None:

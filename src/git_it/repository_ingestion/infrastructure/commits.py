@@ -2,7 +2,7 @@ from pathlib import Path
 
 import git
 
-from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
 
 
 class GitPythonCommitExtractor:
@@ -21,6 +21,22 @@ class GitPythonCommitExtractor:
                     author_name=commit.author.name or "",
                     committer_name=commit.committer.name or "",
                     parent_shas=tuple(p.hexsha for p in commit.parents),
+                    file_changes=self._extract_file_changes(commit),
                 )
             )
         return result
+
+    @staticmethod
+    def _extract_file_changes(commit: git.Commit) -> tuple[ExtractedFileChange, ...]:
+        try:
+            stats = commit.stats.files
+        except Exception:
+            return ()
+        return tuple(
+            ExtractedFileChange(
+                path=path,
+                insertions=int(stat.get("insertions", 0)),
+                deletions=int(stat.get("deletions", 0)),
+            )
+            for path, stat in stats.items()
+        )

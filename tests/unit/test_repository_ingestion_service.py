@@ -72,9 +72,9 @@ def test_ingestion_service_starts_clone_or_fetch_with_canonical_url(raw_url: str
 
     result = service.ingest(raw_url)
 
-    assert result.status == "CLONING_OR_FETCHING"
+    assert result.status == "COMPLETED"
     assert result.error_code is None
-    assert result.stage == "CLONING_OR_FETCHING"
+    assert result.stage == "COMPLETED"
     assert result.retryable is False
     assert result.safe_message is None
     assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
@@ -262,9 +262,9 @@ def test_ingestion_service_persists_success_like_run_result() -> None:
             run_id="run-1",
             repository_id="repo-1",
             canonical_url="https://github.com/owner/repo",
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             started_at="2026-06-15T10:00:00Z",
-            completed_at=None,
+            completed_at="2026-06-15T10:00:00Z",
             error_code=None,
             error_stage=None,
             retryable=None,
@@ -302,6 +302,57 @@ def test_ingestion_service_persists_validation_failure_without_raw_invalid_url()
         )
     ]
     assert "token" not in run_writer.records[0].canonical_url
+
+
+def test_ingestion_service_persists_file_facts_and_reports_counts() -> None:
+    git_gateway = SpyGitGateway()
+
+    class FakeCommitExtractor:
+        def extract_commits(self) -> list[ExtractedCommit]:
+            return [_make_commit("sha1"), _make_commit("sha2")]
+
+    class FakeCommitFactWriter:
+        def save_commit_facts(
+            self, commits: list[ExtractedCommit], *, repository_id: str
+        ) -> CommitPersistenceResult:
+            return CommitPersistenceResult(inserted=2, reused=0)
+
+    class FakeFileFactWriter:
+        def save_file_facts(
+            self, commits: list[ExtractedCommit], *, repository_id: str
+        ) -> CommitPersistenceResult:
+            return CommitPersistenceResult(inserted=5, reused=1)
+
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=FakeCommitExtractor(),
+        commit_fact_writer=FakeCommitFactWriter(),
+        file_fact_writer=FakeFileFactWriter(),
+        repository_id="repo-1",
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.files_inserted == 5
+    assert result.files_reused == 1
+
+
+def test_ingestion_service_does_not_report_file_counts_without_file_fact_writer() -> None:
+    git_gateway = SpyGitGateway()
+
+    class FakeCommitExtractor:
+        def extract_commits(self) -> list[ExtractedCommit]:
+            return [_make_commit("sha1")]
+
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=FakeCommitExtractor(),
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.files_inserted is None
+    assert result.files_reused is None
 
 
 def test_ingestion_service_persists_git_gateway_failure() -> None:

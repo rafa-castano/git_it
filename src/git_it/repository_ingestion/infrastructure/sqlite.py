@@ -185,6 +185,66 @@ class SqliteCommitFactStore:
         return sqlite3.connect(self._database_path)
 
 
+class SqliteFileFactStore:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS file_facts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    repository_id TEXT NOT NULL,
+                    commit_sha TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    insertions INTEGER NOT NULL,
+                    deletions INTEGER NOT NULL,
+                    UNIQUE(repository_id, commit_sha, file_path)
+                )
+                """
+            )
+
+    def save_file_facts(
+        self,
+        commits: list[ExtractedCommit],
+        *,
+        repository_id: str,
+    ) -> CommitPersistenceResult:
+        inserted = 0
+        reused = 0
+        with self._connect() as connection:
+            for commit in commits:
+                for change in commit.file_changes:
+                    cursor = connection.execute(
+                        """
+                        INSERT OR IGNORE INTO file_facts (
+                            repository_id,
+                            commit_sha,
+                            file_path,
+                            insertions,
+                            deletions
+                        ) VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            repository_id,
+                            commit.sha,
+                            change.path,
+                            change.insertions,
+                            change.deletions,
+                        ),
+                    )
+                    if cursor.rowcount == 1:
+                        inserted += 1
+                    else:
+                        reused += 1
+        return CommitPersistenceResult(inserted=inserted, reused=reused)
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self._database_path)
+
+
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:
     return IngestionRunRecord(
         run_id=str(row[0]),

@@ -1,4 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class ExtractedFileChange:
+    path: str
+    insertions: int
+    deletions: int
 
 
 @dataclass(frozen=True)
@@ -9,3 +16,4 @@ class ExtractedCommit:
     author_name: str
     committer_name: str
     parent_shas: tuple[str, ...]
+    file_changes: tuple[ExtractedFileChange, ...] = field(default_factory=tuple)

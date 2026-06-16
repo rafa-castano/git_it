@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from git_it.repository_ingestion.application.ports import CommitExtractor, CommitFactWriter
+from git_it.repository_ingestion.application.ports import (
+    CommitExtractor,
+    CommitFactWriter,
+    FileFactWriter,
+)
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 from git_it.repository_ingestion.infrastructure.commits import GitPythonCommitExtractor
 from git_it.repository_ingestion.infrastructure.git import (
@@ -10,6 +14,7 @@ from git_it.repository_ingestion.infrastructure.git import (
 )
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitFactStore,
+    SqliteFileFactStore,
     SqliteIngestionRunStore,
 )
 from git_it.repository_ingestion.infrastructure.workspace import (
@@ -25,6 +30,7 @@ def build_repository_ingestion_service(
     runner: GitCommandRunner | None = None,
     commit_extractor: CommitExtractor | None = None,
     commit_fact_writer: CommitFactWriter | None = None,
+    file_fact_writer: FileFactWriter | None = None,
 ) -> RepositoryIngestionService:
     cache_path = repository_cache_path(project_root, repository_id=repository_id)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -36,16 +42,18 @@ def build_repository_ingestion_service(
     run_store.initialize()
     commit_store = SqliteCommitFactStore(db_path)
     commit_store.initialize()
+    file_store = SqliteFileFactStore(db_path)
+    file_store.initialize()
     extractor = (
         commit_extractor
         if commit_extractor is not None
         else GitPythonCommitExtractor(cache_path=cache_path)
     )
-    writer = commit_fact_writer if commit_fact_writer is not None else commit_store
     return RepositoryIngestionService(
         git_gateway=git_gateway,
         commit_extractor=extractor,
-        commit_fact_writer=writer,
+        commit_fact_writer=commit_fact_writer if commit_fact_writer is not None else commit_store,
+        file_fact_writer=file_fact_writer if file_fact_writer is not None else file_store,
         repository_id=repository_id,
         run_writer=run_store,
     )

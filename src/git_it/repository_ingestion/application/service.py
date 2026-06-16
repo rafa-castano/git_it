@@ -6,6 +6,7 @@ from uuid import uuid4
 from git_it.repository_ingestion.application.ports import (
     CommitExtractor,
     CommitFactWriter,
+    FileFactWriter,
     GitGateway,
     GitGatewayError,
     IngestionRunRecord,
@@ -29,6 +30,8 @@ class IngestionResult:
     canonical_url: str | None = None
     commits_inserted: int | None = None
     commits_reused: int | None = None
+    files_inserted: int | None = None
+    files_reused: int | None = None
 
 
 class RepositoryIngestionService:
@@ -38,6 +41,7 @@ class RepositoryIngestionService:
         git_gateway: GitGateway,
         commit_extractor: CommitExtractor | None = None,
         commit_fact_writer: CommitFactWriter | None = None,
+        file_fact_writer: FileFactWriter | None = None,
         repository_id: str | None = None,
         run_writer: IngestionRunWriter | None = None,
         run_id_factory: Callable[[], str] | None = None,
@@ -46,6 +50,7 @@ class RepositoryIngestionService:
         self._git_gateway = git_gateway
         self._commit_extractor = commit_extractor
         self._commit_fact_writer = commit_fact_writer
+        self._file_fact_writer = file_fact_writer
         self._repository_id = repository_id
         self._run_writer = run_writer
         self._run_id_factory = run_id_factory or (lambda: f"run-{uuid4().hex}")
@@ -97,32 +102,44 @@ class RepositoryIngestionService:
 
         commits_inserted: int | None = None
         commits_reused: int | None = None
+        files_inserted: int | None = None
+        files_reused: int | None = None
         if self._commit_extractor is not None:
             extracted = self._commit_extractor.extract_commits()
+            repo_id = self._repository_id or ""
             if self._commit_fact_writer is not None:
-                persistence = self._commit_fact_writer.save_commit_facts(
+                cp = self._commit_fact_writer.save_commit_facts(
                     extracted,
-                    repository_id=self._repository_id or "",
+                    repository_id=repo_id,
                 )
-                commits_inserted = persistence.inserted
-                commits_reused = persistence.reused
+                commits_inserted = cp.inserted
+                commits_reused = cp.reused
+            if self._file_fact_writer is not None:
+                fp = self._file_fact_writer.save_file_facts(
+                    extracted,
+                    repository_id=repo_id,
+                )
+                files_inserted = fp.inserted
+                files_reused = fp.reused
 
         result = IngestionResult(
-            status="CLONING_OR_FETCHING",
+            status="COMPLETED",
             error_code=None,
-            stage="CLONING_OR_FETCHING",
+            stage="COMPLETED",
             retryable=False,
             safe_message=None,
             run_id=run_id,
             canonical_url=parsed_url.canonical_url,
             commits_inserted=commits_inserted,
             commits_reused=commits_reused,
+            files_inserted=files_inserted,
+            files_reused=files_reused,
         )
         self._persist_run_result(
             result=result,
             canonical_url=parsed_url.canonical_url,
             started_at=started_at,
-            completed_at=None,
+            completed_at=self._clock(),
         )
         return result
 
