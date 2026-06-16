@@ -12,6 +12,8 @@ __all__ = [
     "CommitExtractor",
     "CommitFactWriter",
     "CommitPersistenceResult",
+    "CommitSummaryReader",
+    "CommitSummaryRecord",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileFactReader",
@@ -122,6 +124,16 @@ class FileOwnershipRecord:
 
 class OwnershipReader(Protocol):
     def get_file_ownership(self, repository_id: str) -> list[FileOwnershipRecord]: ...
+
+
+@dataclass(frozen=True)
+class CommitSummaryRecord:
+    sha: str
+    message: str
+
+
+class CommitSummaryReader(Protocol):
+    def list_commit_messages(self, repository_id: str) -> list[CommitSummaryRecord]: ...
 
 
 class CommitAnalysisWriter(Protocol):

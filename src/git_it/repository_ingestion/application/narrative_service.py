@@ -124,6 +124,13 @@ class NarrativeService:
                 f"## Refactor Wave Detected: {report.refactor_wave.commit_count} refactor"
                 f" commits ({pct}% of total)"
             )
+        if report.revert_signal is not None:
+            pct = int(report.revert_signal.revert_ratio * 100)
+            lines.append("")
+            lines.append(
+                f"## Revert Signal: {report.revert_signal.revert_count} revert commits"
+                f" ({pct}% of total) — indicates instability or rushed merges"
+            )
         if report.test_growth_signal is not None:
             sig = report.test_growth_signal
             lines.append("")

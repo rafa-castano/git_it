@@ -424,6 +424,12 @@ def _print_pattern_report(report: PatternReport) -> None:
             f"Refactor Wave: {report.refactor_wave.commit_count} refactor commits ({pct}% of total)"
         )
         print()
+    if report.revert_signal is not None:
+        pct = int(report.revert_signal.revert_ratio * 100)
+        print(
+            f"Revert Signal: {report.revert_signal.revert_count} revert commits ({pct}% of total)"
+        )
+        print()
     if report.test_growth_signal is not None:
         sig = report.test_growth_signal
         print(

@@ -122,10 +122,12 @@ def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionSe
     analysis_store = SqliteCommitAnalysisStore(db_path)
     analysis_store.initialize()
     file_fact_reader = SqliteFileFactReader(db_path)
+    commit_reader = SqliteCommitReader(db_path)
     return PatternDetectionService(
         reader=file_fact_reader,
         analysis_reader=analysis_store,
         ownership_reader=file_fact_reader,
+        commit_summary_reader=commit_reader,
     )
 
 

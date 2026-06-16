@@ -5,6 +5,7 @@ from pathlib import Path
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
+    CommitSummaryRecord,
     FileChurnRecord,
     FileOwnershipRecord,
     IngestionRunRecord,
@@ -253,6 +254,14 @@ class SqliteFileFactStore:
 class SqliteCommitReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
+
+    def list_commit_messages(self, repository_id: str) -> list[CommitSummaryRecord]:
+        with sqlite3.connect(self._database_path) as connection:
+            rows = connection.execute(
+                "SELECT sha, message FROM commit_facts WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+        return [CommitSummaryRecord(sha=str(row[0]), message=str(row[1])) for row in rows]
 
     def list_commits_for_repository(
         self,

@@ -39,6 +39,12 @@ class TestGrowthSignal:
 
 
 @dataclass(frozen=True)
+class RevertSignal:
+    revert_count: int
+    revert_ratio: float
+
+
+@dataclass(frozen=True)
 class OwnershipConcentration:
     file_path: str
     author_count: int
@@ -52,5 +58,6 @@ class PatternReport:
     category_counts: list[CategoryCount] = field(default_factory=list)
     bugfix_recurrences: list[BugfixRecurrence] = field(default_factory=list)
     refactor_wave: RefactorWave | None = None
+    revert_signal: RevertSignal | None = None
     test_growth_signal: TestGrowthSignal | None = None
     ownership_concentrations: list[OwnershipConcentration] = field(default_factory=list)

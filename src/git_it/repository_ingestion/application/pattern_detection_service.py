@@ -1,5 +1,7 @@
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisReader,
+    CommitSummaryReader,
+    CommitSummaryRecord,
     FileFactReader,
     FileOwnershipRecord,
     OwnershipReader,
@@ -12,6 +14,7 @@ from git_it.repository_ingestion.domain.patterns import (
     OwnershipConcentration,
     PatternReport,
     RefactorWave,
+    RevertSignal,
     TestGrowthSignal,
 )
 
@@ -19,6 +22,7 @@ _DEFAULT_HOTSPOT_THRESHOLD = 5
 _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD = 2
 _DEFAULT_REFACTOR_WAVE_THRESHOLD = 3
 _DEFAULT_OWNERSHIP_THRESHOLD = 1
+_DEFAULT_REVERT_THRESHOLD = 1
 
 
 class PatternDetectionService:
@@ -28,10 +32,12 @@ class PatternDetectionService:
         reader: FileFactReader,
         analysis_reader: CommitAnalysisReader | None = None,
         ownership_reader: OwnershipReader | None = None,
+        commit_summary_reader: CommitSummaryReader | None = None,
     ) -> None:
         self._reader = reader
         self._analysis_reader = analysis_reader
         self._ownership_reader = ownership_reader
+        self._commit_summary_reader = commit_summary_reader
 
     def detect(
         self,
@@ -41,6 +47,7 @@ class PatternDetectionService:
         bugfix_recurrence_threshold: int = _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD,
         refactor_wave_threshold: int = _DEFAULT_REFACTOR_WAVE_THRESHOLD,
         ownership_threshold: int = _DEFAULT_OWNERSHIP_THRESHOLD,
+        revert_threshold: int = _DEFAULT_REVERT_THRESHOLD,
     ) -> PatternReport:
         churn_records = self._reader.get_file_churn(repository_id)
         hotspots = sorted(
@@ -79,12 +86,18 @@ class PatternDetectionService:
                 ownership_records, threshold=ownership_threshold
             )
 
+        revert_signal: RevertSignal | None = None
+        if self._commit_summary_reader is not None:
+            summaries = self._commit_summary_reader.list_commit_messages(repository_id)
+            revert_signal = _compute_revert_signal(summaries, threshold=revert_threshold)
+
         return PatternReport(
             repository_id=repository_id,
             hotspots=hotspots,
             category_counts=category_counts,
             bugfix_recurrences=bugfix_recurrences,
             refactor_wave=refactor_wave,
+            revert_signal=revert_signal,
             test_growth_signal=test_growth_signal,
             ownership_concentrations=ownership_concentrations,
         )
@@ -162,4 +175,19 @@ def _compute_ownership_concentrations(
         ],
         key=lambda c: c.commit_count,
         reverse=True,
+    )
+
+
+def _compute_revert_signal(
+    summaries: list[CommitSummaryRecord], *, threshold: int
+) -> RevertSignal | None:
+    total = len(summaries)
+    if total == 0:
+        return None
+    revert_count = sum(1 for s in summaries if s.message.lower().startswith("revert"))
+    if revert_count < threshold:
+        return None
+    return RevertSignal(
+        revert_count=revert_count,
+        revert_ratio=round(revert_count / total, 2),
     )
