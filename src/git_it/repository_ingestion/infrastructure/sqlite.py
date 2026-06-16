@@ -6,6 +6,7 @@ from git_it.repository_ingestion.application.commit_query_service import CommitR
 from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
     FileChurnRecord,
+    FileOwnershipRecord,
     IngestionRunRecord,
     TimestampedAnalysis,
 )
@@ -390,6 +391,31 @@ class SqliteFileFactReader:
                 commit_count=int(row[1]),
                 total_insertions=int(row[2]),
                 total_deletions=int(row[3]),
+            )
+            for row in rows
+        ]
+
+    def get_file_ownership(self, repository_id: str) -> list[FileOwnershipRecord]:
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    ff.file_path,
+                    COUNT(DISTINCT cf.author_name) AS author_count,
+                    COUNT(DISTINCT ff.commit_sha)  AS commit_count
+                FROM file_facts ff
+                JOIN commit_facts cf
+                  ON ff.repository_id = cf.repository_id AND ff.commit_sha = cf.sha
+                WHERE ff.repository_id = ?
+                GROUP BY ff.file_path
+                """,
+                (repository_id,),
+            ).fetchall()
+        return [
+            FileOwnershipRecord(
+                file_path=str(row[0]),
+                author_count=int(row[1]),
+                commit_count=int(row[2]),
             )
             for row in rows
         ]

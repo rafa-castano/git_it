@@ -1,9 +1,15 @@
-from git_it.repository_ingestion.application.ports import CommitAnalysisReader, FileFactReader
+from git_it.repository_ingestion.application.ports import (
+    CommitAnalysisReader,
+    FileFactReader,
+    FileOwnershipRecord,
+    OwnershipReader,
+)
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.patterns import (
     BugfixRecurrence,
     CategoryCount,
     Hotspot,
+    OwnershipConcentration,
     PatternReport,
     RefactorWave,
     TestGrowthSignal,
@@ -12,6 +18,7 @@ from git_it.repository_ingestion.domain.patterns import (
 _DEFAULT_HOTSPOT_THRESHOLD = 5
 _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD = 2
 _DEFAULT_REFACTOR_WAVE_THRESHOLD = 3
+_DEFAULT_OWNERSHIP_THRESHOLD = 1
 
 
 class PatternDetectionService:
@@ -20,9 +27,11 @@ class PatternDetectionService:
         *,
         reader: FileFactReader,
         analysis_reader: CommitAnalysisReader | None = None,
+        ownership_reader: OwnershipReader | None = None,
     ) -> None:
         self._reader = reader
         self._analysis_reader = analysis_reader
+        self._ownership_reader = ownership_reader
 
     def detect(
         self,
@@ -31,6 +40,7 @@ class PatternDetectionService:
         hotspot_threshold: int = _DEFAULT_HOTSPOT_THRESHOLD,
         bugfix_recurrence_threshold: int = _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD,
         refactor_wave_threshold: int = _DEFAULT_REFACTOR_WAVE_THRESHOLD,
+        ownership_threshold: int = _DEFAULT_OWNERSHIP_THRESHOLD,
     ) -> PatternReport:
         churn_records = self._reader.get_file_churn(repository_id)
         hotspots = sorted(
@@ -51,7 +61,6 @@ class PatternDetectionService:
         category_counts: list[CategoryCount] = []
         bugfix_recurrences: list[BugfixRecurrence] = []
         refactor_wave: RefactorWave | None = None
-
         test_growth_signal: TestGrowthSignal | None = None
 
         if self._analysis_reader is not None:
@@ -63,6 +72,13 @@ class PatternDetectionService:
             refactor_wave = _compute_refactor_wave(analyses, threshold=refactor_wave_threshold)
             test_growth_signal = _compute_test_growth_signal(analyses)
 
+        ownership_concentrations: list[OwnershipConcentration] = []
+        if self._ownership_reader is not None:
+            ownership_records = self._ownership_reader.get_file_ownership(repository_id)
+            ownership_concentrations = _compute_ownership_concentrations(
+                ownership_records, threshold=ownership_threshold
+            )
+
         return PatternReport(
             repository_id=repository_id,
             hotspots=hotspots,
@@ -70,6 +86,7 @@ class PatternDetectionService:
             bugfix_recurrences=bugfix_recurrences,
             refactor_wave=refactor_wave,
             test_growth_signal=test_growth_signal,
+            ownership_concentrations=ownership_concentrations,
         )
 
 
@@ -126,5 +143,23 @@ def _compute_bugfix_recurrences(
             if cnt >= threshold
         ],
         key=lambda r: r.bugfix_commit_count,
+        reverse=True,
+    )
+
+
+def _compute_ownership_concentrations(
+    records: list[FileOwnershipRecord], *, threshold: int
+) -> list[OwnershipConcentration]:
+    return sorted(
+        [
+            OwnershipConcentration(
+                file_path=r.file_path,
+                author_count=r.author_count,
+                commit_count=r.commit_count,
+            )
+            for r in records
+            if r.author_count <= threshold
+        ],
+        key=lambda c: c.commit_count,
         reverse=True,
     )

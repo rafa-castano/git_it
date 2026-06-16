@@ -38,6 +38,13 @@ class TestGrowthSignal:
     test_to_bugfix_ratio: float
 
 
+@dataclass(frozen=True)
+class OwnershipConcentration:
+    file_path: str
+    author_count: int
+    commit_count: int
+
+
 @dataclass
 class PatternReport:
     repository_id: str
@@ -46,3 +53,4 @@ class PatternReport:
     bugfix_recurrences: list[BugfixRecurrence] = field(default_factory=list)
     refactor_wave: RefactorWave | None = None
     test_growth_signal: TestGrowthSignal | None = None
+    ownership_concentrations: list[OwnershipConcentration] = field(default_factory=list)

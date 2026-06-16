@@ -387,7 +387,12 @@ def _run_patterns(
 
 
 def _print_pattern_report(report: PatternReport) -> None:
-    has_data = report.hotspots or report.category_counts or report.bugfix_recurrences
+    has_data = (
+        report.hotspots
+        or report.category_counts
+        or report.bugfix_recurrences
+        or report.ownership_concentrations
+    )
     if not has_data:
         print("No patterns detected. Ingest the repository first, then run 'git-it patterns'.")
         return
@@ -425,6 +430,11 @@ def _print_pattern_report(report: PatternReport) -> None:
             f"Test Growth Signal: {sig.test_commit_count} test commits"
             f" vs {sig.bugfix_commit_count} bugfix commits (ratio: {sig.test_to_bugfix_ratio})"
         )
+    if report.ownership_concentrations:
+        print()
+        print("Ownership Concentrations (knowledge silos):")
+        for oc in report.ownership_concentrations:
+            print(f"  {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})")
 
 
 def _run_case_study(

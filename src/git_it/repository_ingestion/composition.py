@@ -121,9 +121,11 @@ def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionSe
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     analysis_store = SqliteCommitAnalysisStore(db_path)
     analysis_store.initialize()
+    file_fact_reader = SqliteFileFactReader(db_path)
     return PatternDetectionService(
-        reader=SqliteFileFactReader(db_path),
+        reader=file_fact_reader,
         analysis_reader=analysis_store,
+        ownership_reader=file_fact_reader,
     )
 
 

@@ -16,12 +16,14 @@ __all__ = [
     "FileChurnRecord",
     "FileFactReader",
     "FileFactWriter",
+    "FileOwnershipRecord",
     "GitGateway",
     "GitGatewayError",
     "IngestionRunRecord",
     "IngestionRunWriter",
     "LLMClient",
     "LLMMessage",
+    "OwnershipReader",
     "TemporalAnalysisReader",
     "TimestampedAnalysis",
 ]
@@ -109,6 +111,17 @@ class FileChurnRecord:
 
 class FileFactReader(Protocol):
     def get_file_churn(self, repository_id: str) -> list[FileChurnRecord]: ...
+
+
+@dataclass(frozen=True)
+class FileOwnershipRecord:
+    file_path: str
+    author_count: int
+    commit_count: int
+
+
+class OwnershipReader(Protocol):
+    def get_file_ownership(self, repository_id: str) -> list[FileOwnershipRecord]: ...
 
 
 class CommitAnalysisWriter(Protocol):

@@ -132,6 +132,13 @@ class NarrativeService:
                 f" vs {sig.bugfix_commit_count} bugfix commits"
                 f" (ratio: {sig.test_to_bugfix_ratio})"
             )
+        if report.ownership_concentrations:
+            lines.append("")
+            lines.append("## Knowledge Silos (files owned by very few authors)")
+            for oc in report.ownership_concentrations:
+                lines.append(
+                    f"- {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})"
+                )
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)
