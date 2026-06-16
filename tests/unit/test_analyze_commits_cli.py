@@ -74,7 +74,9 @@ class FakeCommitBatchService:
 
 
 def _factory(service: FakeCommitBatchService):  # type: ignore[no-untyped-def]
-    def factory(*, project_root: Path, repository_id: str, model: str) -> FakeCommitBatchService:
+    def factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
         return service
 
     return factory
@@ -228,3 +230,39 @@ def test_analyze_commits_until_passed_to_service(tmp_path: Path) -> None:
         commit_analysis_factory=_factory(service),
     )
     assert service.calls[0].until == "2024-12-31"
+
+
+def test_analyze_commits_sample_model_passed_to_factory(tmp_path: Path) -> None:
+    received: list[str | None] = []
+
+    def factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
+        received.append(sample_model)
+        return FakeCommitBatchService()
+
+    main(
+        ["analyze-commits", "https://github.com/owner/repo", "--sample-model", "ollama/llama3.2"],
+        project_root=tmp_path,
+        commit_analysis_factory=factory,
+    )
+
+    assert received == ["ollama/llama3.2"]
+
+
+def test_analyze_commits_default_sample_model_is_none(tmp_path: Path) -> None:
+    received: list[str | None] = []
+
+    def factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
+        received.append(sample_model)
+        return FakeCommitBatchService()
+
+    main(
+        ["analyze-commits", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        commit_analysis_factory=factory,
+    )
+
+    assert received == [None]

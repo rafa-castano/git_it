@@ -90,7 +90,7 @@ class CommitBatchService(Protocol):
 
 class CommitAnalysisFactory(Protocol):
     def __call__(
-        self, *, project_root: Path, repository_id: str, model: str
+        self, *, project_root: Path, repository_id: str, model: str, sample_model: str | None
     ) -> CommitBatchService: ...
 
 
@@ -175,9 +175,11 @@ def _default_analysis_factory(
 
 
 def _default_commit_analysis_factory(
-    *, project_root: Path, repository_id: str, model: str
+    *, project_root: Path, repository_id: str, model: str, sample_model: str | None
 ) -> "CommitBatchService":
-    return build_commit_analysis_service(project_root=project_root, model=model)
+    return build_commit_analysis_service(
+        project_root=project_root, model=model, sample_model=sample_model
+    )
 
 
 def _default_pattern_factory(*, project_root: Path, repository_id: str) -> "PatternService":
@@ -246,6 +248,12 @@ def main(
     analyze_commits_parser = subparsers.add_parser("analyze-commits")
     analyze_commits_parser.add_argument("repository_url")
     analyze_commits_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    analyze_commits_parser.add_argument(
+        "--sample-model",
+        default=None,
+        dest="sample_model",
+        help="Cheaper model for sample-tier commits (defaults to --model)",
+    )
     analyze_commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
     analyze_commits_parser.add_argument(
         "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
@@ -285,6 +293,12 @@ def main(
     )
     run_parser.add_argument("repository_url")
     run_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    run_parser.add_argument(
+        "--sample-model",
+        default=None,
+        dest="sample_model",
+        help="Cheaper model for sample-tier commits (defaults to --model)",
+    )
     run_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
     run_parser.add_argument(
         "--force", action="store_true", default=False, help="Regenerate case study even if cached"
@@ -339,6 +353,7 @@ def main(
         return _run_analyze_commits(
             raw_url=args.repository_url,
             model=args.model,
+            sample_model=args.sample_model,
             limit=args.limit,
             yes=args.yes,
             order=args.order,
@@ -379,6 +394,7 @@ def main(
         return _run_pipeline(
             raw_url=args.repository_url,
             model=args.model,
+            sample_model=args.sample_model,
             limit=args.limit,
             force=args.force,
             yes=args.yes,
@@ -400,6 +416,7 @@ def _run_pipeline(
     *,
     raw_url: str,
     model: str,
+    sample_model: str | None,
     limit: int,
     force: bool,
     yes: bool,
@@ -426,7 +443,10 @@ def _run_pipeline(
     # Step 2: analyze commits
     print("Analyzing commits...")
     commit_service = commit_analysis_factory(
-        project_root=project_root, repository_id=repository_id, model=model
+        project_root=project_root,
+        repository_id=repository_id,
+        model=model,
+        sample_model=sample_model,
     )
     estimate = commit_service.estimate_llm_calls(
         repository_id, limit=limit, order=order, since=since, until=until
@@ -509,6 +529,7 @@ def _run_analyze_commits(
     *,
     raw_url: str,
     model: str,
+    sample_model: str | None,
     limit: int,
     yes: bool,
     order: str,
@@ -524,6 +545,7 @@ def _run_analyze_commits(
         project_root=project_root,
         repository_id=repository_id,
         model=model,
+        sample_model=sample_model,
     )
     estimate = service.estimate_llm_calls(
         repository_id, limit=limit, order=order, since=since, until=until

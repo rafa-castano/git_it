@@ -139,7 +139,9 @@ def _ingest_factory(service: FakeIngestionService):  # type: ignore[no-untyped-d
 
 
 def _commit_analysis_factory(service: FakeCommitBatchService):  # type: ignore[no-untyped-def]
-    def factory(*, project_root: Path, repository_id: str, model: str) -> FakeCommitBatchService:
+    def factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
         return service
 
     return factory
@@ -357,7 +359,7 @@ def test_run_passes_model_to_commit_analysis_factory(tmp_path: Path) -> None:
     received_models: list[str] = []
 
     def commit_factory(
-        *, project_root: Path, repository_id: str, model: str
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
     ) -> FakeCommitBatchService:
         received_models.append(model)
         return FakeCommitBatchService(analyses=[_make_analysis()])
@@ -574,3 +576,54 @@ def test_run_since_passed_to_commit_service(tmp_path: Path) -> None:
     )
 
     assert commit_svc.calls[0].since == "2024-01-01"
+
+
+def test_run_sample_model_passed_to_factory(tmp_path: Path) -> None:
+    received: list[str | None] = []
+
+    def commit_factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
+        received.append(sample_model)
+        return FakeCommitBatchService(analyses=[_make_analysis()])
+
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    narrative_svc = FakeNarrativeService()
+
+    main(
+        [
+            "run",
+            "https://github.com/owner/repo",
+            "--sample-model",
+            "anthropic/claude-haiku-4-5-20251001",
+        ],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=commit_factory,
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert received == ["anthropic/claude-haiku-4-5-20251001"]
+
+
+def test_run_default_sample_model_is_none(tmp_path: Path) -> None:
+    received: list[str | None] = []
+
+    def commit_factory(
+        *, project_root: Path, repository_id: str, model: str, sample_model: str | None
+    ) -> FakeCommitBatchService:
+        received.append(sample_model)
+        return FakeCommitBatchService(analyses=[_make_analysis()])
+
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    narrative_svc = FakeNarrativeService()
+
+    main(
+        ["run", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=commit_factory,
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert received == [None]

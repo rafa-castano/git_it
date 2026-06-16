@@ -104,6 +104,7 @@ def build_commit_analysis_service(
     *,
     project_root: Path,
     model: str,
+    sample_model: str | None = None,
     client: CommitAnalysisClient | None = None,
 ) -> CommitAnalysisService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -112,9 +113,15 @@ def build_commit_analysis_service(
     case_study_store = SqliteCaseStudyStore(db_path)
     case_study_store.initialize()
     analysis_client = client if client is not None else InstructorCommitAnalysisAdapter(model=model)
+    sample_client = (
+        InstructorCommitAnalysisAdapter(model=sample_model)
+        if sample_model is not None and sample_model != model
+        else None
+    )
     return CommitAnalysisService(
         reader=SqliteCommitReader(db_path),
         client=analysis_client,
+        sample_client=sample_client,
         analysis_writer=analysis_store,
         analysis_reader=analysis_store,
         repo_context_reader=case_study_store,
