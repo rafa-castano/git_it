@@ -1,0 +1,42 @@
+from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+class CommitCategory(str, Enum):
+    FEATURE = "feature"
+    BUGFIX = "bugfix"
+    REFACTOR = "refactor"
+    TEST = "test"
+    DOCS = "docs"
+    BUILD = "build"
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+    CHORE = "chore"
+    UNKNOWN = "unknown"
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+
+
+class EvidenceRef(BaseModel):
+    commit_sha: str
+    file_path: str | None = None
+    quote: str | None = None
+
+
+class CommitAnalysis(BaseModel):
+    commit_sha: str
+    summary: str
+    category: CommitCategory
+    intent: str | None = None
+    intent_is_inferred: bool = False
+    affected_components: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.UNKNOWN
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)

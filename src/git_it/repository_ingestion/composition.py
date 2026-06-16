@@ -1,10 +1,12 @@
 from pathlib import Path
 
 from git_it.repository_ingestion.application.analysis_service import RepositoryAnalysisService
+from git_it.repository_ingestion.application.commit_analysis_service import CommitAnalysisService
 from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
 from git_it.repository_ingestion.application.ports import (
+    CommitAnalysisClient,
     CommitExtractor,
     CommitFactWriter,
     FileFactWriter,
@@ -17,7 +19,10 @@ from git_it.repository_ingestion.infrastructure.git import (
     SafeGitGateway,
     SubprocessGitCommandRunner,
 )
-from git_it.repository_ingestion.infrastructure.llm import LiteLLMLLMClient
+from git_it.repository_ingestion.infrastructure.llm import (
+    InstructorCommitAnalysisAdapter,
+    LiteLLMLLMClient,
+)
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitFactStore,
     SqliteCommitReader,
@@ -85,4 +90,18 @@ def build_repository_analysis_service(
     return RepositoryAnalysisService(
         reader=SqliteCommitReader(db_path),
         llm_client=client,
+    )
+
+
+def build_commit_analysis_service(
+    *,
+    project_root: Path,
+    model: str,
+    client: CommitAnalysisClient | None = None,
+) -> CommitAnalysisService:
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    analysis_client = client if client is not None else InstructorCommitAnalysisAdapter(model=model)
+    return CommitAnalysisService(
+        reader=SqliteCommitReader(db_path),
+        client=analysis_client,
     )

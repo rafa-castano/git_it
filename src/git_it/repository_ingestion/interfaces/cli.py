@@ -14,10 +14,12 @@ from git_it.repository_ingestion.application.commit_query_service import (
 )
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
+    build_commit_analysis_service,
     build_repository_analysis_service,
     build_repository_commit_query_service,
     build_repository_ingestion_service,
 )
+from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.url_contract import parse_repository_url
 
 
@@ -57,6 +59,18 @@ class AnalysisFactory(Protocol):
     ) -> AnalysisService: ...
 
 
+class CommitBatchService(Protocol):
+    def analyze_commits(
+        self, repository_id: str, *, limit: int | None = None
+    ) -> list[CommitAnalysis]: ...
+
+
+class CommitAnalysisFactory(Protocol):
+    def __call__(
+        self, *, project_root: Path, repository_id: str, model: str
+    ) -> CommitBatchService: ...
+
+
 _FAILED_STATUSES = {
     "FAILED_VALIDATION",
     "FAILED_FETCH",
@@ -68,6 +82,7 @@ _FAILED_STATUSES = {
 
 _DEFAULT_COMMITS_LIMIT = 20
 _DEFAULT_ANALYZE_LIMIT = 50
+_DEFAULT_COMMIT_ANALYSIS_LIMIT = 10
 _DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 
 
@@ -92,6 +107,12 @@ def _default_analysis_factory(
     return build_repository_analysis_service(project_root=project_root, model=model)
 
 
+def _default_commit_analysis_factory(
+    *, project_root: Path, repository_id: str, model: str
+) -> "CommitBatchService":
+    return build_commit_analysis_service(project_root=project_root, model=model)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -99,6 +120,7 @@ def main(
     service_factory: ServiceFactory = build_repository_ingestion_service,
     commit_query_factory: CommitQueryFactory = _default_commit_query_factory,
     analysis_factory: AnalysisFactory = _default_analysis_factory,
+    commit_analysis_factory: CommitAnalysisFactory = _default_commit_analysis_factory,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -114,6 +136,11 @@ def main(
     analyze_parser.add_argument("repository_url")
     analyze_parser.add_argument("--model", default=_DEFAULT_MODEL)
     analyze_parser.add_argument("--limit", type=int, default=_DEFAULT_ANALYZE_LIMIT)
+
+    analyze_commits_parser = subparsers.add_parser("analyze-commits")
+    analyze_commits_parser.add_argument("repository_url")
+    analyze_commits_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    analyze_commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -140,6 +167,15 @@ def main(
             limit=args.limit,
             project_root=resolved_root,
             analysis_factory=analysis_factory,
+        )
+
+    if args.command == "analyze-commits":
+        return _run_analyze_commits(
+            raw_url=args.repository_url,
+            model=args.model,
+            limit=args.limit,
+            project_root=resolved_root,
+            commit_analysis_factory=commit_analysis_factory,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -191,6 +227,51 @@ def _run_analyze(
     result = service.analyze(repository_id, limit=limit)
     _print_analysis_result(result)
     return 0
+
+
+def _run_analyze_commits(
+    *,
+    raw_url: str,
+    model: str,
+    limit: int,
+    project_root: Path,
+    commit_analysis_factory: CommitAnalysisFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    service = commit_analysis_factory(
+        project_root=project_root,
+        repository_id=repository_id,
+        model=model,
+    )
+    analyses = service.analyze_commits(repository_id, limit=limit)
+    _print_commit_analyses(analyses)
+    return 0
+
+
+def _print_commit_analyses(analyses: list[CommitAnalysis]) -> None:
+    if not analyses:
+        print("No commits stored for this repository. Run 'git-it ingest <url>' first.")
+        return
+    print(f"Commit Analysis ({len(analyses)} commits)")
+    print("=" * 60)
+    for analysis in analyses:
+        sha_short = analysis.commit_sha[:7]
+        risk = analysis.risk_level.value
+        confidence_pct = int(analysis.confidence * 100)
+        category = analysis.category.value
+        print(f"{sha_short}  [{category}]  {analysis.summary}")
+        components = (
+            ", ".join(analysis.affected_components) if analysis.affected_components else "—"
+        )
+        print(
+            f"         Risk: {risk}  |  Confidence: {confidence_pct}%  |  Components: {components}"
+        )
+        if analysis.intent:
+            inferred = " (inferred)" if analysis.intent_is_inferred else ""
+            print(f"         Intent: {analysis.intent}{inferred}")
+        if analysis.limitations:
+            print(f"         Limitations: {'; '.join(analysis.limitations)}")
+        print()
 
 
 def _print_analysis_result(result: AnalysisResult) -> None:

@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 
 __all__ = [
+    "CommitAnalysis",
+    "CommitAnalysisClient",
     "CommitExtractor",
     "CommitFactWriter",
     "CommitPersistenceResult",
@@ -84,3 +87,7 @@ class LLMMessage:
 
 class LLMClient(Protocol):
     def complete(self, messages: list[LLMMessage]) -> str: ...
+
+
+class CommitAnalysisClient(Protocol):
+    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis: ...
