@@ -4,12 +4,17 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
+from git_it.repository_ingestion.application.analysis_service import (
+    AnalysisResult,
+    RepositoryAnalysisService,
+)
 from git_it.repository_ingestion.application.commit_query_service import (
     CommitRecord,
     RepositoryCommitQueryService,
 )
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
+    build_repository_analysis_service,
     build_repository_commit_query_service,
     build_repository_ingestion_service,
 )
@@ -37,6 +42,21 @@ class CommitQueryFactory(Protocol):
     def __call__(self, *, project_root: Path, repository_id: str) -> CommitQueryService: ...
 
 
+class AnalysisService(Protocol):
+    def analyze(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+    ) -> AnalysisResult: ...
+
+
+class AnalysisFactory(Protocol):
+    def __call__(
+        self, *, project_root: Path, repository_id: str, model: str
+    ) -> AnalysisService: ...
+
+
 _FAILED_STATUSES = {
     "FAILED_VALIDATION",
     "FAILED_FETCH",
@@ -47,6 +67,8 @@ _FAILED_STATUSES = {
 }
 
 _DEFAULT_COMMITS_LIMIT = 20
+_DEFAULT_ANALYZE_LIMIT = 50
+_DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 
 
 def repository_id_for_url(raw_url: str) -> str:
@@ -64,12 +86,19 @@ def _default_commit_query_factory(
     return build_repository_commit_query_service(project_root=project_root)
 
 
+def _default_analysis_factory(
+    *, project_root: Path, repository_id: str, model: str
+) -> RepositoryAnalysisService:
+    return build_repository_analysis_service(project_root=project_root, model=model)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
     project_root: Path | None = None,
     service_factory: ServiceFactory = build_repository_ingestion_service,
     commit_query_factory: CommitQueryFactory = _default_commit_query_factory,
+    analysis_factory: AnalysisFactory = _default_analysis_factory,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -80,6 +109,11 @@ def main(
     commits_parser = subparsers.add_parser("commits")
     commits_parser.add_argument("repository_url")
     commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMITS_LIMIT)
+
+    analyze_parser = subparsers.add_parser("analyze")
+    analyze_parser.add_argument("repository_url")
+    analyze_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    analyze_parser.add_argument("--limit", type=int, default=_DEFAULT_ANALYZE_LIMIT)
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -97,6 +131,15 @@ def main(
             limit=args.limit,
             project_root=resolved_root,
             commit_query_factory=commit_query_factory,
+        )
+
+    if args.command == "analyze":
+        return _run_analyze(
+            raw_url=args.repository_url,
+            model=args.model,
+            limit=args.limit,
+            project_root=resolved_root,
+            analysis_factory=analysis_factory,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -129,6 +172,34 @@ def _run_commits(
     commits = service.list_commits(repository_id, limit=limit)
     _print_commits(commits)
     return 0
+
+
+def _run_analyze(
+    *,
+    raw_url: str,
+    model: str,
+    limit: int,
+    project_root: Path,
+    analysis_factory: AnalysisFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    service = analysis_factory(
+        project_root=project_root,
+        repository_id=repository_id,
+        model=model,
+    )
+    result = service.analyze(repository_id, limit=limit)
+    _print_analysis_result(result)
+    return 0
+
+
+def _print_analysis_result(result: AnalysisResult) -> None:
+    if result.commit_count == 0:
+        print("No commits stored for this repository. Run 'git-it ingest <url>' first.")
+        return
+    print(f"Analysis ({result.commit_count} commits)")
+    print("=" * 60)
+    print(result.analysis)
 
 
 def _print_commits(commits: list[CommitRecord]) -> None:

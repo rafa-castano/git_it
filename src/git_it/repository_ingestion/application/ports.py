@@ -13,6 +13,8 @@ __all__ = [
     "GitGatewayError",
     "IngestionRunRecord",
     "IngestionRunWriter",
+    "LLMClient",
+    "LLMMessage",
 ]
 
 
@@ -72,3 +74,13 @@ class CommitExtractor(Protocol):
 
 class GitGateway(Protocol):
     def clone_or_fetch(self, canonical_url: str) -> None: ...
+
+
+@dataclass(frozen=True)
+class LLMMessage:
+    role: str
+    content: str
+
+
+class LLMClient(Protocol):
+    def complete(self, messages: list[LLMMessage]) -> str: ...
