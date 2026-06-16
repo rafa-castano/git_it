@@ -56,3 +56,23 @@ def test_get_case_study_isolated_by_repository(db_path: Path) -> None:
         )
     )
     assert store.get_case_study("repo-2") is None
+
+
+def test_get_repo_context_returns_none_when_no_case_study(db_path: Path) -> None:
+    assert SqliteCaseStudyStore(db_path).get_repo_context("repo-1") is None
+
+
+def test_get_repo_context_truncates_long_narrative(db_path: Path) -> None:
+    long_narrative = "x" * 5000
+    store = SqliteCaseStudyStore(db_path)
+    store.save_case_study(
+        CaseStudyRecord(
+            repository_id="repo-1",
+            narrative=long_narrative,
+            commit_count=1,
+            hotspot_count=0,
+        )
+    )
+    result = store.get_repo_context("repo-1")
+    assert result is not None
+    assert len(result) <= 2000

@@ -434,6 +434,9 @@ class SqliteFileFactReader:
         return sqlite3.connect(self._database_path)
 
 
+_REPO_CONTEXT_MAX_CHARS = 2000
+
+
 class SqliteCaseStudyStore:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
@@ -486,6 +489,12 @@ class SqliteCaseStudyStore:
             commit_count=int(row[2]),
             hotspot_count=int(row[3]),
         )
+
+    def get_repo_context(self, repository_id: str) -> str | None:
+        record = self.get_case_study(repository_id)
+        if record is None:
+            return None
+        return record.narrative[:_REPO_CONTEXT_MAX_CHARS]
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:

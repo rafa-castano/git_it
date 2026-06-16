@@ -28,6 +28,7 @@ __all__ = [
     "LLMClient",
     "LLMMessage",
     "OwnershipReader",
+    "RepoContextReader",
     "TemporalAnalysisReader",
     "TimestampedAnalysis",
 ]
@@ -150,6 +151,10 @@ class CaseStudyStore(Protocol):
     def save_case_study(self, record: CaseStudyRecord) -> None: ...
 
     def get_case_study(self, repository_id: str) -> CaseStudyRecord | None: ...
+
+
+class RepoContextReader(Protocol):
+    def get_repo_context(self, repository_id: str) -> str | None: ...
 
 
 class CommitAnalysisWriter(Protocol):
