@@ -68,6 +68,23 @@ class CommitAnalysisService:
             results.append(analysis)
         return results
 
+    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int:
+        """Return the number of commits that would call the LLM (not cached, not skipped)."""
+        commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
+        count = 0
+        classifier = CommitPreClassifier()
+        for commit in commits:
+            if self._analysis_reader is not None:
+                cached = self._analysis_reader.get_analysis(
+                    repository_id=repository_id, commit_sha=commit.sha
+                )
+                if cached is not None:
+                    continue
+            if classifier.classify(commit).decision == "skip":
+                continue
+            count += 1
+        return count
+
     @staticmethod
     def _build_messages(commit: CommitRecord) -> list[LLMMessage]:
         user_content = (
