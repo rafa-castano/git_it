@@ -1,6 +1,6 @@
 import argparse
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -68,6 +68,8 @@ class CommitBatchService(Protocol):
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]: ...
 
+    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int: ...
+
 
 class CommitAnalysisFactory(Protocol):
     def __call__(
@@ -103,6 +105,19 @@ class AnalysisStoreReader(Protocol):
 
 class ListAnalysesFactory(Protocol):
     def __call__(self, *, project_root: Path, repository_id: str) -> AnalysisStoreReader: ...
+
+
+_DEFAULT_BUDGET_THRESHOLD = 50
+
+
+def _default_budget_confirm(count: int) -> bool:
+    import sys
+
+    if not sys.stdin.isatty():
+        print(f"Warning: {count} LLM calls planned. Proceeding in non-interactive mode.")
+        return True
+    answer = input(f"{count} LLM calls planned. Proceed? [y/N] ").strip().lower()
+    return answer in ("y", "yes")
 
 
 _FAILED_STATUSES = {
@@ -181,6 +196,8 @@ def main(
     pattern_factory: PatternFactory = _default_pattern_factory,
     narrative_factory: NarrativeFactory = _default_narrative_factory,
     list_analyses_factory: ListAnalysesFactory = _default_list_analyses_factory,
+    budget_confirm_fn: Callable[[int], bool] = _default_budget_confirm,
+    budget_threshold: int = _DEFAULT_BUDGET_THRESHOLD,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -201,6 +218,9 @@ def main(
     analyze_commits_parser.add_argument("repository_url")
     analyze_commits_parser.add_argument("--model", default=_DEFAULT_MODEL)
     analyze_commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
+    analyze_commits_parser.add_argument(
+        "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
+    )
 
     patterns_parser = subparsers.add_parser("patterns")
     patterns_parser.add_argument("repository_url")
@@ -227,6 +247,9 @@ def main(
     run_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
     run_parser.add_argument(
         "--force", action="store_true", default=False, help="Regenerate case study even if cached"
+    )
+    run_parser.add_argument(
+        "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
     )
 
     args = parser.parse_args(argv)
@@ -261,8 +284,11 @@ def main(
             raw_url=args.repository_url,
             model=args.model,
             limit=args.limit,
+            yes=args.yes,
             project_root=resolved_root,
             commit_analysis_factory=commit_analysis_factory,
+            budget_confirm_fn=budget_confirm_fn,
+            budget_threshold=budget_threshold,
         )
 
     if args.command == "patterns":
@@ -296,10 +322,13 @@ def main(
             model=args.model,
             limit=args.limit,
             force=args.force,
+            yes=args.yes,
             project_root=resolved_root,
             service_factory=service_factory,
             commit_analysis_factory=commit_analysis_factory,
             narrative_factory=narrative_factory,
+            budget_confirm_fn=budget_confirm_fn,
+            budget_threshold=budget_threshold,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -311,10 +340,13 @@ def _run_pipeline(
     model: str,
     limit: int,
     force: bool,
+    yes: bool,
     project_root: Path,
     service_factory: ServiceFactory,
     commit_analysis_factory: CommitAnalysisFactory,
     narrative_factory: NarrativeFactory,
+    budget_confirm_fn: Callable[[int], bool],
+    budget_threshold: int,
 ) -> int:
     repository_id = repository_id_for_url(raw_url)
 
@@ -331,6 +363,12 @@ def _run_pipeline(
     commit_service = commit_analysis_factory(
         project_root=project_root, repository_id=repository_id, model=model
     )
+    estimate = commit_service.estimate_llm_calls(repository_id, limit=limit)
+    print(f"  {estimate} commits will be sent to LLM.")
+    if estimate > budget_threshold and not yes:
+        if not budget_confirm_fn(estimate):
+            print("Aborted.")
+            return 1
     analyses = commit_service.analyze_commits(repository_id, limit=limit)
     print(f"Analyzed {len(analyses)} commits.")
 
@@ -398,8 +436,11 @@ def _run_analyze_commits(
     raw_url: str,
     model: str,
     limit: int,
+    yes: bool,
     project_root: Path,
     commit_analysis_factory: CommitAnalysisFactory,
+    budget_confirm_fn: Callable[[int], bool],
+    budget_threshold: int,
 ) -> int:
     repository_id = repository_id_for_url(raw_url)
     service = commit_analysis_factory(
@@ -407,6 +448,12 @@ def _run_analyze_commits(
         repository_id=repository_id,
         model=model,
     )
+    estimate = service.estimate_llm_calls(repository_id, limit=limit)
+    print(f"  {estimate} commits will be sent to LLM.")
+    if estimate > budget_threshold and not yes:
+        if not budget_confirm_fn(estimate):
+            print("Aborted.")
+            return 1
     analyses = service.analyze_commits(repository_id, limit=limit)
     _print_commit_analyses(analyses)
     return 0

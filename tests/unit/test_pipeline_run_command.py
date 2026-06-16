@@ -28,8 +28,9 @@ class FakeIngestionService:
 
 
 class FakeCommitBatchService:
-    def __init__(self, analyses: list[CommitAnalysis] | None = None) -> None:
+    def __init__(self, analyses: list[CommitAnalysis] | None = None, estimate: int = 0) -> None:
         self._analyses = analyses or []
+        self._estimate = estimate
         self.calls: list[tuple[str, int | None]] = []
 
     def analyze_commits(
@@ -37,6 +38,9 @@ class FakeCommitBatchService:
     ) -> list[CommitAnalysis]:
         self.calls.append((repository_id, limit))
         return self._analyses
+
+    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int:
+        return self._estimate
 
 
 class FakeNarrativeService:
@@ -417,3 +421,93 @@ def test_run_prints_failure_message_when_ingestion_fails(
 
     out = capsys.readouterr().out
     assert "Ingestion failed" in out
+
+
+# ---------------------------------------------------------------------------
+# Tests: budget guardrail for run command
+# ---------------------------------------------------------------------------
+
+
+def test_run_yes_flag_skips_budget_confirmation(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()], estimate=999)
+    narrative_svc = FakeNarrativeService()
+    confirm_called: list[int] = []
+
+    def _confirm(n: int) -> bool:
+        confirm_called.append(n)
+        return False  # would abort if called
+
+    code = main(
+        ["run", "https://github.com/owner/repo", "--yes"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+        budget_confirm_fn=_confirm,
+        budget_threshold=10,
+    )
+
+    assert code == 0
+    assert confirm_called == []
+
+
+def test_run_aborts_when_budget_exceeded_and_not_confirmed(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()], estimate=100)
+    narrative_svc = FakeNarrativeService()
+
+    code = main(
+        ["run", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+        budget_confirm_fn=lambda n: False,
+        budget_threshold=10,
+    )
+
+    assert code == 1
+    assert commit_svc.calls == []
+
+
+def test_run_proceeds_when_budget_confirmed(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()], estimate=100)
+    narrative_svc = FakeNarrativeService()
+
+    code = main(
+        ["run", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+        budget_confirm_fn=lambda n: True,
+        budget_threshold=10,
+    )
+
+    assert code == 0
+    assert len(commit_svc.calls) == 1
+
+
+def test_run_no_confirmation_when_under_threshold(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()], estimate=5)
+    narrative_svc = FakeNarrativeService()
+    confirm_called: list[int] = []
+
+    def _confirm(n: int) -> bool:
+        confirm_called.append(n)
+        return True
+
+    main(
+        ["run", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+        budget_confirm_fn=_confirm,
+        budget_threshold=10,
+    )
+
+    assert confirm_called == []
