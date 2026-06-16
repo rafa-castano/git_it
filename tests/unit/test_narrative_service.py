@@ -8,7 +8,12 @@ from git_it.repository_ingestion.domain.analysis import (
     CommitCategory,
     RiskLevel,
 )
-from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
+from git_it.repository_ingestion.domain.patterns import (
+    BugfixRecurrence,
+    CategoryCount,
+    Hotspot,
+    PatternReport,
+)
 
 
 def _make_analysis(sha: str = "abc1234", summary: str = "Added feature") -> CommitAnalysis:
@@ -49,12 +54,19 @@ class FakeAnalysisReader:
 
 
 class FakePatternService:
-    def __init__(self, hotspots: list[Hotspot] | None = None) -> None:
+    def __init__(
+        self,
+        hotspots: list[Hotspot] | None = None,
+        report: PatternReport | None = None,
+    ) -> None:
+        self._report = report
         self._hotspots = hotspots or []
         self.calls: list[str] = []
 
     def detect(self, repository_id: str, *, hotspot_threshold: int = 5) -> PatternReport:
         self.calls.append(repository_id)
+        if self._report is not None:
+            return self._report
         return PatternReport(repository_id=repository_id, hotspots=list(self._hotspots))
 
 
@@ -158,3 +170,37 @@ def test_generate_result_contains_llm_narrative() -> None:
     )
     result = service.generate("repo-1")
     assert "Key insight" in result.narrative
+
+
+def test_generate_includes_category_distribution_in_prompt() -> None:
+    report = PatternReport(
+        repository_id="repo-1",
+        hotspots=[],
+        category_counts=[CategoryCount(category="bugfix", count=3)],
+    )
+    client = FakeLLMClient()
+    service = NarrativeService(
+        analysis_reader=FakeAnalysisReader([_make_analysis()]),
+        pattern_service=FakePatternService(report=report),
+        llm_client=client,
+    )
+    service.generate("repo-1")
+    combined = " ".join(m.content for m in client.calls[0])
+    assert "Category Distribution" in combined or "bugfix" in combined
+
+
+def test_generate_includes_bugfix_recurrences_in_prompt() -> None:
+    report = PatternReport(
+        repository_id="repo-1",
+        hotspots=[],
+        bugfix_recurrences=[BugfixRecurrence(component="auth", bugfix_commit_count=4)],
+    )
+    client = FakeLLMClient()
+    service = NarrativeService(
+        analysis_reader=FakeAnalysisReader([_make_analysis()]),
+        pattern_service=FakePatternService(report=report),
+        llm_client=client,
+    )
+    service.generate("repo-1")
+    combined = " ".join(m.content for m in client.calls[0])
+    assert "auth" in combined

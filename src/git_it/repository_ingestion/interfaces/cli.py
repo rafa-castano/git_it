@@ -350,18 +350,31 @@ def _run_patterns(
 
 
 def _print_pattern_report(report: PatternReport) -> None:
-    if not report.hotspots:
-        print("No hotspots detected. Ingest the repository first, then run 'git-it patterns'.")
+    has_data = report.hotspots or report.category_counts or report.bugfix_recurrences
+    if not has_data:
+        print("No patterns detected. Ingest the repository first, then run 'git-it patterns'.")
         return
-    print(f"Pattern Report — Hotspots ({len(report.hotspots)} files)")
+    print("Pattern Report")
     print("=" * 60)
-    for hotspot in report.hotspots:
-        ins = hotspot.total_insertions
-        dels = hotspot.total_deletions
-        print(
-            f"{hotspot.file_path}  "
-            f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn})"
-        )
+    if report.category_counts:
+        print("Commit Categories:")
+        for cc in report.category_counts:
+            print(f"  {cc.category}: {cc.count}")
+        print()
+    if report.hotspots:
+        print(f"Hotspot Files ({len(report.hotspots)} files above threshold):")
+        for hotspot in report.hotspots:
+            ins = hotspot.total_insertions
+            dels = hotspot.total_deletions
+            print(
+                f"  {hotspot.file_path}  "
+                f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn})"
+            )
+        print()
+    if report.bugfix_recurrences:
+        print("Bugfix-Prone Components:")
+        for r in report.bugfix_recurrences:
+            print(f"  {r.component}: {r.bugfix_commit_count} bugfix commits")
 
 
 def _run_case_study(

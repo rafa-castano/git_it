@@ -7,7 +7,7 @@ from git_it.repository_ingestion.application.ports import (
     LLMMessage,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
-from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
+from git_it.repository_ingestion.domain.patterns import PatternReport
 
 _SYSTEM_PROMPT = """\
 You are a senior software engineering educator. Your task is to produce an educational case \
@@ -62,7 +62,7 @@ class NarrativeService:
                 narrative="",
             )
         report = self._pattern_service.detect(repository_id)
-        user_content = self._build_user_message(analyses, report.hotspots)
+        user_content = self._build_user_message(analyses, report)
         messages = [
             LLMMessage(role="system", content=_SYSTEM_PROMPT),
             LLMMessage(role="user", content=user_content),
@@ -78,7 +78,7 @@ class NarrativeService:
     @staticmethod
     def _build_user_message(
         analyses: list[CommitAnalysis],
-        hotspots: list[Hotspot],
+        report: PatternReport,
     ) -> str:
         lines = [
             f"Generate a case study for a repository with {len(analyses)} analyzed commits.\n",
@@ -91,14 +91,24 @@ class NarrativeService:
                 f"- {a.commit_sha[:7]}  [{a.category.value}]  {a.summary}"
                 f"  (risk: {a.risk_level.value}, confidence: {int(a.confidence * 100)}%)"
             )
-        if hotspots:
+        if report.category_counts:
+            lines.append("")
+            lines.append("## Category Distribution")
+            for cc in report.category_counts:
+                lines.append(f"- {cc.category}: {cc.count} commits")
+        if report.hotspots:
             lines.append("")
             lines.append("## Hotspot Files (most frequently changed)")
-            for h in hotspots:
+            for h in report.hotspots:
                 lines.append(
                     f"- {h.file_path}  (changed in {h.commit_count} commits,"
                     f" churn: +{h.total_insertions}/-{h.total_deletions})"
                 )
+        if report.bugfix_recurrences:
+            lines.append("")
+            lines.append("## Bugfix-Prone Components")
+            for r in report.bugfix_recurrences:
+                lines.append(f"- {r.component}: {r.bugfix_commit_count} bugfix commits")
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)

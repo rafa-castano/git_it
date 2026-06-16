@@ -119,7 +119,12 @@ def build_commit_analysis_service(
 
 def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
-    return PatternDetectionService(reader=SqliteFileFactReader(db_path))
+    analysis_store = SqliteCommitAnalysisStore(db_path)
+    analysis_store.initialize()
+    return PatternDetectionService(
+        reader=SqliteFileFactReader(db_path),
+        analysis_reader=analysis_store,
+    )
 
 
 def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
