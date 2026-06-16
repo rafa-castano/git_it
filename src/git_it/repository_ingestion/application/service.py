@@ -24,6 +24,7 @@ class IngestionResult:
     retryable: bool
     safe_message: str | None
     run_id: str | None = None
+    canonical_url: str | None = None
 
 
 class RepositoryIngestionService:
@@ -76,6 +77,7 @@ class RepositoryIngestionService:
                 retryable=failure.retryable,
                 safe_message=error.safe_message,
                 run_id=run_id,
+                canonical_url=parsed_url.canonical_url,
             )
             self._persist_run_result(
                 result=result,
@@ -92,6 +94,7 @@ class RepositoryIngestionService:
             retryable=False,
             safe_message=None,
             run_id=run_id,
+            canonical_url=parsed_url.canonical_url,
         )
         self._persist_run_result(
             result=result,

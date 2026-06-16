@@ -103,6 +103,33 @@ def test_ingestion_service_maps_known_git_gateway_failures_to_safe_failure_resul
     assert git_gateway.clone_or_fetch_calls == ["https://github.com/owner/repo"]
 
 
+def test_ingestion_service_includes_canonical_url_in_success_like_result() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.canonical_url == "https://github.com/owner/repo"
+
+
+def test_ingestion_service_normalizes_canonical_url_by_stripping_git_suffix() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest("https://github.com/owner/repo.git")
+
+    assert result.canonical_url == "https://github.com/owner/repo"
+
+
+def test_ingestion_service_canonical_url_is_none_for_validation_failure() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway)
+
+    result = service.ingest("not-a-url")
+
+    assert result.canonical_url is None
+
+
 def test_ingestion_service_persists_success_like_run_result() -> None:
     git_gateway = SpyGitGateway()
     run_writer = RecordingIngestionRunWriter()

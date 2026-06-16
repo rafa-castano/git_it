@@ -83,5 +83,9 @@ def _print_ingestion_result(result: IngestionResult) -> None:
         return
 
     print(f"Ingestion status: {result.status}")
+    if result.canonical_url is not None:
+        owner_repo = result.canonical_url.removeprefix("https://github.com/")
+        print(f"Repository: {owner_repo}")
+        print(f"Canonical URL: {result.canonical_url}")
     if result.run_id is not None:
         print(f"Run ID: {result.run_id}")
