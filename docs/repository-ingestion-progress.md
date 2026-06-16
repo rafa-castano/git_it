@@ -1691,3 +1691,113 @@ The full pipeline is now wired:
 - Add bugfix recurrence and refactor wave detectors (spec 003) that read from `commit_analyses`
 - Improve narrative structure: timeline, architectural transitions, learning lessons
 - Add `list analyses` CLI command to inspect stored analyses
+
+## Batch 28 — Pattern service linked into narrative engine
+
+### Goal
+
+Make `case-study` and `patterns` consume the same hotspot data: same threshold, same ordering, same source of truth.
+
+### Source of truth
+
+- `specs/004-narrative-engine.md`
+
+### Examples covered
+
+- `NarrativeService` now calls `pattern_service.detect()` (via `HotspotDetector` Protocol) instead of reading raw file churn directly
+- `hotspot_count` in `NarrativeResult` now reflects files above threshold, not total files with any churn
+
+### Tests added / updated
+
+- `tests/unit/test_narrative_service.py` — replaced `FakeFileFactReader` with `FakePatternService`; added `test_generate_calls_pattern_service_detect`, `test_generate_hotspot_count_reflects_pattern_report`
+
+### Production behavior added
+
+- `application/narrative_service.py` — replaced `file_fact_reader` dependency with `pattern_service: HotspotDetector` Protocol
+- `composition.py` — `build_narrative_service` wires `build_pattern_detection_service` output
+
+## Batch 29 — Semantic pattern detection
+
+### Goal
+
+Extend `PatternDetectionService` with semantic patterns derived from stored `CommitAnalysis` records: category distribution and bugfix-prone components.
+
+### Source of truth
+
+- `specs/003-pattern-detection.md`
+
+### Examples covered
+
+- Category distribution: counts commits per `CommitCategory`, sorted by frequency
+- Bugfix recurrence: components appearing in 2+ BUGFIX commits (uses `affected_components` from `CommitAnalysis`)
+- `PatternDetectionService` accepts optional `analysis_reader`; falls back to pure churn detection when absent
+- `NarrativeService._build_user_message` now receives full `PatternReport` and includes category counts and bugfix recurrences in LLM context
+
+### Tests added
+
+- `tests/unit/test_semantic_pattern_detection.py` — 7 tests
+
+### Production behavior added
+
+- `domain/patterns.py` — `CategoryCount`, `BugfixRecurrence` frozen dataclasses; `PatternReport` extended with `category_counts`, `bugfix_recurrences`
+- `application/pattern_detection_service.py` — optional `analysis_reader`; `_compute_category_counts`, `_compute_bugfix_recurrences`
+- `application/narrative_service.py` — `_build_user_message` takes full `PatternReport`; adds Category Distribution and Bugfix-Prone Components sections
+- `composition.py` — `build_pattern_detection_service` wires `SqliteCommitAnalysisStore` as `analysis_reader`
+- `interfaces/cli.py` — `_print_pattern_report` shows category counts and bugfix-prone components
+
+## Batch 30 — Refactor wave detection and spec 004 narrative structure
+
+### Goal
+
+Add refactor wave pattern detector and align narrative system prompt to spec 004 section structure.
+
+### Source of truth
+
+- `specs/003-pattern-detection.md`
+- `specs/004-narrative-engine.md`
+
+### Examples covered
+
+- Refactor wave detected when REFACTOR commits >= threshold (default 3); reports count and ratio
+- System prompt now requests: Overview → Timeline → Main Components Through Time → Key Mistakes and Corrections → Architectural Transitions → Engineering Lessons → Evidence Index → Limitations
+- Refactor wave included in narrative LLM context as "Refactor Wave Detected" section
+
+### Tests added
+
+- `tests/unit/test_refactor_wave_detection.py` — 5 tests
+- `tests/unit/test_narrative_service.py` — 3 new tests (refactor wave in prompt, spec 004 sections, category distribution in prompt)
+
+### Production behavior added
+
+- `domain/patterns.py` — `RefactorWave` frozen dataclass; `PatternReport.refactor_wave` field
+- `application/pattern_detection_service.py` — `_compute_refactor_wave`, `refactor_wave_threshold` param on `detect()`
+- `application/narrative_service.py` — spec 004 system prompt; refactor wave section in user message
+- `interfaces/cli.py` — `_print_pattern_report` shows refactor wave
+
+### Known limitation
+
+Refactor wave is a global count, not temporal clustering. A true wave would require joining `commit_analyses` with `commit_facts.committed_at`. Tracked for future improvement.
+
+## Batch 31 — list-analyses CLI command
+
+### Goal
+
+Add a read-only `list-analyses` subcommand so users can inspect stored commit analyses without triggering any LLM calls.
+
+### Source of truth
+
+- MVP usability: inspect cache before running `case-study`
+
+### Examples covered
+
+- `list-analyses <url>` exits 0, reuses `_print_commit_analyses` output format
+- Empty store shows "No analyses" message
+- `--limit N` passed through to `list_analyses(repository_id, limit=N)`
+
+### Tests added
+
+- `tests/unit/test_list_analyses_cli.py` — 4 tests
+
+### Production behavior added
+
+- `interfaces/cli.py` — `AnalysisStoreReader`, `ListAnalysesFactory` protocols; `list-analyses <url> [--limit N]` subcommand; `_run_list_analyses`; `_default_list_analyses_factory` wires `SqliteCommitAnalysisStore`

@@ -93,6 +93,18 @@ class NarrativeFactory(Protocol):
     ) -> NarrativeGeneratorService: ...
 
 
+class AnalysisStoreReader(Protocol):
+    def list_analyses(
+        self, repository_id: str, *, limit: int | None = None
+    ) -> list[CommitAnalysis]: ...
+
+    def get_analysis(self, *, repository_id: str, commit_sha: str) -> CommitAnalysis | None: ...
+
+
+class ListAnalysesFactory(Protocol):
+    def __call__(self, *, project_root: Path, repository_id: str) -> AnalysisStoreReader: ...
+
+
 _FAILED_STATUSES = {
     "FAILED_VALIDATION",
     "FAILED_FETCH",
@@ -146,6 +158,18 @@ def _default_narrative_factory(
     return build_narrative_service(project_root=project_root, model=model)
 
 
+def _default_list_analyses_factory(
+    *, project_root: Path, repository_id: str
+) -> "AnalysisStoreReader":
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteCommitAnalysisStore
+    from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
+
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteCommitAnalysisStore(db_path)
+    store.initialize()
+    return store
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -156,6 +180,7 @@ def main(
     commit_analysis_factory: CommitAnalysisFactory = _default_commit_analysis_factory,
     pattern_factory: PatternFactory = _default_pattern_factory,
     narrative_factory: NarrativeFactory = _default_narrative_factory,
+    list_analyses_factory: ListAnalysesFactory = _default_list_analyses_factory,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -186,6 +211,10 @@ def main(
     case_study_parser = subparsers.add_parser("case-study")
     case_study_parser.add_argument("repository_url")
     case_study_parser.add_argument("--model", default=_DEFAULT_MODEL)
+
+    list_analyses_parser = subparsers.add_parser("list-analyses")
+    list_analyses_parser.add_argument("repository_url")
+    list_analyses_parser.add_argument("--limit", type=int, default=None)
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -237,6 +266,14 @@ def main(
             model=args.model,
             project_root=resolved_root,
             narrative_factory=narrative_factory,
+        )
+
+    if args.command == "list-analyses":
+        return _run_list_analyses(
+            raw_url=args.repository_url,
+            limit=args.limit,
+            project_root=resolved_root,
+            list_analyses_factory=list_analyses_factory,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -398,6 +435,20 @@ def _run_case_study(
     )
     result = service.generate(repository_id)
     _print_narrative(result)
+    return 0
+
+
+def _run_list_analyses(
+    *,
+    raw_url: str,
+    limit: int | None,
+    project_root: Path,
+    list_analyses_factory: ListAnalysesFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    store = list_analyses_factory(project_root=project_root, repository_id=repository_id)
+    analyses = store.list_analyses(repository_id, limit=limit)
+    _print_commit_analyses(analyses)
     return 0
 
 
