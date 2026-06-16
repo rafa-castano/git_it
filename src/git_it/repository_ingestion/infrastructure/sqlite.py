@@ -8,6 +8,7 @@ from git_it.repository_ingestion.application.ports import (
     FileChurnRecord,
     IngestionRunRecord,
 )
+from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 
 
@@ -281,6 +282,64 @@ class SqliteCommitReader:
             )
             for row in rows
         ]
+
+
+class SqliteCommitAnalysisStore:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS commit_analyses (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    repository_id TEXT NOT NULL,
+                    commit_sha    TEXT NOT NULL,
+                    data          TEXT NOT NULL,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(repository_id, commit_sha)
+                )
+                """
+            )
+
+    def save_analysis(self, analysis: CommitAnalysis, *, repository_id: str) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT OR IGNORE INTO commit_analyses (repository_id, commit_sha, data)
+                VALUES (?, ?, ?)
+                """,
+                (repository_id, analysis.commit_sha, analysis.model_dump_json()),
+            )
+        return cursor.rowcount == 1
+
+    def get_analysis(self, *, repository_id: str, commit_sha: str) -> CommitAnalysis | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT data FROM commit_analyses WHERE repository_id = ? AND commit_sha = ?",
+                (repository_id, commit_sha),
+            ).fetchone()
+        if row is None:
+            return None
+        analysis: CommitAnalysis = CommitAnalysis.model_validate_json(str(row[0]))
+        return analysis
+
+    def list_analyses(
+        self, repository_id: str, *, limit: int | None = None
+    ) -> list[CommitAnalysis]:
+        query = "SELECT data FROM commit_analyses WHERE repository_id = ? ORDER BY created_at DESC"
+        params: tuple[object, ...] = (repository_id,)
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (repository_id, limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [CommitAnalysis.model_validate_json(str(row[0])) for row in rows]
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self._database_path)
 
 
 class SqliteFileFactReader:

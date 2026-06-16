@@ -12,9 +12,11 @@ from git_it.repository_ingestion.application.commit_query_service import (
     CommitRecord,
     RepositoryCommitQueryService,
 )
+from git_it.repository_ingestion.application.narrative_service import NarrativeResult
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
+    build_narrative_service,
     build_pattern_detection_service,
     build_repository_analysis_service,
     build_repository_commit_query_service,
@@ -81,6 +83,16 @@ class PatternFactory(Protocol):
     def __call__(self, *, project_root: Path, repository_id: str) -> PatternService: ...
 
 
+class NarrativeGeneratorService(Protocol):
+    def generate(self, repository_id: str) -> NarrativeResult: ...
+
+
+class NarrativeFactory(Protocol):
+    def __call__(
+        self, *, project_root: Path, repository_id: str, model: str
+    ) -> NarrativeGeneratorService: ...
+
+
 _FAILED_STATUSES = {
     "FAILED_VALIDATION",
     "FAILED_FETCH",
@@ -128,6 +140,12 @@ def _default_pattern_factory(*, project_root: Path, repository_id: str) -> "Patt
     return build_pattern_detection_service(project_root=project_root)
 
 
+def _default_narrative_factory(
+    *, project_root: Path, repository_id: str, model: str
+) -> "NarrativeGeneratorService":
+    return build_narrative_service(project_root=project_root, model=model)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -137,6 +155,7 @@ def main(
     analysis_factory: AnalysisFactory = _default_analysis_factory,
     commit_analysis_factory: CommitAnalysisFactory = _default_commit_analysis_factory,
     pattern_factory: PatternFactory = _default_pattern_factory,
+    narrative_factory: NarrativeFactory = _default_narrative_factory,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -163,6 +182,10 @@ def main(
     patterns_parser.add_argument(
         "--hotspot-threshold", type=int, default=_DEFAULT_HOTSPOT_THRESHOLD
     )
+
+    case_study_parser = subparsers.add_parser("case-study")
+    case_study_parser.add_argument("repository_url")
+    case_study_parser.add_argument("--model", default=_DEFAULT_MODEL)
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -206,6 +229,14 @@ def main(
             hotspot_threshold=args.hotspot_threshold,
             project_root=resolved_root,
             pattern_factory=pattern_factory,
+        )
+
+    if args.command == "case-study":
+        return _run_case_study(
+            raw_url=args.repository_url,
+            model=args.model,
+            project_root=resolved_root,
+            narrative_factory=narrative_factory,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -331,6 +362,33 @@ def _print_pattern_report(report: PatternReport) -> None:
             f"{hotspot.file_path}  "
             f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn})"
         )
+
+
+def _run_case_study(
+    *,
+    raw_url: str,
+    model: str,
+    project_root: Path,
+    narrative_factory: NarrativeFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    service = narrative_factory(
+        project_root=project_root,
+        repository_id=repository_id,
+        model=model,
+    )
+    result = service.generate(repository_id)
+    _print_narrative(result)
+    return 0
+
+
+def _print_narrative(result: NarrativeResult) -> None:
+    if result.commit_count == 0:
+        print("No analyses found. Run 'git-it analyze-commits <url>' first.")
+        return
+    print(f"Case Study ({result.commit_count} commits, {result.hotspot_count} hotspot files)")
+    print("=" * 60)
+    print(result.narrative)
 
 
 def _print_analysis_result(result: AnalysisResult) -> None:

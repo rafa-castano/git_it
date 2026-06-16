@@ -5,6 +5,7 @@ from git_it.repository_ingestion.application.commit_analysis_service import Comm
 from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
+from git_it.repository_ingestion.application.narrative_service import NarrativeService
 from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
 )
@@ -27,6 +28,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
     LiteLLMLLMClient,
 )
 from git_it.repository_ingestion.infrastructure.sqlite import (
+    SqliteCommitAnalysisStore,
     SqliteCommitFactStore,
     SqliteCommitReader,
     SqliteFileFactReader,
@@ -104,13 +106,26 @@ def build_commit_analysis_service(
     client: CommitAnalysisClient | None = None,
 ) -> CommitAnalysisService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    analysis_store = SqliteCommitAnalysisStore(db_path)
+    analysis_store.initialize()
     analysis_client = client if client is not None else InstructorCommitAnalysisAdapter(model=model)
     return CommitAnalysisService(
         reader=SqliteCommitReader(db_path),
         client=analysis_client,
+        analysis_writer=analysis_store,
+        analysis_reader=analysis_store,
     )
 
 
 def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     return PatternDetectionService(reader=SqliteFileFactReader(db_path))
+
+
+def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return NarrativeService(
+        analysis_reader=SqliteCommitAnalysisStore(db_path),
+        file_fact_reader=SqliteFileFactReader(db_path),
+        llm_client=LiteLLMLLMClient(model=model),
+    )

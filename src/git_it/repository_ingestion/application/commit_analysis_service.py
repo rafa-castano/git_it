@@ -2,7 +2,12 @@ from git_it.repository_ingestion.application.commit_query_service import (
     CommitReader,
     CommitRecord,
 )
-from git_it.repository_ingestion.application.ports import CommitAnalysisClient, LLMMessage
+from git_it.repository_ingestion.application.ports import (
+    CommitAnalysisClient,
+    CommitAnalysisReader,
+    CommitAnalysisWriter,
+    LLMMessage,
+)
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 
 _SYSTEM_PROMPT = """\
@@ -21,9 +26,18 @@ the JSON.
 
 
 class CommitAnalysisService:
-    def __init__(self, *, reader: CommitReader, client: CommitAnalysisClient) -> None:
+    def __init__(
+        self,
+        *,
+        reader: CommitReader,
+        client: CommitAnalysisClient,
+        analysis_writer: CommitAnalysisWriter | None = None,
+        analysis_reader: CommitAnalysisReader | None = None,
+    ) -> None:
         self._reader = reader
         self._client = client
+        self._analysis_writer = analysis_writer
+        self._analysis_reader = analysis_reader
 
     def analyze_commit(self, commit: CommitRecord) -> CommitAnalysis:
         messages = self._build_messages(commit)
@@ -33,7 +47,20 @@ class CommitAnalysisService:
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]:
         commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
-        return [self.analyze_commit(commit) for commit in commits]
+        results: list[CommitAnalysis] = []
+        for commit in commits:
+            if self._analysis_reader is not None:
+                cached = self._analysis_reader.get_analysis(
+                    repository_id=repository_id, commit_sha=commit.sha
+                )
+                if cached is not None:
+                    results.append(cached)
+                    continue
+            analysis = self.analyze_commit(commit)
+            if self._analysis_writer is not None:
+                self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
+            results.append(analysis)
+        return results
 
     @staticmethod
     def _build_messages(commit: CommitRecord) -> list[LLMMessage]:

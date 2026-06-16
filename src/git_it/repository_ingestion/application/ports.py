@@ -7,6 +7,8 @@ from git_it.repository_ingestion.domain.commits import ExtractedCommit
 __all__ = [
     "CommitAnalysis",
     "CommitAnalysisClient",
+    "CommitAnalysisReader",
+    "CommitAnalysisWriter",
     "CommitExtractor",
     "CommitFactWriter",
     "CommitPersistenceResult",
@@ -105,3 +107,15 @@ class FileChurnRecord:
 
 class FileFactReader(Protocol):
     def get_file_churn(self, repository_id: str) -> list[FileChurnRecord]: ...
+
+
+class CommitAnalysisWriter(Protocol):
+    def save_analysis(self, analysis: CommitAnalysis, *, repository_id: str) -> bool: ...
+
+
+class CommitAnalysisReader(Protocol):
+    def get_analysis(self, *, repository_id: str, commit_sha: str) -> CommitAnalysis | None: ...
+
+    def list_analyses(
+        self, repository_id: str, *, limit: int | None = None
+    ) -> list[CommitAnalysis]: ...
