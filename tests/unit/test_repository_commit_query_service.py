@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from git_it.repository_ingestion.application.commit_query_service import (
     CommitRecord,
     RepositoryCommitQueryService,
@@ -16,18 +18,38 @@ def _make_record(sha: str, committed_at: str = "2026-01-01") -> CommitRecord:
     )
 
 
+@dataclass
+class CommitReaderCall:
+    repository_id: str
+    limit: int | None
+    order: str
+    since: str | None
+    until: str | None
+
+
 class FakeCommitReader:
     def __init__(self, records: list[CommitRecord]) -> None:
         self._records = records
-        self.calls: list[tuple[str, int | None]] = []
+        self.calls: list[CommitReaderCall] = []
 
     def list_commits_for_repository(
         self,
         repository_id: str,
         *,
         limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]:
-        self.calls.append((repository_id, limit))
+        self.calls.append(
+            CommitReaderCall(
+                repository_id=repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+            )
+        )
         return self._records
 
 
@@ -39,7 +61,8 @@ def test_list_commits_delegates_to_reader() -> None:
     result = service.list_commits("repo-1")
 
     assert result == records
-    assert reader.calls == [("repo-1", None)]
+    assert reader.calls[0].repository_id == "repo-1"
+    assert reader.calls[0].limit is None
 
 
 def test_list_commits_passes_limit_to_reader() -> None:
@@ -48,7 +71,7 @@ def test_list_commits_passes_limit_to_reader() -> None:
 
     service.list_commits("repo-1", limit=5)
 
-    assert reader.calls == [("repo-1", 5)]
+    assert reader.calls[0].limit == 5
 
 
 def test_list_commits_returns_empty_list_when_reader_has_none() -> None:

@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from pathlib import Path
+from typing import Literal
 
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
@@ -269,17 +270,29 @@ class SqliteCommitReader:
         repository_id: str,
         *,
         limit: int | None = None,
+        order: Literal["newest", "oldest"] = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]:
-        query = """
+        order_dir = "ASC" if order == "oldest" else "DESC"
+        conditions = ["repository_id = ?"]
+        params: list[object] = [repository_id]
+        if since is not None:
+            conditions.append("substr(committed_at, 1, 10) >= ?")
+            params.append(since)
+        if until is not None:
+            conditions.append("substr(committed_at, 1, 10) <= ?")
+            params.append(until)
+        where = " AND ".join(conditions)
+        query = f"""
             SELECT sha, committed_at, message, author_name, committer_name, parent_shas
             FROM commit_facts
-            WHERE repository_id = ?
-            ORDER BY committed_at DESC
+            WHERE {where}
+            ORDER BY committed_at {order_dir}
         """
-        params: tuple = (repository_id,)
         if limit is not None:
             query += " LIMIT ?"
-            params = (repository_id, limit)
+            params.append(limit)
         with sqlite3.connect(self._database_path) as connection:
             rows = connection.execute(query, params).fetchall()
         return [

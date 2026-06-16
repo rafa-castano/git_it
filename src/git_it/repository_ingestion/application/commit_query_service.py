@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,9 @@ class CommitReader(Protocol):
         repository_id: str,
         *,
         limit: int | None = None,
+        order: Literal["newest", "oldest"] = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]: ...
 
 
@@ -31,5 +34,10 @@ class RepositoryCommitQueryService:
         repository_id: str,
         *,
         limit: int | None = None,
+        order: Literal["newest", "oldest"] = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]:
-        return self._reader.list_commits_for_repository(repository_id, limit=limit)
+        return self._reader.list_commits_for_repository(
+            repository_id, limit=limit, order=order, since=since, until=until
+        )
