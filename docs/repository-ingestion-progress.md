@@ -1801,3 +1801,336 @@ Add a read-only `list-analyses` subcommand so users can inspect stored commit an
 ### Production behavior added
 
 - `interfaces/cli.py` — `AnalysisStoreReader`, `ListAnalysesFactory` protocols; `list-analyses <url> [--limit N]` subcommand; `_run_list_analyses`; `_default_list_analyses_factory` wires `SqliteCommitAnalysisStore`
+
+## Batch 32 — Temporal narrative ordering and test growth signal
+
+### Goal
+
+Make the narrative engine present commits in chronological order (oldest → newest) and add a test growth signal pattern detector.
+
+### Source of truth
+
+- `specs/003-pattern-detection.md`
+- `specs/004-narrative-engine.md`
+
+### Examples covered
+
+- Narrative now orders commits by `committed_at ASC` using a JOIN between `commit_analyses` and `commit_facts`
+- Test growth signal: ratio of test commits to bugfix commits as a quality health indicator
+- `TimestampedAnalysis` DTO carries `committed_at` alongside `CommitAnalysis`
+
+### Tests added
+
+- `tests/unit/test_sqlite_commit_analysis_store.py` — `list_analyses_with_dates` tests
+- `tests/unit/test_narrative_service.py` — temporal ordering tests
+- `tests/unit/test_test_growth_signal.py` — test growth signal detection tests
+
+### Production behavior added
+
+- `application/ports.py` — `TimestampedAnalysis`, `TemporalAnalysisReader` Protocol
+- `infrastructure/sqlite.py` — `SqliteCommitAnalysisStore.list_analyses_with_dates()` with JOIN on `commit_facts`
+- `domain/patterns.py` — `TestGrowthSignal` frozen dataclass; `PatternReport.test_growth_signal`
+- `application/pattern_detection_service.py` — `_compute_test_growth_signal`
+- `application/narrative_service.py` — uses `TemporalAnalysisReader` for chronological ordering
+- `interfaces/cli.py` — `_print_pattern_report` shows test growth signal
+
+## Batch 33 — Ownership concentration pattern detection
+
+### Goal
+
+Detect knowledge silos: files touched by very few authors relative to their commit count.
+
+### Source of truth
+
+- `specs/003-pattern-detection.md`
+
+### Examples covered
+
+- File with 20 commits but only 1 author → ownership concentration (knowledge silo risk)
+- Configurable `ownership_threshold` (default: author_count ≤ 2)
+- JOIN between `file_facts` and `commit_facts` to count distinct authors per file
+
+### Tests added
+
+- `tests/unit/test_ownership_concentration.py` — 7 tests
+- `tests/unit/test_sqlite_ownership_reader.py` — 4 tests
+
+### Production behavior added
+
+- `application/ports.py` — `FileOwnershipRecord`, `OwnershipReader` Protocol
+- `domain/patterns.py` — `OwnershipConcentration` frozen dataclass; `PatternReport.ownership_concentrations`
+- `application/pattern_detection_service.py` — optional `ownership_reader`; `_compute_ownership_concentrations`
+- `infrastructure/sqlite.py` — `SqliteFileFactReader.get_file_ownership()` with JOIN query
+- `composition.py` — wires `SqliteFileFactReader` as `ownership_reader`
+- `interfaces/cli.py` — `_print_pattern_report` shows ownership concentrations
+
+## Batch 34 — Revert signal pattern detection
+
+### Goal
+
+Detect instability via revert commit ratio as a signal of rework or broken workflows.
+
+### Source of truth
+
+- `specs/003-pattern-detection.md`
+
+### Examples covered
+
+- Commit messages starting with `"revert"` (case-insensitive) counted
+- `revert_ratio = revert_count / total_commit_count`
+- Configurable `revert_threshold` (default: ratio ≥ 0.05)
+- Uses `CommitSummaryRecord` reader to scan all commit messages without loading full analyses
+
+### Tests added
+
+- `tests/unit/test_revert_signal_detection.py` — 8 tests
+- `tests/unit/test_sqlite_commit_summary_reader.py` — 4 tests
+
+### Production behavior added
+
+- `application/ports.py` — `CommitSummaryRecord`, `CommitSummaryReader` Protocol
+- `domain/patterns.py` — `RevertSignal` frozen dataclass; `PatternReport.revert_signal`
+- `application/pattern_detection_service.py` — optional `commit_summary_reader`; `_compute_revert_signal`
+- `infrastructure/sqlite.py` — `SqliteCommitReader.list_commit_messages()`
+- `composition.py` — wires `SqliteCommitReader` as `commit_summary_reader`
+- `interfaces/cli.py` — `_print_pattern_report` shows revert signal
+
+## Batch 35 — Case study persistence and cache
+
+### Goal
+
+Cache generated case studies in SQLite so repeated `case-study` calls skip the LLM.
+
+### Source of truth
+
+- `specs/004-narrative-engine.md`
+
+### Examples covered
+
+- First call generates and stores; second call returns cached without LLM
+- `--force` flag bypasses cache and regenerates
+- `CaseStudyRecord` fields: `repository_id`, `narrative`, `commit_count`, `hotspot_count`
+- UPSERT on conflict (not INSERT OR IGNORE) so regeneration overwrites stale data
+
+### Tests added
+
+- `tests/unit/test_case_study_persistence.py` — 6 tests
+- `tests/unit/test_sqlite_case_study_store.py` — 4 tests
+
+### Production behavior added
+
+- `application/ports.py` — `CaseStudyRecord`, `CaseStudyStore` Protocol
+- `infrastructure/sqlite.py` — `SqliteCaseStudyStore` with `case_studies` table; UPSERT on conflict
+- `application/narrative_service.py` — optional `case_study_store`; cache check before LLM call; `force: bool = False` param on `generate()`
+- `composition.py` — `build_narrative_service` wires `SqliteCaseStudyStore`
+- `interfaces/cli.py` — `case-study` gains `--force` flag; `NarrativeGeneratorService` Protocol updated
+
+## Batch 36 — Pipeline run command
+
+### Goal
+
+Add `git-it run <url>` to execute the full pipeline (ingest → analyze-commits → case-study) in a single command.
+
+### Source of truth
+
+- MVP usability requirement
+
+### Examples covered
+
+```text
+$ git-it run https://github.com/owner/repo
+Ingesting...
+Ingestion status: COMPLETED
+Commits: 946 inserted, 0 reused
+Files: 4368 inserted, 0 reused
+Analyzing commits...
+Analyzed 10 commits.
+Generating case study...
+Case Study (10 commits, 3 hotspot files)
+...
+```
+
+With flags: `--model`, `--limit`, `--force`
+
+### Tests added
+
+- `tests/unit/test_pipeline_run_command.py` — 15 tests covering happy path, step invocation, progress output, limit/force/model forwarding, ingestion failure abort
+
+### Production behavior added
+
+- `interfaces/cli.py` — `run` subparser with `--model`, `--limit`, `--force`; `_run_pipeline` orchestrates the three steps; aborts with exit 1 if ingestion fails
+
+## Bug fix — commit SHA truncation breaking JOIN queries
+
+### Problem
+
+`CommitAnalysisService._build_messages()` sends `commit.sha[:12]` to the LLM. The LLM echoes the 12-char SHA back as `CommitAnalysis.commit_sha`. When stored, `commit_analyses.commit_sha` is 12 chars while `commit_facts.sha` is 40 chars. The `list_analyses_with_dates()` JOIN returns zero rows → "No analyses found" on `case-study`.
+
+### Fix
+
+After the LLM call, override with the authoritative full SHA from the commit record:
+
+```python
+analysis = self.analyze_commit(commit)
+analysis = analysis.model_copy(update={"commit_sha": commit.sha})
+```
+
+### Regression test added
+
+`tests/unit/test_commit_analysis_service.py` — `test_analyze_commits_stores_full_sha_not_llm_sha`
+
+### Commit
+
+`8018a1e fix: override commit_sha with full sha after llm analysis`
+
+## Batch 37 — Commit pre-classifier (skip/include/sample)
+
+### Goal
+
+Classify commits before any LLM call to eliminate noise and guarantee high-signal commits are always analyzed.
+
+### Source of truth
+
+- Cost optimization strategy: eliminate automated/bot commits from LLM budget
+
+### Examples covered
+
+- Skip: Dependabot bumps, merge commits, lock file updates, format-only, CI automation, Snyk, Renovate, release/changelog
+- Include: `feat:/fix:/refactor:/perf:` conventional commits, breaking changes (`!` scope, `BREAKING CHANGE`), security/auth/migration keywords, reverts
+- Sample: everything else (default LLM flow)
+- Gotcha: `"fix: typo"` must NOT be `include` — typo check on first 20 chars of first line
+
+### Tests added
+
+- `tests/unit/test_commit_pre_classifier.py` — 31 tests
+- `tests/unit/test_commit_analysis_service.py` — 4 wiring tests
+
+### Production behavior added
+
+- `application/pre_classifier.py` — `CommitPreClassification` dataclass, `CommitPreClassifier` (stateless, pure functions)
+- `application/commit_analysis_service.py` — classifier called after cache check; `skip` → `continue` (no LLM, absent from results)
+
+### Commits
+
+- `da0b4b3 feat: add commit pre-classifier with skip and include rules`
+- `9613f66 feat: wire pre-classifier into commit analysis service`
+
+## Batch 38 — Budget guardrail with `--yes` flag
+
+### Goal
+
+Show how many LLM calls will be made before running, and ask for confirmation when above a threshold.
+
+### Source of truth
+
+- Cost safety: prevent accidental large LLM runs
+
+### Examples covered
+
+```text
+$ git-it run https://github.com/owner/repo
+  143 commits will be sent to LLM.
+143 LLM calls planned. Proceed? [y/N]
+```
+
+```text
+$ git-it run https://github.com/owner/repo --yes   # skips confirmation
+```
+
+### Tests added
+
+- `tests/unit/test_commit_analysis_estimate.py` — 8 tests
+- `tests/unit/test_analyze_commits_cli.py` — 4 budget tests
+- `tests/unit/test_pipeline_run_command.py` — 4 budget tests
+
+### Production behavior added
+
+- `application/commit_analysis_service.py` — `estimate_llm_calls(repository_id, *, limit)` method
+- `interfaces/cli.py` — `CommitBatchService` Protocol gains `estimate_llm_calls`; `--yes` flag on `analyze-commits` and `run`; `budget_confirm_fn` and `budget_threshold` injectable params on `main()` (default threshold: 50)
+
+### Gotchas
+
+- mypy rejects `lambda n: (list.append(n), False)[1]` — use `def` instead
+- `FakeCacheReader` must implement `list_analyses()` even if unused to satisfy Protocol structurally
+
+### Commits
+
+- `4fcb49e feat: add estimate_llm_calls to commit analysis service`
+- `6ff3da6 feat: add budget guardrail with --yes flag`
+
+## Batch 39 — Repo profile injection
+
+### Goal
+
+Inject the existing case study narrative as background context into the system prompt for each commit analysis, so the LLM categorizes commits knowing the project's domain without re-analyzing everything.
+
+### Source of truth
+
+- Quality improvement: context-aware commit categorization
+
+### Examples covered
+
+- First run (no case study): no context injected
+- Second run (case study exists): first 2000 chars of narrative injected as `## Repository Background` in system prompt
+- Context fetched once per `analyze_commits()` batch, passed to every LLM call
+
+### Tests added
+
+- `tests/unit/test_commit_analysis_repo_context.py` — 9 tests
+- `tests/unit/test_sqlite_case_study_store.py` — 2 new tests
+
+### Production behavior added
+
+- `application/ports.py` — `RepoContextReader` Protocol
+- `infrastructure/sqlite.py` — `SqliteCaseStudyStore.get_repo_context()` returns `narrative[:2000]`; constant `_REPO_CONTEXT_MAX_CHARS = 2000`
+- `application/commit_analysis_service.py` — `repo_context_reader` param; `_build_messages` gains `repo_context` kwarg; sentinel pattern to avoid double reader call
+- `composition.py` — `build_commit_analysis_service` wires `SqliteCaseStudyStore` as `repo_context_reader`
+
+### Gotcha
+
+Sentinel pattern (`_SENTINEL = object()`) in `analyze_commit()` distinguishes "no context passed" (consult reader) from "explicit `None`" (skip reader), preventing double fetch when `analyze_commits()` pre-fetches.
+
+### Commits
+
+- `09baa09 feat: add RepoContextReader port and get_repo_context to SqliteCaseStudyStore`
+- `830c49c feat: inject repo context into commit analysis system prompt`
+
+## Batch 40 — Chronological ordering and date filters
+
+### Goal
+
+Allow users to analyze commits from oldest to newest (`--order oldest`) and filter by date range (`--since`, `--until`).
+
+### Source of truth
+
+- UX improvement: "follow the repo from day 1"
+
+### Examples covered
+
+```text
+$ git-it run https://github.com/owner/repo --order oldest --limit 20
+$ git-it analyze-commits https://github.com/owner/repo --since 2024-01-01 --until 2024-06-30
+$ git-it commits https://github.com/owner/repo --order oldest
+```
+
+### Tests added
+
+- `tests/unit/test_sqlite_commit_reader_ordering.py` — 10 tests
+- `tests/unit/test_commit_analysis_ordering.py` — 6 tests
+- New ordering/date tests in CLI test files
+
+### Production behavior added
+
+- `application/commit_query_service.py` — `CommitReader` Protocol and `RepositoryCommitQueryService` extended with `order: str = "newest"`, `since: str | None = None`, `until: str | None = None`
+- `infrastructure/sqlite.py` — conditional `WHERE substr(committed_at, 1, 10) >= ?` / `<= ?` and dynamic `ORDER BY committed_at ASC/DESC`
+- `application/commit_analysis_service.py` — `analyze_commits` and `estimate_llm_calls` forward the new params
+- `interfaces/cli.py` — `--order`, `--since`, `--until` on `commits`, `analyze-commits`, `run`; Protocol updates
+
+### Gotcha
+
+Use `str` (not `Literal["newest", "oldest"]`) in Protocol method signatures. mypy enforces parameter contravariance — a narrower Literal type on the concrete class causes Protocol violations.
+
+### Commits
+
+- `458d7b0 feat: add order, since, until to commit reader and sqlite`
+- `ff67273 feat: wire order, since, until through service and cli`

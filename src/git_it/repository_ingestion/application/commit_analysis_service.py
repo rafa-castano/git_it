@@ -35,12 +35,14 @@ class CommitAnalysisService:
         *,
         reader: CommitReader,
         client: CommitAnalysisClient,
+        sample_client: CommitAnalysisClient | None = None,
         analysis_writer: CommitAnalysisWriter | None = None,
         analysis_reader: CommitAnalysisReader | None = None,
         repo_context_reader: RepoContextReader | None = None,
     ) -> None:
         self._reader = reader
         self._client = client
+        self._sample_client = sample_client
         self._analysis_writer = analysis_writer
         self._analysis_reader = analysis_reader
         self._repo_context_reader = repo_context_reader
@@ -60,8 +62,17 @@ class CommitAnalysisService:
             )
         else:
             resolved = repo_context  # type: ignore[assignment]
-        messages = self._build_messages(commit, repo_context=resolved)
-        return self._client.analyze_commit(messages)
+        return self._analyze_with_client(self._client, commit, repo_context=resolved)
+
+    def _analyze_with_client(
+        self,
+        client: CommitAnalysisClient,
+        commit: CommitRecord,
+        *,
+        repo_context: str | None,
+    ) -> CommitAnalysis:
+        messages = self._build_messages(commit, repo_context=repo_context)
+        return client.analyze_commit(messages)
 
     def analyze_commits(
         self,
@@ -94,8 +105,14 @@ class CommitAnalysisService:
             classification = pre_classifier.classify(commit)
             if classification.decision == "skip":
                 continue
+            # Route to sample_client for sample-tier commits when configured.
+            active_client = (
+                self._sample_client
+                if classification.decision == "sample" and self._sample_client is not None
+                else self._client
+            )
             # Pass context explicitly so analyze_commit does not call the reader again.
-            analysis = self.analyze_commit(commit, repo_context=repo_context)
+            analysis = self._analyze_with_client(active_client, commit, repo_context=repo_context)
             analysis = analysis.model_copy(update={"commit_sha": commit.sha})
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
