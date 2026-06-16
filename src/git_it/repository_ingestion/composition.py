@@ -129,8 +129,10 @@ def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionSe
 
 def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteCommitAnalysisStore(db_path)
+    store.initialize()
     return NarrativeService(
-        analysis_reader=SqliteCommitAnalysisStore(db_path),
+        temporal_reader=store,
         pattern_service=build_pattern_detection_service(project_root=project_root),
         llm_client=LiteLLMLLMClient(model=model),
     )

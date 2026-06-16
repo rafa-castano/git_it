@@ -418,6 +418,13 @@ def _print_pattern_report(report: PatternReport) -> None:
         print(
             f"Refactor Wave: {report.refactor_wave.commit_count} refactor commits ({pct}% of total)"
         )
+        print()
+    if report.test_growth_signal is not None:
+        sig = report.test_growth_signal
+        print(
+            f"Test Growth Signal: {sig.test_commit_count} test commits"
+            f" vs {sig.bugfix_commit_count} bugfix commits (ratio: {sig.test_to_bugfix_ratio})"
+        )
 
 
 def _run_case_study(

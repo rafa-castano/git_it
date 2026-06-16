@@ -22,6 +22,8 @@ __all__ = [
     "IngestionRunWriter",
     "LLMClient",
     "LLMMessage",
+    "TemporalAnalysisReader",
+    "TimestampedAnalysis",
 ]
 
 
@@ -119,3 +121,13 @@ class CommitAnalysisReader(Protocol):
     def list_analyses(
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]: ...
+
+
+@dataclass(frozen=True)
+class TimestampedAnalysis:
+    analysis: CommitAnalysis
+    committed_at: str
+
+
+class TemporalAnalysisReader(Protocol):
+    def list_analyses_with_dates(self, repository_id: str) -> list[TimestampedAnalysis]: ...

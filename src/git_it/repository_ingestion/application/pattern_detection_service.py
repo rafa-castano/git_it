@@ -6,6 +6,7 @@ from git_it.repository_ingestion.domain.patterns import (
     Hotspot,
     PatternReport,
     RefactorWave,
+    TestGrowthSignal,
 )
 
 _DEFAULT_HOTSPOT_THRESHOLD = 5
@@ -51,6 +52,8 @@ class PatternDetectionService:
         bugfix_recurrences: list[BugfixRecurrence] = []
         refactor_wave: RefactorWave | None = None
 
+        test_growth_signal: TestGrowthSignal | None = None
+
         if self._analysis_reader is not None:
             analyses = self._analysis_reader.list_analyses(repository_id)
             category_counts = _compute_category_counts(analyses)
@@ -58,6 +61,7 @@ class PatternDetectionService:
                 analyses, threshold=bugfix_recurrence_threshold
             )
             refactor_wave = _compute_refactor_wave(analyses, threshold=refactor_wave_threshold)
+            test_growth_signal = _compute_test_growth_signal(analyses)
 
         return PatternReport(
             repository_id=repository_id,
@@ -65,7 +69,20 @@ class PatternDetectionService:
             category_counts=category_counts,
             bugfix_recurrences=bugfix_recurrences,
             refactor_wave=refactor_wave,
+            test_growth_signal=test_growth_signal,
         )
+
+
+def _compute_test_growth_signal(analyses: list[CommitAnalysis]) -> TestGrowthSignal | None:
+    bugfix_count = sum(1 for a in analyses if a.category == CommitCategory.BUGFIX)
+    test_count = sum(1 for a in analyses if a.category == CommitCategory.TEST)
+    if bugfix_count == 0 or test_count == 0:
+        return None
+    return TestGrowthSignal(
+        test_commit_count=test_count,
+        bugfix_commit_count=bugfix_count,
+        test_to_bugfix_ratio=round(test_count / bugfix_count, 2),
+    )
 
 
 def _compute_category_counts(analyses: list[CommitAnalysis]) -> list[CategoryCount]:

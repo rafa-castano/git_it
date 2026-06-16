@@ -31,6 +31,13 @@ class RefactorWave:
     refactor_ratio: float
 
 
+@dataclass(frozen=True)
+class TestGrowthSignal:
+    test_commit_count: int
+    bugfix_commit_count: int
+    test_to_bugfix_ratio: float
+
+
 @dataclass
 class PatternReport:
     repository_id: str
@@ -38,3 +45,4 @@ class PatternReport:
     category_counts: list[CategoryCount] = field(default_factory=list)
     bugfix_recurrences: list[BugfixRecurrence] = field(default_factory=list)
     refactor_wave: RefactorWave | None = None
+    test_growth_signal: TestGrowthSignal | None = None

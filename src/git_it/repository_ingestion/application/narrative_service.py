@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from git_it.repository_ingestion.application.ports import (
-    CommitAnalysisReader,
     LLMClient,
     LLMMessage,
+    TemporalAnalysisReader,
+    TimestampedAnalysis,
 )
-from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.patterns import PatternReport
 
 _SYSTEM_PROMPT = """\
@@ -50,17 +50,17 @@ class NarrativeService:
     def __init__(
         self,
         *,
-        analysis_reader: CommitAnalysisReader,
+        temporal_reader: TemporalAnalysisReader,
         pattern_service: HotspotDetector,
         llm_client: LLMClient,
     ) -> None:
-        self._analysis_reader = analysis_reader
+        self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
         self._llm_client = llm_client
 
     def generate(self, repository_id: str) -> NarrativeResult:
-        analyses = self._analysis_reader.list_analyses(repository_id)
-        if not analyses:
+        items = self._temporal_reader.list_analyses_with_dates(repository_id)
+        if not items:
             return NarrativeResult(
                 repository_id=repository_id,
                 commit_count=0,
@@ -68,7 +68,7 @@ class NarrativeService:
                 narrative="",
             )
         report = self._pattern_service.detect(repository_id)
-        user_content = self._build_user_message(analyses, report)
+        user_content = self._build_user_message(items, report)
         messages = [
             LLMMessage(role="system", content=_SYSTEM_PROMPT),
             LLMMessage(role="user", content=user_content),
@@ -76,25 +76,27 @@ class NarrativeService:
         narrative = self._llm_client.complete(messages)
         return NarrativeResult(
             repository_id=repository_id,
-            commit_count=len(analyses),
+            commit_count=len(items),
             hotspot_count=len(report.hotspots),
             narrative=narrative,
         )
 
     @staticmethod
     def _build_user_message(
-        analyses: list[CommitAnalysis],
+        items: list[TimestampedAnalysis],
         report: PatternReport,
     ) -> str:
         lines = [
-            f"Generate a case study for a repository with {len(analyses)} analyzed commits.\n",
+            f"Generate a case study for a repository with {len(items)} analyzed commits.\n",
             "[REPOSITORY DATA]",
             "",
-            "## Commit Analyses",
+            "## Commit Analyses (chronological order)",
         ]
-        for a in analyses:
+        for item in items:
+            a = item.analysis
+            date = item.committed_at[:10]
             lines.append(
-                f"- {a.commit_sha[:7]}  [{a.category.value}]  {a.summary}"
+                f"- {a.commit_sha[:7]}  {date}  [{a.category.value}]  {a.summary}"
                 f"  (risk: {a.risk_level.value}, confidence: {int(a.confidence * 100)}%)"
             )
         if report.category_counts:
@@ -121,6 +123,14 @@ class NarrativeService:
             lines.append(
                 f"## Refactor Wave Detected: {report.refactor_wave.commit_count} refactor"
                 f" commits ({pct}% of total)"
+            )
+        if report.test_growth_signal is not None:
+            sig = report.test_growth_signal
+            lines.append("")
+            lines.append(
+                f"## Test Growth Signal: {sig.test_commit_count} test commits"
+                f" vs {sig.bugfix_commit_count} bugfix commits"
+                f" (ratio: {sig.test_to_bugfix_ratio})"
             )
         lines.append("")
         lines.append("[/REPOSITORY DATA]")

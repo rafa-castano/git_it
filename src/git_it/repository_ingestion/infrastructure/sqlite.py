@@ -7,6 +7,7 @@ from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
     FileChurnRecord,
     IngestionRunRecord,
+    TimestampedAnalysis,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
@@ -337,6 +338,27 @@ class SqliteCommitAnalysisStore:
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [CommitAnalysis.model_validate_json(str(row[0])) for row in rows]
+
+    def list_analyses_with_dates(self, repository_id: str) -> list[TimestampedAnalysis]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT ca.data, cf.committed_at
+                FROM commit_analyses ca
+                JOIN commit_facts cf
+                  ON ca.repository_id = cf.repository_id AND ca.commit_sha = cf.sha
+                WHERE ca.repository_id = ?
+                ORDER BY cf.committed_at ASC
+                """,
+                (repository_id,),
+            ).fetchall()
+        return [
+            TimestampedAnalysis(
+                analysis=CommitAnalysis.model_validate_json(str(row[0])),
+                committed_at=str(row[1]),
+            )
+            for row in rows
+        ]
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)
