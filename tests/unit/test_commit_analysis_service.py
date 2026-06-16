@@ -135,3 +135,40 @@ def test_analyze_commits_stores_full_sha_not_llm_sha() -> None:
     service, _, _ = _make_service(records=[record], response=llm_response)
     results = service.analyze_commits("repo-1")
     assert results[0].commit_sha == full_sha
+
+
+# ---------------------------------------------------------------------------
+# Pre-classifier wiring tests
+# ---------------------------------------------------------------------------
+
+
+def test_skipped_commit_does_not_call_llm() -> None:
+    # A Dependabot bump is classified as "skip" — LLM must NOT be called.
+    records = [_make_record(message="Bump lodash from 4.17.20 to 4.17.21")]
+    service, _, client = _make_service(records=records)
+    service.analyze_commits("repo-1")
+    assert len(client.calls) == 0
+
+
+def test_skipped_commit_not_in_results() -> None:
+    # A Dependabot bump must not appear in the returned analysis list.
+    records = [_make_record(message="Bump lodash from 4.17.20 to 4.17.21")]
+    service, _, _ = _make_service(records=records)
+    results = service.analyze_commits("repo-1")
+    assert results == []
+
+
+def test_included_commit_calls_llm() -> None:
+    # A feat: commit is classified as "include" — LLM must be called.
+    records = [_make_record(message="feat: add user authentication")]
+    service, _, client = _make_service(records=records)
+    service.analyze_commits("repo-1")
+    assert len(client.calls) == 1
+
+
+def test_sample_commit_calls_llm_by_default() -> None:
+    # A regular commit gets "sample" decision — LLM is still called.
+    records = [_make_record(message="Add logging to request handler")]
+    service, _, client = _make_service(records=records)
+    service.analyze_commits("repo-1")
+    assert len(client.calls) == 1

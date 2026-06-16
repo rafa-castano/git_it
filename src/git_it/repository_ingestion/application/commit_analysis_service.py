@@ -8,6 +8,7 @@ from git_it.repository_ingestion.application.ports import (
     CommitAnalysisWriter,
     LLMMessage,
 )
+from git_it.repository_ingestion.application.pre_classifier import CommitPreClassifier
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 
 _SYSTEM_PROMPT = """\
@@ -47,6 +48,7 @@ class CommitAnalysisService:
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]:
         commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
+        pre_classifier = CommitPreClassifier()
         results: list[CommitAnalysis] = []
         for commit in commits:
             if self._analysis_reader is not None:
@@ -56,6 +58,9 @@ class CommitAnalysisService:
                 if cached is not None:
                     results.append(cached)
                     continue
+            classification = pre_classifier.classify(commit)
+            if classification.decision == "skip":
+                continue
             analysis = self.analyze_commit(commit)
             analysis = analysis.model_copy(update={"commit_sha": commit.sha})
             if self._analysis_writer is not None:
