@@ -57,6 +57,7 @@ class CommitAnalysisService:
                     results.append(cached)
                     continue
             analysis = self.analyze_commit(commit)
+            analysis = analysis.model_copy(update={"commit_sha": commit.sha})
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
             results.append(analysis)

@@ -123,3 +123,15 @@ def test_analyze_commits_empty_repository_does_not_call_client() -> None:
     results = service.analyze_commits("repo-1")
     assert results == []
     assert client.calls == []
+
+
+def test_analyze_commits_stores_full_sha_not_llm_sha() -> None:
+    # LLM receives truncated SHA in prompt and may echo it back as commit_sha.
+    # The service must override commit_sha with the authoritative full SHA from
+    # the commit record so that JOIN queries against commit_facts work correctly.
+    full_sha = "a" * 40
+    llm_response = _make_analysis(sha=full_sha[:12])  # LLM only sees 12 chars
+    record = _make_record(sha=full_sha)
+    service, _, _ = _make_service(records=[record], response=llm_response)
+    results = service.analyze_commits("repo-1")
+    assert results[0].commit_sha == full_sha
