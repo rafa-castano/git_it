@@ -1,6 +1,8 @@
 from pathlib import Path
 
+from git_it.repository_ingestion.application.ports import CommitExtractor
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
+from git_it.repository_ingestion.infrastructure.commits import GitPythonCommitExtractor
 from git_it.repository_ingestion.infrastructure.git import (
     GitCommandRunner,
     SafeGitGateway,
@@ -18,6 +20,7 @@ def build_repository_ingestion_service(
     project_root: Path,
     repository_id: str,
     runner: GitCommandRunner | None = None,
+    commit_extractor: CommitExtractor | None = None,
 ) -> RepositoryIngestionService:
     cache_path = repository_cache_path(project_root, repository_id=repository_id)
     git_gateway = SafeGitGateway(
@@ -26,8 +29,14 @@ def build_repository_ingestion_service(
     )
     run_store = SqliteIngestionRunStore(ingestion_workspace_root(project_root) / "git-it.sqlite3")
     run_store.initialize()
+    extractor = (
+        commit_extractor
+        if commit_extractor is not None
+        else GitPythonCommitExtractor(cache_path=cache_path)
+    )
     return RepositoryIngestionService(
         git_gateway=git_gateway,
+        commit_extractor=extractor,
         repository_id=repository_id,
         run_writer=run_store,
     )
