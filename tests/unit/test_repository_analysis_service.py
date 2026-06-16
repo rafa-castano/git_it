@@ -38,6 +38,9 @@ class FakeCommitReader:
         repository_id: str,
         *,
         limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]:
         self.calls.append((repository_id, limit))
         return self._records

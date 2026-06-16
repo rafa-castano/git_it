@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -25,19 +26,50 @@ def _make_analysis(sha: str = "abc1234", summary: str = "Added a feature") -> Co
     )
 
 
+@dataclass
+class CommitBatchCall:
+    repository_id: str
+    limit: int | None
+    order: str
+    since: str | None
+    until: str | None
+
+
 class FakeCommitBatchService:
     def __init__(self, analyses: list[CommitAnalysis] | None = None, estimate: int = 0) -> None:
         self._analyses = analyses or []
         self._estimate = estimate
-        self.calls: list[tuple[str, int | None]] = []
+        self.calls: list[CommitBatchCall] = []
 
     def analyze_commits(
-        self, repository_id: str, *, limit: int | None = None
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitAnalysis]:
-        self.calls.append((repository_id, limit))
+        self.calls.append(
+            CommitBatchCall(
+                repository_id=repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+            )
+        )
         return self._analyses
 
-    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int:
+    def estimate_llm_calls(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+    ) -> int:
         return self._estimate
 
 
@@ -92,7 +124,7 @@ def test_analyze_commits_passes_limit_to_service(tmp_path: Path) -> None:
         project_root=tmp_path,
         commit_analysis_factory=_factory(service),
     )
-    assert service.calls[0][1] == 3
+    assert service.calls[0].limit == 3
 
 
 def test_analyze_commits_yes_flag_skips_budget_confirmation(tmp_path: Path) -> None:
@@ -166,3 +198,33 @@ def test_analyze_commits_no_confirmation_when_under_threshold(tmp_path: Path) ->
     )
 
     assert confirm_called == []
+
+
+def test_analyze_commits_order_oldest_passed_to_service(tmp_path: Path) -> None:
+    service = FakeCommitBatchService()
+    main(
+        ["analyze-commits", "https://github.com/owner/repo", "--order", "oldest"],
+        project_root=tmp_path,
+        commit_analysis_factory=_factory(service),
+    )
+    assert service.calls[0].order == "oldest"
+
+
+def test_analyze_commits_since_passed_to_service(tmp_path: Path) -> None:
+    service = FakeCommitBatchService()
+    main(
+        ["analyze-commits", "https://github.com/owner/repo", "--since", "2024-01-01"],
+        project_root=tmp_path,
+        commit_analysis_factory=_factory(service),
+    )
+    assert service.calls[0].since == "2024-01-01"
+
+
+def test_analyze_commits_until_passed_to_service(tmp_path: Path) -> None:
+    service = FakeCommitBatchService()
+    main(
+        ["analyze-commits", "https://github.com/owner/repo", "--until", "2024-12-31"],
+        project_root=tmp_path,
+        commit_analysis_factory=_factory(service),
+    )
+    assert service.calls[0].until == "2024-12-31"

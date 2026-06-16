@@ -49,7 +49,13 @@ class FakeCommitReader:
         self._records = records
 
     def list_commits_for_repository(
-        self, repository_id: str, *, limit: int | None = None
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]:
         return list(self._records)
 

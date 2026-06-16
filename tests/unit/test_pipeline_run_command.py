@@ -27,19 +27,50 @@ class FakeIngestionService:
         return self.result
 
 
+@dataclass
+class CommitBatchCall:
+    repository_id: str
+    limit: int | None
+    order: str
+    since: str | None
+    until: str | None
+
+
 class FakeCommitBatchService:
     def __init__(self, analyses: list[CommitAnalysis] | None = None, estimate: int = 0) -> None:
         self._analyses = analyses or []
         self._estimate = estimate
-        self.calls: list[tuple[str, int | None]] = []
+        self.calls: list[CommitBatchCall] = []
 
     def analyze_commits(
-        self, repository_id: str, *, limit: int | None = None
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitAnalysis]:
-        self.calls.append((repository_id, limit))
+        self.calls.append(
+            CommitBatchCall(
+                repository_id=repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+            )
+        )
         return self._analyses
 
-    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int:
+    def estimate_llm_calls(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+    ) -> int:
         return self._estimate
 
 
@@ -260,7 +291,7 @@ def test_run_passes_limit_to_commit_analysis_step(tmp_path: Path) -> None:
         narrative_factory=_narrative_factory(narrative_svc),
     )
 
-    assert commit_svc.calls[0][1] == 7
+    assert commit_svc.calls[0].limit == 7
 
 
 def test_run_does_not_pass_limit_to_narrative_step(tmp_path: Path) -> None:
@@ -511,3 +542,35 @@ def test_run_no_confirmation_when_under_threshold(tmp_path: Path) -> None:
     )
 
     assert confirm_called == []
+
+
+def test_run_order_oldest_passed_to_commit_service(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()])
+    narrative_svc = FakeNarrativeService()
+
+    main(
+        ["run", "https://github.com/owner/repo", "--order", "oldest"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert commit_svc.calls[0].order == "oldest"
+
+
+def test_run_since_passed_to_commit_service(tmp_path: Path) -> None:
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()])
+    narrative_svc = FakeNarrativeService()
+
+    main(
+        ["run", "https://github.com/owner/repo", "--since", "2024-01-01"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert commit_svc.calls[0].since == "2024-01-01"

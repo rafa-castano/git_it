@@ -41,6 +41,9 @@ class CommitQueryService(Protocol):
         repository_id: str,
         *,
         limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitRecord]: ...
 
 
@@ -65,10 +68,24 @@ class AnalysisFactory(Protocol):
 
 class CommitBatchService(Protocol):
     def analyze_commits(
-        self, repository_id: str, *, limit: int | None = None
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitAnalysis]: ...
 
-    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int: ...
+    def estimate_llm_calls(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+    ) -> int: ...
 
 
 class CommitAnalysisFactory(Protocol):
@@ -208,6 +225,18 @@ def main(
     commits_parser = subparsers.add_parser("commits")
     commits_parser.add_argument("repository_url")
     commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMITS_LIMIT)
+    commits_parser.add_argument(
+        "--order",
+        choices=["newest", "oldest"],
+        default="newest",
+        help="Commit order: newest (default) or oldest first",
+    )
+    commits_parser.add_argument(
+        "--since", default=None, metavar="YYYY-MM-DD", help="Include commits from this date onwards"
+    )
+    commits_parser.add_argument(
+        "--until", default=None, metavar="YYYY-MM-DD", help="Include commits up to this date"
+    )
 
     analyze_parser = subparsers.add_parser("analyze")
     analyze_parser.add_argument("repository_url")
@@ -220,6 +249,18 @@ def main(
     analyze_commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
     analyze_commits_parser.add_argument(
         "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
+    )
+    analyze_commits_parser.add_argument(
+        "--order",
+        choices=["newest", "oldest"],
+        default="newest",
+        help="Commit order: newest (default) or oldest first",
+    )
+    analyze_commits_parser.add_argument(
+        "--since", default=None, metavar="YYYY-MM-DD", help="Include commits from this date onwards"
+    )
+    analyze_commits_parser.add_argument(
+        "--until", default=None, metavar="YYYY-MM-DD", help="Include commits up to this date"
     )
 
     patterns_parser = subparsers.add_parser("patterns")
@@ -251,6 +292,18 @@ def main(
     run_parser.add_argument(
         "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
     )
+    run_parser.add_argument(
+        "--order",
+        choices=["newest", "oldest"],
+        default="newest",
+        help="Commit order: newest (default) or oldest first",
+    )
+    run_parser.add_argument(
+        "--since", default=None, metavar="YYYY-MM-DD", help="Include commits from this date onwards"
+    )
+    run_parser.add_argument(
+        "--until", default=None, metavar="YYYY-MM-DD", help="Include commits up to this date"
+    )
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -266,6 +319,9 @@ def main(
         return _run_commits(
             raw_url=args.repository_url,
             limit=args.limit,
+            order=args.order,
+            since=args.since,
+            until=args.until,
             project_root=resolved_root,
             commit_query_factory=commit_query_factory,
         )
@@ -285,6 +341,9 @@ def main(
             model=args.model,
             limit=args.limit,
             yes=args.yes,
+            order=args.order,
+            since=args.since,
+            until=args.until,
             project_root=resolved_root,
             commit_analysis_factory=commit_analysis_factory,
             budget_confirm_fn=budget_confirm_fn,
@@ -323,6 +382,9 @@ def main(
             limit=args.limit,
             force=args.force,
             yes=args.yes,
+            order=args.order,
+            since=args.since,
+            until=args.until,
             project_root=resolved_root,
             service_factory=service_factory,
             commit_analysis_factory=commit_analysis_factory,
@@ -341,6 +403,9 @@ def _run_pipeline(
     limit: int,
     force: bool,
     yes: bool,
+    order: str,
+    since: str | None,
+    until: str | None,
     project_root: Path,
     service_factory: ServiceFactory,
     commit_analysis_factory: CommitAnalysisFactory,
@@ -363,13 +428,17 @@ def _run_pipeline(
     commit_service = commit_analysis_factory(
         project_root=project_root, repository_id=repository_id, model=model
     )
-    estimate = commit_service.estimate_llm_calls(repository_id, limit=limit)
+    estimate = commit_service.estimate_llm_calls(
+        repository_id, limit=limit, order=order, since=since, until=until
+    )
     print(f"  {estimate} commits will be sent to LLM.")
     if estimate > budget_threshold and not yes:
         if not budget_confirm_fn(estimate):
             print("Aborted.")
             return 1
-    analyses = commit_service.analyze_commits(repository_id, limit=limit)
+    analyses = commit_service.analyze_commits(
+        repository_id, limit=limit, order=order, since=since, until=until
+    )
     print(f"Analyzed {len(analyses)} commits.")
 
     # Step 3: generate case study
@@ -402,12 +471,17 @@ def _run_commits(
     *,
     raw_url: str,
     limit: int,
+    order: str,
+    since: str | None,
+    until: str | None,
     project_root: Path,
     commit_query_factory: CommitQueryFactory,
 ) -> int:
     repository_id = repository_id_for_url(raw_url)
     service = commit_query_factory(project_root=project_root, repository_id=repository_id)
-    commits = service.list_commits(repository_id, limit=limit)
+    commits = service.list_commits(
+        repository_id, limit=limit, order=order, since=since, until=until
+    )
     _print_commits(commits)
     return 0
 
@@ -437,6 +511,9 @@ def _run_analyze_commits(
     model: str,
     limit: int,
     yes: bool,
+    order: str,
+    since: str | None,
+    until: str | None,
     project_root: Path,
     commit_analysis_factory: CommitAnalysisFactory,
     budget_confirm_fn: Callable[[int], bool],
@@ -448,13 +525,17 @@ def _run_analyze_commits(
         repository_id=repository_id,
         model=model,
     )
-    estimate = service.estimate_llm_calls(repository_id, limit=limit)
+    estimate = service.estimate_llm_calls(
+        repository_id, limit=limit, order=order, since=since, until=until
+    )
     print(f"  {estimate} commits will be sent to LLM.")
     if estimate > budget_threshold and not yes:
         if not budget_confirm_fn(estimate):
             print("Aborted.")
             return 1
-    analyses = service.analyze_commits(repository_id, limit=limit)
+    analyses = service.analyze_commits(
+        repository_id, limit=limit, order=order, since=since, until=until
+    )
     _print_commit_analyses(analyses)
     return 0
 

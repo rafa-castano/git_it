@@ -64,7 +64,13 @@ class CommitAnalysisService:
         return self._client.analyze_commit(messages)
 
     def analyze_commits(
-        self, repository_id: str, *, limit: int | None = None
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
     ) -> list[CommitAnalysis]:
         # Fetch context once — avoid per-commit reader calls.
         repo_context: str | None = (
@@ -72,7 +78,9 @@ class CommitAnalysisService:
             if self._repo_context_reader is not None
             else None
         )
-        commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
+        commits = self._reader.list_commits_for_repository(
+            repository_id, limit=limit, order=order, since=since, until=until
+        )
         pre_classifier = CommitPreClassifier()
         results: list[CommitAnalysis] = []
         for commit in commits:
@@ -94,9 +102,19 @@ class CommitAnalysisService:
             results.append(analysis)
         return results
 
-    def estimate_llm_calls(self, repository_id: str, *, limit: int | None = None) -> int:
+    def estimate_llm_calls(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+    ) -> int:
         """Return the number of commits that would call the LLM (not cached, not skipped)."""
-        commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
+        commits = self._reader.list_commits_for_repository(
+            repository_id, limit=limit, order=order, since=since, until=until
+        )
         count = 0
         classifier = CommitPreClassifier()
         for commit in commits:

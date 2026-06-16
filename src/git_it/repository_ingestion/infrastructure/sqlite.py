@@ -1,7 +1,6 @@
 import json
 import sqlite3
 from pathlib import Path
-from typing import Literal
 
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
@@ -270,7 +269,7 @@ class SqliteCommitReader:
         repository_id: str,
         *,
         limit: int | None = None,
-        order: Literal["newest", "oldest"] = "newest",
+        order: str = "newest",
         since: str | None = None,
         until: str | None = None,
     ) -> list[CommitRecord]:
