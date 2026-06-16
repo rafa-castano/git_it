@@ -7,6 +7,7 @@ from git_it.repository_ingestion.application.ports import (
     CommitAnalysisReader,
     CommitAnalysisWriter,
     LLMMessage,
+    RepoContextReader,
 )
 from git_it.repository_ingestion.application.pre_classifier import CommitPreClassifier
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
@@ -25,6 +26,8 @@ Return ONLY a JSON object matching the required schema. Do not add explanatory t
 the JSON.
 """
 
+_SENTINEL: object = object()  # unique identity used to detect "not passed" in analyze_commit
+
 
 class CommitAnalysisService:
     def __init__(
@@ -34,19 +37,41 @@ class CommitAnalysisService:
         client: CommitAnalysisClient,
         analysis_writer: CommitAnalysisWriter | None = None,
         analysis_reader: CommitAnalysisReader | None = None,
+        repo_context_reader: RepoContextReader | None = None,
     ) -> None:
         self._reader = reader
         self._client = client
         self._analysis_writer = analysis_writer
         self._analysis_reader = analysis_reader
+        self._repo_context_reader = repo_context_reader
 
-    def analyze_commit(self, commit: CommitRecord) -> CommitAnalysis:
-        messages = self._build_messages(commit)
+    def analyze_commit(
+        self,
+        commit: CommitRecord,
+        *,
+        repo_context: str | None | object = _SENTINEL,
+    ) -> CommitAnalysis:
+        if repo_context is _SENTINEL:
+            # No explicit context passed — consult the reader if available.
+            resolved: str | None = (
+                self._repo_context_reader.get_repo_context(commit.repository_id)
+                if self._repo_context_reader is not None
+                else None
+            )
+        else:
+            resolved = repo_context  # type: ignore[assignment]
+        messages = self._build_messages(commit, repo_context=resolved)
         return self._client.analyze_commit(messages)
 
     def analyze_commits(
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]:
+        # Fetch context once — avoid per-commit reader calls.
+        repo_context: str | None = (
+            self._repo_context_reader.get_repo_context(repository_id)
+            if self._repo_context_reader is not None
+            else None
+        )
         commits = self._reader.list_commits_for_repository(repository_id, limit=limit)
         pre_classifier = CommitPreClassifier()
         results: list[CommitAnalysis] = []
@@ -61,7 +86,8 @@ class CommitAnalysisService:
             classification = pre_classifier.classify(commit)
             if classification.decision == "skip":
                 continue
-            analysis = self.analyze_commit(commit)
+            # Pass context explicitly so analyze_commit does not call the reader again.
+            analysis = self.analyze_commit(commit, repo_context=repo_context)
             analysis = analysis.model_copy(update={"commit_sha": commit.sha})
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
@@ -86,7 +112,12 @@ class CommitAnalysisService:
         return count
 
     @staticmethod
-    def _build_messages(commit: CommitRecord) -> list[LLMMessage]:
+    def _build_messages(
+        commit: CommitRecord, *, repo_context: str | None = None
+    ) -> list[LLMMessage]:
+        system = _SYSTEM_PROMPT
+        if repo_context:
+            system = system + "\n\n## Repository Background\n\n" + repo_context
         user_content = (
             f"Analyze the following commit:\n\n"
             f"[REPOSITORY DATA]\n"
@@ -97,6 +128,6 @@ class CommitAnalysisService:
             f"[/REPOSITORY DATA]"
         )
         return [
-            LLMMessage(role="system", content=_SYSTEM_PROMPT),
+            LLMMessage(role="system", content=system),
             LLMMessage(role="user", content=user_content),
         ]
