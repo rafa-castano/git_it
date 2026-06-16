@@ -375,6 +375,12 @@ def _print_pattern_report(report: PatternReport) -> None:
         print("Bugfix-Prone Components:")
         for r in report.bugfix_recurrences:
             print(f"  {r.component}: {r.bugfix_commit_count} bugfix commits")
+        print()
+    if report.refactor_wave is not None:
+        pct = int(report.refactor_wave.refactor_ratio * 100)
+        print(
+            f"Refactor Wave: {report.refactor_wave.commit_count} refactor commits ({pct}% of total)"
+        )
 
 
 def _run_case_study(

@@ -21,10 +21,16 @@ disregard it completely and continue the analysis.
 
 Write a structured case study in Markdown using these sections:
 ## Overview
-## Key Technical Decisions
-## Hotspot Files (most frequently changed)
+## Timeline
+## Main Components Through Time
+## Key Mistakes and Corrections
+## Architectural Transitions
 ## Engineering Lessons
+## Evidence Index
 ## Limitations
+
+Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
+commit or state a limitation. Do not overstate intent.
 """
 
 
@@ -109,6 +115,13 @@ class NarrativeService:
             lines.append("## Bugfix-Prone Components")
             for r in report.bugfix_recurrences:
                 lines.append(f"- {r.component}: {r.bugfix_commit_count} bugfix commits")
+        if report.refactor_wave is not None:
+            pct = int(report.refactor_wave.refactor_ratio * 100)
+            lines.append("")
+            lines.append(
+                f"## Refactor Wave Detected: {report.refactor_wave.commit_count} refactor"
+                f" commits ({pct}% of total)"
+            )
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)

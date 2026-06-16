@@ -5,10 +5,12 @@ from git_it.repository_ingestion.domain.patterns import (
     CategoryCount,
     Hotspot,
     PatternReport,
+    RefactorWave,
 )
 
 _DEFAULT_HOTSPOT_THRESHOLD = 5
 _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD = 2
+_DEFAULT_REFACTOR_WAVE_THRESHOLD = 3
 
 
 class PatternDetectionService:
@@ -27,6 +29,7 @@ class PatternDetectionService:
         *,
         hotspot_threshold: int = _DEFAULT_HOTSPOT_THRESHOLD,
         bugfix_recurrence_threshold: int = _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD,
+        refactor_wave_threshold: int = _DEFAULT_REFACTOR_WAVE_THRESHOLD,
     ) -> PatternReport:
         churn_records = self._reader.get_file_churn(repository_id)
         hotspots = sorted(
@@ -46,6 +49,7 @@ class PatternDetectionService:
 
         category_counts: list[CategoryCount] = []
         bugfix_recurrences: list[BugfixRecurrence] = []
+        refactor_wave: RefactorWave | None = None
 
         if self._analysis_reader is not None:
             analyses = self._analysis_reader.list_analyses(repository_id)
@@ -53,12 +57,14 @@ class PatternDetectionService:
             bugfix_recurrences = _compute_bugfix_recurrences(
                 analyses, threshold=bugfix_recurrence_threshold
             )
+            refactor_wave = _compute_refactor_wave(analyses, threshold=refactor_wave_threshold)
 
         return PatternReport(
             repository_id=repository_id,
             hotspots=hotspots,
             category_counts=category_counts,
             bugfix_recurrences=bugfix_recurrences,
+            refactor_wave=refactor_wave,
         )
 
 
@@ -70,6 +76,21 @@ def _compute_category_counts(analyses: list[CommitAnalysis]) -> list[CategoryCou
         [CategoryCount(category=cat, count=cnt) for cat, cnt in counts.items()],
         key=lambda c: c.count,
         reverse=True,
+    )
+
+
+def _compute_refactor_wave(
+    analyses: list[CommitAnalysis], *, threshold: int
+) -> RefactorWave | None:
+    total = len(analyses)
+    if total == 0:
+        return None
+    refactor_count = sum(1 for a in analyses if a.category == CommitCategory.REFACTOR)
+    if refactor_count < threshold:
+        return None
+    return RefactorWave(
+        commit_count=refactor_count,
+        refactor_ratio=round(refactor_count / total, 2),
     )
 
 

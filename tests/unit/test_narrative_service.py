@@ -204,3 +204,32 @@ def test_generate_includes_bugfix_recurrences_in_prompt() -> None:
     service.generate("repo-1")
     combined = " ".join(m.content for m in client.calls[0])
     assert "auth" in combined
+
+
+def test_generate_includes_refactor_wave_in_prompt() -> None:
+    from git_it.repository_ingestion.domain.patterns import RefactorWave
+
+    report = PatternReport(
+        repository_id="repo-1",
+        hotspots=[],
+        refactor_wave=RefactorWave(commit_count=5, refactor_ratio=0.5),
+    )
+    client = FakeLLMClient()
+    service = NarrativeService(
+        analysis_reader=FakeAnalysisReader([_make_analysis()]),
+        pattern_service=FakePatternService(report=report),
+        llm_client=client,
+    )
+    service.generate("repo-1")
+    combined = " ".join(m.content for m in client.calls[0])
+    assert "Refactor" in combined or "refactor" in combined
+
+
+def test_system_prompt_uses_spec_004_narrative_structure() -> None:
+    service, client = _make_service(analyses=[_make_analysis()])
+    service.generate("repo-1")
+    system_msgs = [m for m in client.calls[0] if m.role == "system"]
+    assert system_msgs
+    text = system_msgs[0].content
+    assert "Timeline" in text
+    assert "Evidence" in text

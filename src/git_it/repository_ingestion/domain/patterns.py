@@ -25,9 +25,16 @@ class BugfixRecurrence:
     bugfix_commit_count: int
 
 
+@dataclass(frozen=True)
+class RefactorWave:
+    commit_count: int
+    refactor_ratio: float
+
+
 @dataclass
 class PatternReport:
     repository_id: str
     hotspots: list[Hotspot]
     category_counts: list[CategoryCount] = field(default_factory=list)
     bugfix_recurrences: list[BugfixRecurrence] = field(default_factory=list)
+    refactor_wave: RefactorWave | None = None
