@@ -41,6 +41,7 @@ class FakeCommitBatchService:
         self._analyses = analyses or []
         self._estimate = estimate
         self.calls: list[CommitBatchCall] = []
+        self.async_concurrency_used: int | None = None
 
     def analyze_commits(
         self,
@@ -51,6 +52,28 @@ class FakeCommitBatchService:
         since: str | None = None,
         until: str | None = None,
     ) -> list[CommitAnalysis]:
+        self.calls.append(
+            CommitBatchCall(
+                repository_id=repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+            )
+        )
+        return self._analyses
+
+    async def analyze_commits_async(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+        concurrency: int = 5,
+    ) -> list[CommitAnalysis]:
+        self.async_concurrency_used = concurrency
         self.calls.append(
             CommitBatchCall(
                 repository_id=repository_id,
@@ -627,3 +650,39 @@ def test_run_default_sample_model_is_none(tmp_path: Path) -> None:
     )
 
     assert received == [None]
+
+
+def test_run_default_concurrency_is_1(tmp_path: Path) -> None:
+    """Without --concurrency, default is 1 and run command exits cleanly."""
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()])
+    narrative_svc = FakeNarrativeService()
+
+    code = main(
+        ["run", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert code == 0
+    assert len(commit_svc.calls) == 1
+
+
+def test_run_concurrency_flag_passed_to_async_service(tmp_path: Path) -> None:
+    """--concurrency 3 routes through analyze_commits_async with concurrency=3."""
+    ingest_svc = FakeIngestionService(result=_ok_ingestion_result(), calls=[])
+    commit_svc = FakeCommitBatchService(analyses=[_make_analysis()])
+    narrative_svc = FakeNarrativeService()
+
+    code = main(
+        ["run", "https://github.com/owner/repo", "--concurrency", "3"],
+        project_root=tmp_path,
+        service_factory=_ingest_factory(ingest_svc),
+        commit_analysis_factory=_commit_analysis_factory(commit_svc),
+        narrative_factory=_narrative_factory(narrative_svc),
+    )
+
+    assert code == 0
+    assert commit_svc.async_concurrency_used == 3

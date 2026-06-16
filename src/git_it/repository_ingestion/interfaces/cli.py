@@ -77,6 +77,17 @@ class CommitBatchService(Protocol):
         until: str | None = None,
     ) -> list[CommitAnalysis]: ...
 
+    async def analyze_commits_async(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+        concurrency: int = 5,
+    ) -> list[CommitAnalysis]: ...
+
     def estimate_llm_calls(
         self,
         repository_id: str,
@@ -270,6 +281,12 @@ def main(
     analyze_commits_parser.add_argument(
         "--until", default=None, metavar="YYYY-MM-DD", help="Include commits up to this date"
     )
+    analyze_commits_parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="Number of parallel LLM calls (default: 1 = sequential)",
+    )
 
     patterns_parser = subparsers.add_parser("patterns")
     patterns_parser.add_argument("repository_url")
@@ -318,6 +335,12 @@ def main(
     run_parser.add_argument(
         "--until", default=None, metavar="YYYY-MM-DD", help="Include commits up to this date"
     )
+    run_parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="Number of parallel LLM calls (default: 1 = sequential)",
+    )
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -359,6 +382,7 @@ def main(
             order=args.order,
             since=args.since,
             until=args.until,
+            concurrency=args.concurrency,
             project_root=resolved_root,
             commit_analysis_factory=commit_analysis_factory,
             budget_confirm_fn=budget_confirm_fn,
@@ -401,6 +425,7 @@ def main(
             order=args.order,
             since=args.since,
             until=args.until,
+            concurrency=args.concurrency,
             project_root=resolved_root,
             service_factory=service_factory,
             commit_analysis_factory=commit_analysis_factory,
@@ -423,6 +448,7 @@ def _run_pipeline(
     order: str,
     since: str | None,
     until: str | None,
+    concurrency: int,
     project_root: Path,
     service_factory: ServiceFactory,
     commit_analysis_factory: CommitAnalysisFactory,
@@ -430,6 +456,8 @@ def _run_pipeline(
     budget_confirm_fn: Callable[[int], bool],
     budget_threshold: int,
 ) -> int:
+    import asyncio
+
     repository_id = repository_id_for_url(raw_url)
 
     # Step 1: ingest
@@ -456,9 +484,21 @@ def _run_pipeline(
         if not budget_confirm_fn(estimate):
             print("Aborted.")
             return 1
-    analyses = commit_service.analyze_commits(
-        repository_id, limit=limit, order=order, since=since, until=until
-    )
+    if concurrency > 1:
+        analyses = asyncio.run(
+            commit_service.analyze_commits_async(
+                repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+                concurrency=concurrency,
+            )
+        )
+    else:
+        analyses = commit_service.analyze_commits(
+            repository_id, limit=limit, order=order, since=since, until=until
+        )
     print(f"Analyzed {len(analyses)} commits.")
 
     # Step 3: generate case study
@@ -535,11 +575,14 @@ def _run_analyze_commits(
     order: str,
     since: str | None,
     until: str | None,
+    concurrency: int,
     project_root: Path,
     commit_analysis_factory: CommitAnalysisFactory,
     budget_confirm_fn: Callable[[int], bool],
     budget_threshold: int,
 ) -> int:
+    import asyncio
+
     repository_id = repository_id_for_url(raw_url)
     service = commit_analysis_factory(
         project_root=project_root,
@@ -555,9 +598,21 @@ def _run_analyze_commits(
         if not budget_confirm_fn(estimate):
             print("Aborted.")
             return 1
-    analyses = service.analyze_commits(
-        repository_id, limit=limit, order=order, since=since, until=until
-    )
+    if concurrency > 1:
+        analyses = asyncio.run(
+            service.analyze_commits_async(
+                repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+                concurrency=concurrency,
+            )
+        )
+    else:
+        analyses = service.analyze_commits(
+            repository_id, limit=limit, order=order, since=since, until=until
+        )
     _print_commit_analyses(analyses)
     return 0
 

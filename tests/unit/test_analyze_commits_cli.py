@@ -40,6 +40,7 @@ class FakeCommitBatchService:
         self._analyses = analyses or []
         self._estimate = estimate
         self.calls: list[CommitBatchCall] = []
+        self.async_concurrency_used: int | None = None
 
     def analyze_commits(
         self,
@@ -50,6 +51,28 @@ class FakeCommitBatchService:
         since: str | None = None,
         until: str | None = None,
     ) -> list[CommitAnalysis]:
+        self.calls.append(
+            CommitBatchCall(
+                repository_id=repository_id,
+                limit=limit,
+                order=order,
+                since=since,
+                until=until,
+            )
+        )
+        return self._analyses
+
+    async def analyze_commits_async(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+        order: str = "newest",
+        since: str | None = None,
+        until: str | None = None,
+        concurrency: int = 5,
+    ) -> list[CommitAnalysis]:
+        self.async_concurrency_used = concurrency
         self.calls.append(
             CommitBatchCall(
                 repository_id=repository_id,
@@ -266,3 +289,29 @@ def test_analyze_commits_default_sample_model_is_none(tmp_path: Path) -> None:
     )
 
     assert received == [None]
+
+
+def test_analyze_commits_default_concurrency_is_1(tmp_path: Path) -> None:
+    """Without --concurrency, default is 1 (sequential mode)."""
+    service = FakeCommitBatchService(analyses=[_make_analysis()])
+    code = main(
+        ["analyze-commits", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        commit_analysis_factory=_factory(service),
+    )
+    assert code == 0
+    # default concurrency=1 means sync path or async with concurrency=1
+    # just check it exits 0 and produces a result
+    assert len(service.calls) == 1
+
+
+def test_analyze_commits_concurrency_flag_passed_to_async_service(tmp_path: Path) -> None:
+    """--concurrency 4 routes through analyze_commits_async with concurrency=4."""
+    service = FakeCommitBatchService(analyses=[_make_analysis()])
+    code = main(
+        ["analyze-commits", "https://github.com/owner/repo", "--concurrency", "4"],
+        project_root=tmp_path,
+        commit_analysis_factory=_factory(service),
+    )
+    assert code == 0
+    assert service.async_concurrency_used == 4
