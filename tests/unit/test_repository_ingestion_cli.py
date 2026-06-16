@@ -174,7 +174,8 @@ def test_ingest_cli_prints_commit_count_in_success_output_when_present(
             stage="CLONING_OR_FETCHING",
             retryable=False,
             safe_message=None,
-            commits_extracted=5,
+            commits_inserted=3,
+            commits_reused=2,
         ),
         ingested_urls=[],
     )
@@ -190,7 +191,7 @@ def test_ingest_cli_prints_commit_count_in_success_output_when_present(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "Commits: 5 extracted" in captured.out
+    assert "Commits: 3 inserted, 2 reused" in captured.out
 
 
 def test_ingest_cli_omits_commit_count_when_absent(
@@ -204,7 +205,8 @@ def test_ingest_cli_omits_commit_count_when_absent(
             stage="CLONING_OR_FETCHING",
             retryable=False,
             safe_message=None,
-            commits_extracted=None,
+            commits_inserted=None,
+            commits_reused=None,
         ),
         ingested_urls=[],
     )

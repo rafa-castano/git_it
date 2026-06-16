@@ -1,7 +1,12 @@
+import json
 import sqlite3
 from pathlib import Path
 
-from git_it.repository_ingestion.application.ports import IngestionRunRecord
+from git_it.repository_ingestion.application.ports import (
+    CommitPersistenceResult,
+    IngestionRunRecord,
+)
+from git_it.repository_ingestion.domain.commits import ExtractedCommit
 
 
 class SqliteIngestionRunStore:
@@ -110,6 +115,71 @@ class SqliteIngestionRunStore:
             ).fetchall()
 
         return [_record_from_row(row) for row in rows]
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self._database_path)
+
+
+class SqliteCommitFactStore:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS commit_facts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    repository_id TEXT NOT NULL,
+                    sha TEXT NOT NULL,
+                    committed_at TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    author_name TEXT NOT NULL,
+                    committer_name TEXT NOT NULL,
+                    parent_shas TEXT NOT NULL,
+                    UNIQUE(repository_id, sha)
+                )
+                """
+            )
+
+    def save_commit_facts(
+        self,
+        commits: list[ExtractedCommit],
+        *,
+        repository_id: str,
+    ) -> CommitPersistenceResult:
+        inserted = 0
+        reused = 0
+        with self._connect() as connection:
+            for commit in commits:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO commit_facts (
+                        repository_id,
+                        sha,
+                        committed_at,
+                        message,
+                        author_name,
+                        committer_name,
+                        parent_shas
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        repository_id,
+                        commit.sha,
+                        commit.committed_at,
+                        commit.message,
+                        commit.author_name,
+                        commit.committer_name,
+                        json.dumps(list(commit.parent_shas)),
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    inserted += 1
+                else:
+                    reused += 1
+        return CommitPersistenceResult(inserted=inserted, reused=reused)
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)

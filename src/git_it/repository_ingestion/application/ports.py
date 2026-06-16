@@ -5,6 +5,8 @@ from git_it.repository_ingestion.domain.commits import ExtractedCommit
 
 __all__ = [
     "CommitExtractor",
+    "CommitFactWriter",
+    "CommitPersistenceResult",
     "ExtractedCommit",
     "GitGateway",
     "GitGatewayError",
@@ -29,6 +31,21 @@ class IngestionRunRecord:
 
 class IngestionRunWriter(Protocol):
     def save_ingestion_run(self, record: IngestionRunRecord) -> None: ...
+
+
+@dataclass(frozen=True)
+class CommitPersistenceResult:
+    inserted: int
+    reused: int
+
+
+class CommitFactWriter(Protocol):
+    def save_commit_facts(
+        self,
+        commits: list[ExtractedCommit],
+        *,
+        repository_id: str,
+    ) -> CommitPersistenceResult: ...
 
 
 class GitGatewayError(Exception):

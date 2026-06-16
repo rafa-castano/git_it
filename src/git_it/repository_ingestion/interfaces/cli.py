@@ -87,7 +87,7 @@ def _print_ingestion_result(result: IngestionResult) -> None:
         owner_repo = result.canonical_url.removeprefix("https://github.com/")
         print(f"Repository: {owner_repo}")
         print(f"Canonical URL: {result.canonical_url}")
-    if result.commits_extracted is not None:
-        print(f"Commits: {result.commits_extracted} extracted")
+    if result.commits_inserted is not None and result.commits_reused is not None:
+        print(f"Commits: {result.commits_inserted} inserted, {result.commits_reused} reused")
     if result.run_id is not None:
         print(f"Run ID: {result.run_id}")

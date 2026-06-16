@@ -1,6 +1,7 @@
 import pytest
 
 from git_it.repository_ingestion.application.ports import (
+    CommitPersistenceResult,
     ExtractedCommit,
     GitGatewayError,
     IngestionRunRecord,
@@ -118,7 +119,7 @@ def _make_commit(sha: str) -> ExtractedCommit:
     )
 
 
-def test_ingestion_service_extracts_commits_after_successful_clone_or_fetch() -> None:
+def test_ingestion_service_calls_extractor_after_successful_clone_or_fetch() -> None:
     git_gateway = SpyGitGateway()
 
     class FakeCommitExtractor:
@@ -135,10 +136,53 @@ def test_ingestion_service_extracts_commits_after_successful_clone_or_fetch() ->
         commit_extractor=extractor,
     )
 
+    service.ingest("https://github.com/owner/repo")
+
+    assert extractor.call_count == 1
+
+
+def test_ingestion_service_persists_commits_and_reports_inserted_reused() -> None:
+    git_gateway = SpyGitGateway()
+
+    class FakeCommitExtractor:
+        def extract_commits(self) -> list[ExtractedCommit]:
+            return [_make_commit("sha1"), _make_commit("sha2"), _make_commit("sha3")]
+
+    class FakeCommitFactWriter:
+        def save_commit_facts(
+            self, commits: list[ExtractedCommit], *, repository_id: str
+        ) -> CommitPersistenceResult:
+            return CommitPersistenceResult(inserted=2, reused=1)
+
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=FakeCommitExtractor(),
+        commit_fact_writer=FakeCommitFactWriter(),
+        repository_id="repo-1",
+    )
+
     result = service.ingest("https://github.com/owner/repo")
 
-    assert result.commits_extracted == 3
-    assert extractor.call_count == 1
+    assert result.commits_inserted == 2
+    assert result.commits_reused == 1
+
+
+def test_ingestion_service_does_not_report_counts_without_fact_writer() -> None:
+    git_gateway = SpyGitGateway()
+
+    class FakeCommitExtractor:
+        def extract_commits(self) -> list[ExtractedCommit]:
+            return [_make_commit("sha1")]
+
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=FakeCommitExtractor(),
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.commits_inserted is None
+    assert result.commits_reused is None
 
 
 def test_ingestion_service_skips_extraction_when_no_extractor_is_wired() -> None:
@@ -147,7 +191,8 @@ def test_ingestion_service_skips_extraction_when_no_extractor_is_wired() -> None
 
     result = service.ingest("https://github.com/owner/repo")
 
-    assert result.commits_extracted is None
+    assert result.commits_inserted is None
+    assert result.commits_reused is None
 
 
 def test_ingestion_service_does_not_extract_commits_on_gateway_failure() -> None:

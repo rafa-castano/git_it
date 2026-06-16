@@ -135,4 +135,5 @@ def test_build_repository_ingestion_service_wires_gitpython_extractor_by_default
 
     result = service.ingest("https://github.com/owner/repo")
 
-    assert result.commits_extracted == 2
+    assert result.commits_inserted == 2
+    assert result.commits_reused == 0
