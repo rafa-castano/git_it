@@ -219,6 +219,16 @@ def main(
     list_analyses_parser.add_argument("repository_url")
     list_analyses_parser.add_argument("--limit", type=int, default=None)
 
+    run_parser = subparsers.add_parser(
+        "run", help="Run full pipeline: ingest + analyze + case study"
+    )
+    run_parser.add_argument("repository_url")
+    run_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    run_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
+    run_parser.add_argument(
+        "--force", action="store_true", default=False, help="Regenerate case study even if cached"
+    )
+
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
 
@@ -280,7 +290,59 @@ def main(
             list_analyses_factory=list_analyses_factory,
         )
 
+    if args.command == "run":
+        return _run_pipeline(
+            raw_url=args.repository_url,
+            model=args.model,
+            limit=args.limit,
+            force=args.force,
+            project_root=resolved_root,
+            service_factory=service_factory,
+            commit_analysis_factory=commit_analysis_factory,
+            narrative_factory=narrative_factory,
+        )
+
     parser.error(f"unsupported command: {args.command}")
+
+
+def _run_pipeline(
+    *,
+    raw_url: str,
+    model: str,
+    limit: int,
+    force: bool,
+    project_root: Path,
+    service_factory: ServiceFactory,
+    commit_analysis_factory: CommitAnalysisFactory,
+    narrative_factory: NarrativeFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+
+    # Step 1: ingest
+    print("Ingesting...")
+    ingest_service = service_factory(project_root=project_root, repository_id=repository_id)
+    ingest_result = ingest_service.ingest(raw_url)
+    _print_ingestion_result(ingest_result)
+    if ingest_result.status in _FAILED_STATUSES:
+        return 1
+
+    # Step 2: analyze commits
+    print("Analyzing commits...")
+    commit_service = commit_analysis_factory(
+        project_root=project_root, repository_id=repository_id, model=model
+    )
+    analyses = commit_service.analyze_commits(repository_id, limit=limit)
+    print(f"Analyzed {len(analyses)} commits.")
+
+    # Step 3: generate case study
+    print("Generating case study...")
+    narrative_service = narrative_factory(
+        project_root=project_root, repository_id=repository_id, model=model
+    )
+    narrative_result = narrative_service.generate(repository_id, force=force)
+    _print_narrative(narrative_result)
+
+    return 0
 
 
 def _run_ingest(
