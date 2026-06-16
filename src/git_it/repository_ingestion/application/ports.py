@@ -5,6 +5,8 @@ from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 
 __all__ = [
+    "CaseStudyRecord",
+    "CaseStudyStore",
     "CommitAnalysis",
     "CommitAnalysisClient",
     "CommitAnalysisReader",
@@ -134,6 +136,20 @@ class CommitSummaryRecord:
 
 class CommitSummaryReader(Protocol):
     def list_commit_messages(self, repository_id: str) -> list[CommitSummaryRecord]: ...
+
+
+@dataclass(frozen=True)
+class CaseStudyRecord:
+    repository_id: str
+    narrative: str
+    commit_count: int
+    hotspot_count: int
+
+
+class CaseStudyStore(Protocol):
+    def save_case_study(self, record: CaseStudyRecord) -> None: ...
+
+    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None: ...
 
 
 class CommitAnalysisWriter(Protocol):

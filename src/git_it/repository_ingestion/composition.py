@@ -28,6 +28,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
     LiteLLMLLMClient,
 )
 from git_it.repository_ingestion.infrastructure.sqlite import (
+    SqliteCaseStudyStore,
     SqliteCommitAnalysisStore,
     SqliteCommitFactStore,
     SqliteCommitReader,
@@ -135,8 +136,11 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteCommitAnalysisStore(db_path)
     store.initialize()
+    case_study_store = SqliteCaseStudyStore(db_path)
+    case_study_store.initialize()
     return NarrativeService(
         temporal_reader=store,
         pattern_service=build_pattern_detection_service(project_root=project_root),
         llm_client=LiteLLMLLMClient(model=model),
+        case_study_store=case_study_store,
     )

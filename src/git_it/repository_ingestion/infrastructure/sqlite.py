@@ -4,6 +4,7 @@ from pathlib import Path
 
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
+    CaseStudyRecord,
     CommitPersistenceResult,
     CommitSummaryRecord,
     FileChurnRecord,
@@ -431,6 +432,60 @@ class SqliteFileFactReader:
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)
+
+
+class SqliteCaseStudyStore:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS case_studies (
+                    repository_id TEXT PRIMARY KEY,
+                    narrative     TEXT NOT NULL,
+                    commit_count  INTEGER NOT NULL,
+                    hotspot_count INTEGER NOT NULL,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+                """
+            )
+
+    def save_case_study(self, record: CaseStudyRecord) -> None:
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO case_studies (repository_id, narrative, commit_count, hotspot_count)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(repository_id) DO UPDATE SET
+                    narrative     = excluded.narrative,
+                    commit_count  = excluded.commit_count,
+                    hotspot_count = excluded.hotspot_count,
+                    created_at    = datetime('now')
+                """,
+                (record.repository_id, record.narrative, record.commit_count, record.hotspot_count),
+            )
+
+    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                """
+                SELECT repository_id, narrative, commit_count, hotspot_count
+                FROM case_studies
+                WHERE repository_id = ?
+                """,
+                (repository_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return CaseStudyRecord(
+            repository_id=str(row[0]),
+            narrative=str(row[1]),
+            commit_count=int(row[2]),
+            hotspot_count=int(row[3]),
+        )
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:

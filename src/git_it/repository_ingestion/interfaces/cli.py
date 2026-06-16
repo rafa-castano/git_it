@@ -84,7 +84,7 @@ class PatternFactory(Protocol):
 
 
 class NarrativeGeneratorService(Protocol):
-    def generate(self, repository_id: str) -> NarrativeResult: ...
+    def generate(self, repository_id: str, *, force: bool = ...) -> NarrativeResult: ...
 
 
 class NarrativeFactory(Protocol):
@@ -211,6 +211,9 @@ def main(
     case_study_parser = subparsers.add_parser("case-study")
     case_study_parser.add_argument("repository_url")
     case_study_parser.add_argument("--model", default=_DEFAULT_MODEL)
+    case_study_parser.add_argument(
+        "--force", action="store_true", default=False, help="Regenerate even if cached"
+    )
 
     list_analyses_parser = subparsers.add_parser("list-analyses")
     list_analyses_parser.add_argument("repository_url")
@@ -264,6 +267,7 @@ def main(
         return _run_case_study(
             raw_url=args.repository_url,
             model=args.model,
+            force=args.force,
             project_root=resolved_root,
             narrative_factory=narrative_factory,
         )
@@ -447,6 +451,7 @@ def _run_case_study(
     *,
     raw_url: str,
     model: str,
+    force: bool,
     project_root: Path,
     narrative_factory: NarrativeFactory,
 ) -> int:
@@ -456,7 +461,7 @@ def _run_case_study(
         repository_id=repository_id,
         model=model,
     )
-    result = service.generate(repository_id)
+    result = service.generate(repository_id, force=force)
     _print_narrative(result)
     return 0
 

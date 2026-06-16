@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from git_it.repository_ingestion.application.ports import (
+    CaseStudyRecord,
+    CaseStudyStore,
     LLMClient,
     LLMMessage,
     TemporalAnalysisReader,
@@ -53,12 +55,24 @@ class NarrativeService:
         temporal_reader: TemporalAnalysisReader,
         pattern_service: HotspotDetector,
         llm_client: LLMClient,
+        case_study_store: CaseStudyStore | None = None,
     ) -> None:
         self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
         self._llm_client = llm_client
+        self._case_study_store = case_study_store
 
-    def generate(self, repository_id: str) -> NarrativeResult:
+    def generate(self, repository_id: str, *, force: bool = False) -> NarrativeResult:
+        if not force and self._case_study_store is not None:
+            cached = self._case_study_store.get_case_study(repository_id)
+            if cached is not None:
+                return NarrativeResult(
+                    repository_id=cached.repository_id,
+                    commit_count=cached.commit_count,
+                    hotspot_count=cached.hotspot_count,
+                    narrative=cached.narrative,
+                )
+
         items = self._temporal_reader.list_analyses_with_dates(repository_id)
         if not items:
             return NarrativeResult(
@@ -74,12 +88,22 @@ class NarrativeService:
             LLMMessage(role="user", content=user_content),
         ]
         narrative = self._llm_client.complete(messages)
-        return NarrativeResult(
+        result = NarrativeResult(
             repository_id=repository_id,
             commit_count=len(items),
             hotspot_count=len(report.hotspots),
             narrative=narrative,
         )
+        if self._case_study_store is not None:
+            self._case_study_store.save_case_study(
+                CaseStudyRecord(
+                    repository_id=repository_id,
+                    narrative=narrative,
+                    commit_count=result.commit_count,
+                    hotspot_count=result.hotspot_count,
+                )
+            )
+        return result
 
     @staticmethod
     def _build_user_message(

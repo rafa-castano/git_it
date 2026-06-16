@@ -20,7 +20,7 @@ class FakeNarrativeService:
         self._result = result or _make_result()
         self.calls: list[str] = []
 
-    def generate(self, repository_id: str) -> NarrativeResult:
+    def generate(self, repository_id: str, *, force: bool = False) -> NarrativeResult:
         self.calls.append(repository_id)
         return self._result
 
