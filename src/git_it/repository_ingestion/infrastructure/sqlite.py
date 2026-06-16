@@ -383,6 +383,29 @@ class SqliteCommitAnalysisStore:
             for row in rows
         ]
 
+    def list_analyses_since(self, repository_id: str, *, since: str) -> list[TimestampedAnalysis]:
+        """Return analyses saved after *since* (ISO-8601 timestamp), joined with commit dates."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT ca.data, cf.committed_at
+                FROM commit_analyses ca
+                JOIN commit_facts cf
+                  ON ca.repository_id = cf.repository_id AND ca.commit_sha = cf.sha
+                WHERE ca.repository_id = ?
+                  AND ca.created_at > ?
+                ORDER BY cf.committed_at ASC
+                """,
+                (repository_id, since),
+            ).fetchall()
+        return [
+            TimestampedAnalysis(
+                analysis=CommitAnalysis.model_validate_json(str(row[0])),
+                committed_at=str(row[1]),
+            )
+            for row in rows
+        ]
+
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)
 
@@ -487,7 +510,7 @@ class SqliteCaseStudyStore:
         with sqlite3.connect(self._database_path) as conn:
             row = conn.execute(
                 """
-                SELECT repository_id, narrative, commit_count, hotspot_count
+                SELECT repository_id, narrative, commit_count, hotspot_count, created_at
                 FROM case_studies
                 WHERE repository_id = ?
                 """,
@@ -500,6 +523,7 @@ class SqliteCaseStudyStore:
             narrative=str(row[1]),
             commit_count=int(row[2]),
             hotspot_count=int(row[3]),
+            generated_at=str(row[4]),
         )
 
     def get_repo_context(self, repository_id: str) -> str | None:

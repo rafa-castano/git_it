@@ -145,6 +145,7 @@ class CaseStudyRecord:
     narrative: str
     commit_count: int
     hotspot_count: int
+    generated_at: str | None = None
 
 
 class CaseStudyStore(Protocol):
@@ -177,3 +178,7 @@ class TimestampedAnalysis:
 
 class TemporalAnalysisReader(Protocol):
     def list_analyses_with_dates(self, repository_id: str) -> list[TimestampedAnalysis]: ...
+
+    def list_analyses_since(
+        self, repository_id: str, *, since: str
+    ) -> list[TimestampedAnalysis]: ...
