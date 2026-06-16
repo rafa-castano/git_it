@@ -76,8 +76,12 @@ def _run_ingest(
 def _print_ingestion_result(result: IngestionResult) -> None:
     if result.status in _FAILED_STATUSES:
         print(f"Ingestion failed: {result.error_code}")
+        if result.run_id is not None:
+            print(f"Run ID: {result.run_id}")
         if result.safe_message is not None:
             print(result.safe_message)
         return
 
     print(f"Ingestion status: {result.status}")
+    if result.run_id is not None:
+        print(f"Run ID: {result.run_id}")

@@ -100,6 +100,98 @@ def test_ingest_cli_returns_non_zero_and_prints_safe_error(
     assert "Traceback" not in captured.out
 
 
+def test_ingest_cli_prints_run_id_in_success_output_when_present(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="CLONING_OR_FETCHING",
+            error_code=None,
+            stage="CLONING_OR_FETCHING",
+            retryable=False,
+            safe_message=None,
+            run_id="run-abc123",
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    exit_code = main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Ingestion status: CLONING_OR_FETCHING" in captured.out
+    assert "Run ID: run-abc123" in captured.out
+
+
+def test_ingest_cli_prints_run_id_in_failure_output_when_present(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="FAILED_VALIDATION",
+            error_code="INVALID_URL",
+            stage="VALIDATING_URL",
+            retryable=False,
+            safe_message="Repository URL must be a public GitHub HTTPS repository URL.",
+            run_id="run-abc123",
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    exit_code = main(
+        ["ingest", "not-a-url"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Ingestion failed: INVALID_URL" in captured.out
+    assert "Run ID: run-abc123" in captured.out
+    assert "Repository URL must be a public GitHub HTTPS repository URL." in captured.out
+
+
+def test_ingest_cli_omits_run_id_line_when_run_id_is_absent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = RecordingIngestionService(
+        result=IngestionResult(
+            status="CLONING_OR_FETCHING",
+            error_code=None,
+            stage="CLONING_OR_FETCHING",
+            retryable=False,
+            safe_message=None,
+            run_id=None,
+        ),
+        ingested_urls=[],
+    )
+
+    def service_factory(*, project_root: Path, repository_id: str) -> RecordingIngestionService:
+        return service
+
+    main(
+        ["ingest", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        service_factory=service_factory,
+    )
+
+    captured = capsys.readouterr()
+    assert "Run ID:" not in captured.out
+
+
 def test_cli_rejects_unknown_command_without_calling_service(tmp_path: Path) -> None:
     def service_factory(
         *,
