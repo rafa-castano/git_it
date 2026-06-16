@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from git_it.repository_ingestion.application.commit_query_service import (
+    RepositoryCommitQueryService,
+)
 from git_it.repository_ingestion.application.ports import (
     CommitExtractor,
     CommitFactWriter,
@@ -14,6 +17,7 @@ from git_it.repository_ingestion.infrastructure.git import (
 )
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitFactStore,
+    SqliteCommitReader,
     SqliteFileFactStore,
     SqliteIngestionRunStore,
 )
@@ -57,3 +61,11 @@ def build_repository_ingestion_service(
         repository_id=repository_id,
         run_writer=run_store,
     )
+
+
+def build_repository_commit_query_service(
+    *,
+    project_root: Path,
+) -> RepositoryCommitQueryService:
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return RepositoryCommitQueryService(reader=SqliteCommitReader(db_path))

@@ -2,6 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
+from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
     IngestionRunRecord,
@@ -243,6 +244,42 @@ class SqliteFileFactStore:
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)
+
+
+class SqliteCommitReader:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def list_commits_for_repository(
+        self,
+        repository_id: str,
+        *,
+        limit: int | None = None,
+    ) -> list[CommitRecord]:
+        query = """
+            SELECT sha, committed_at, message, author_name, committer_name, parent_shas
+            FROM commit_facts
+            WHERE repository_id = ?
+            ORDER BY committed_at DESC
+        """
+        params: tuple = (repository_id,)
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (repository_id, limit)
+        with sqlite3.connect(self._database_path) as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [
+            CommitRecord(
+                repository_id=repository_id,
+                sha=str(row[0]),
+                committed_at=str(row[1]),
+                message=str(row[2]),
+                author_name=str(row[3]),
+                committer_name=str(row[4]),
+                parent_shas=tuple(json.loads(str(row[5]))),
+            )
+            for row in rows
+        ]
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:
