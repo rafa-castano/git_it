@@ -15,11 +15,13 @@ from git_it.repository_ingestion.application.commit_query_service import (
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
+    build_pattern_detection_service,
     build_repository_analysis_service,
     build_repository_commit_query_service,
     build_repository_ingestion_service,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
+from git_it.repository_ingestion.domain.patterns import PatternReport
 from git_it.repository_ingestion.domain.url_contract import parse_repository_url
 
 
@@ -71,6 +73,14 @@ class CommitAnalysisFactory(Protocol):
     ) -> CommitBatchService: ...
 
 
+class PatternService(Protocol):
+    def detect(self, repository_id: str, *, hotspot_threshold: int = ...) -> PatternReport: ...
+
+
+class PatternFactory(Protocol):
+    def __call__(self, *, project_root: Path, repository_id: str) -> PatternService: ...
+
+
 _FAILED_STATUSES = {
     "FAILED_VALIDATION",
     "FAILED_FETCH",
@@ -83,6 +93,7 @@ _FAILED_STATUSES = {
 _DEFAULT_COMMITS_LIMIT = 20
 _DEFAULT_ANALYZE_LIMIT = 50
 _DEFAULT_COMMIT_ANALYSIS_LIMIT = 10
+_DEFAULT_HOTSPOT_THRESHOLD = 5
 _DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 
 
@@ -113,6 +124,10 @@ def _default_commit_analysis_factory(
     return build_commit_analysis_service(project_root=project_root, model=model)
 
 
+def _default_pattern_factory(*, project_root: Path, repository_id: str) -> "PatternService":
+    return build_pattern_detection_service(project_root=project_root)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -121,6 +136,7 @@ def main(
     commit_query_factory: CommitQueryFactory = _default_commit_query_factory,
     analysis_factory: AnalysisFactory = _default_analysis_factory,
     commit_analysis_factory: CommitAnalysisFactory = _default_commit_analysis_factory,
+    pattern_factory: PatternFactory = _default_pattern_factory,
 ) -> int:
     parser = argparse.ArgumentParser(prog="git-it")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -141,6 +157,12 @@ def main(
     analyze_commits_parser.add_argument("repository_url")
     analyze_commits_parser.add_argument("--model", default=_DEFAULT_MODEL)
     analyze_commits_parser.add_argument("--limit", type=int, default=_DEFAULT_COMMIT_ANALYSIS_LIMIT)
+
+    patterns_parser = subparsers.add_parser("patterns")
+    patterns_parser.add_argument("repository_url")
+    patterns_parser.add_argument(
+        "--hotspot-threshold", type=int, default=_DEFAULT_HOTSPOT_THRESHOLD
+    )
 
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
@@ -176,6 +198,14 @@ def main(
             limit=args.limit,
             project_root=resolved_root,
             commit_analysis_factory=commit_analysis_factory,
+        )
+
+    if args.command == "patterns":
+        return _run_patterns(
+            raw_url=args.repository_url,
+            hotspot_threshold=args.hotspot_threshold,
+            project_root=resolved_root,
+            pattern_factory=pattern_factory,
         )
 
     parser.error(f"unsupported command: {args.command}")
@@ -272,6 +302,35 @@ def _print_commit_analyses(analyses: list[CommitAnalysis]) -> None:
         if analysis.limitations:
             print(f"         Limitations: {'; '.join(analysis.limitations)}")
         print()
+
+
+def _run_patterns(
+    *,
+    raw_url: str,
+    hotspot_threshold: int,
+    project_root: Path,
+    pattern_factory: PatternFactory,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    service = pattern_factory(project_root=project_root, repository_id=repository_id)
+    report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
+    _print_pattern_report(report)
+    return 0
+
+
+def _print_pattern_report(report: PatternReport) -> None:
+    if not report.hotspots:
+        print("No hotspots detected. Ingest the repository first, then run 'git-it patterns'.")
+        return
+    print(f"Pattern Report — Hotspots ({len(report.hotspots)} files)")
+    print("=" * 60)
+    for hotspot in report.hotspots:
+        ins = hotspot.total_insertions
+        dels = hotspot.total_deletions
+        print(
+            f"{hotspot.file_path}  "
+            f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn})"
+        )
 
 
 def _print_analysis_result(result: AnalysisResult) -> None:

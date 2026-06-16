@@ -5,6 +5,9 @@ from git_it.repository_ingestion.application.commit_analysis_service import Comm
 from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
+from git_it.repository_ingestion.application.pattern_detection_service import (
+    PatternDetectionService,
+)
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisClient,
     CommitExtractor,
@@ -26,6 +29,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitFactStore,
     SqliteCommitReader,
+    SqliteFileFactReader,
     SqliteFileFactStore,
     SqliteIngestionRunStore,
 )
@@ -105,3 +109,8 @@ def build_commit_analysis_service(
         reader=SqliteCommitReader(db_path),
         client=analysis_client,
     )
+
+
+def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionService:
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return PatternDetectionService(reader=SqliteFileFactReader(db_path))

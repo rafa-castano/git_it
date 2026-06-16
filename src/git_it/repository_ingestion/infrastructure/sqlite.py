@@ -5,6 +5,7 @@ from pathlib import Path
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
+    FileChurnRecord,
     IngestionRunRecord,
 )
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
@@ -280,6 +281,40 @@ class SqliteCommitReader:
             )
             for row in rows
         ]
+
+
+class SqliteFileFactReader:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def get_file_churn(self, repository_id: str) -> list[FileChurnRecord]:
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    file_path,
+                    COUNT(DISTINCT commit_sha) AS commit_count,
+                    SUM(insertions)            AS total_insertions,
+                    SUM(deletions)             AS total_deletions
+                FROM file_facts
+                WHERE repository_id = ?
+                GROUP BY file_path
+                ORDER BY commit_count DESC
+                """,
+                (repository_id,),
+            ).fetchall()
+        return [
+            FileChurnRecord(
+                file_path=str(row[0]),
+                commit_count=int(row[1]),
+                total_insertions=int(row[2]),
+                total_deletions=int(row[3]),
+            )
+            for row in rows
+        ]
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self._database_path)
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:

@@ -11,6 +11,8 @@ __all__ = [
     "CommitFactWriter",
     "CommitPersistenceResult",
     "ExtractedCommit",
+    "FileChurnRecord",
+    "FileFactReader",
     "FileFactWriter",
     "GitGateway",
     "GitGatewayError",
@@ -91,3 +93,15 @@ class LLMClient(Protocol):
 
 class CommitAnalysisClient(Protocol):
     def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis: ...
+
+
+@dataclass(frozen=True)
+class FileChurnRecord:
+    file_path: str
+    commit_count: int
+    total_insertions: int
+    total_deletions: int
+
+
+class FileFactReader(Protocol):
+    def get_file_churn(self, repository_id: str) -> list[FileChurnRecord]: ...
