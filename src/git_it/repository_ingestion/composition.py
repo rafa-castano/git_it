@@ -139,6 +139,8 @@ def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionSe
         analysis_reader=analysis_store,
         ownership_reader=file_fact_reader,
         commit_summary_reader=commit_reader,
+        commit_date_reader=commit_reader,
+        file_evidence_reader=file_fact_reader,
     )
 
 

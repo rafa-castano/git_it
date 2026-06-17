@@ -679,10 +679,17 @@ def _print_pattern_report(report: PatternReport) -> None:
         for hotspot in report.hotspots:
             ins = hotspot.total_insertions
             dels = hotspot.total_deletions
+            confidence_pct = int(hotspot.confidence * 100)
             print(
                 f"  {hotspot.file_path}  "
-                f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn})"
+                f"(commits: {hotspot.commit_count}, churn: +{ins}/-{dels} = {hotspot.churn},"
+                f" confidence: {confidence_pct}%)"
             )
+            if hotspot.evidence_commit_shas:
+                shas_short = ", ".join(s[:7] for s in hotspot.evidence_commit_shas)
+                print(f"    Evidence: {shas_short}")
+            if hotspot.time_range is not None:
+                print(f"    Period: {hotspot.time_range[0]} -> {hotspot.time_range[1]}")
         print()
     if report.bugfix_recurrences:
         print("Bugfix-Prone Components:")

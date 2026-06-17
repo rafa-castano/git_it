@@ -1,3 +1,5 @@
+import pytest
+
 from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
 )
@@ -85,3 +87,68 @@ def test_hotspot_is_a_dataclass_with_expected_fields() -> None:
     assert h.file_path == "x.py"
     assert h.commit_count == 7
     assert h.churn == 30
+
+
+class FakeFileEvidenceReader:
+    def __init__(self, evidence: dict[str, tuple[str, ...]] | None = None) -> None:
+        self._evidence = evidence or {}
+
+    def get_file_evidence_commits(
+        self, repository_id: str, *, limit: int = 5
+    ) -> dict[str, tuple[str, ...]]:
+        return dict(self._evidence)
+
+
+class FakeCommitDateReader:
+    def __init__(self, date_map: dict[str, str] | None = None) -> None:
+        self._date_map = date_map or {}
+
+    def get_commit_date_map(self, repository_id: str) -> dict[str, str]:
+        return dict(self._date_map)
+
+
+def test_detect_passes_evidence_commits_to_hotspot() -> None:
+    reader = FakeFileFactReader(records=[_record("src/main.py", commit_count=10)])
+    evidence_reader = FakeFileEvidenceReader(evidence={"src/main.py": ("sha1", "sha2", "sha3")})
+    service = PatternDetectionService(
+        reader=reader,
+        file_evidence_reader=evidence_reader,
+    )
+    report = service.detect("repo-1", hotspot_threshold=1)
+    assert len(report.hotspots) == 1
+    assert report.hotspots[0].evidence_commit_shas == ("sha1", "sha2", "sha3")
+
+
+def test_detect_computes_confidence_for_hotspot() -> None:
+    reader = FakeFileFactReader(records=[_record("src/main.py", commit_count=10)])
+    service = PatternDetectionService(reader=reader)
+    report = service.detect("repo-1", hotspot_threshold=1)
+    assert report.hotspots[0].confidence == pytest.approx(0.5)
+
+
+def test_detect_computes_time_range_for_hotspot_from_date_map() -> None:
+    reader = FakeFileFactReader(records=[_record("src/main.py", commit_count=10)])
+    evidence_reader = FakeFileEvidenceReader(evidence={"src/main.py": ("sha1", "sha2")})
+    date_reader = FakeCommitDateReader(date_map={"sha1": "2024-01-01", "sha2": "2024-06-01"})
+    service = PatternDetectionService(
+        reader=reader,
+        file_evidence_reader=evidence_reader,
+        commit_date_reader=date_reader,
+    )
+    report = service.detect("repo-1", hotspot_threshold=1)
+    assert report.hotspots[0].time_range == ("2024-01-01", "2024-06-01")
+
+
+def test_detect_time_range_is_none_when_no_evidence() -> None:
+    reader = FakeFileFactReader(records=[_record("src/main.py", commit_count=10)])
+    service = PatternDetectionService(reader=reader)
+    report = service.detect("repo-1", hotspot_threshold=1)
+    assert report.hotspots[0].time_range is None
+
+
+def test_detect_enrichment_without_readers_returns_defaults() -> None:
+    reader = FakeFileFactReader(records=[_record("src/main.py", commit_count=10)])
+    service = PatternDetectionService(reader=reader)
+    report = service.detect("repo-1", hotspot_threshold=1)
+    assert report.hotspots[0].evidence_commit_shas == ()
+    assert report.hotspots[0].time_range is None
