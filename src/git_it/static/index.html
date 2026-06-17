@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git It — Repository Insights</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: #1a1a2e;
+      background: #f4f6f9;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #e8eaf6;
+      padding: 0 1.5rem;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+      border-bottom: 2px solid #3949ab;
+    }
+
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
+
+    #repo-select {
+      margin-left: auto;
+      padding: 0.35rem 0.7rem;
+      border: 1px solid #3949ab;
+      border-radius: 4px;
+      background: #16213e;
+      color: #e8eaf6;
+      font-size: 13px;
+      min-width: 260px;
+      cursor: pointer;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    aside {
+      width: 220px;
+      background: #ffffff;
+      border-right: 1px solid #dde1e7;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    aside h2 {
+      padding: 0.9rem 1rem 0.5rem;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .repo-item {
+      padding: 0.6rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid #f4f6f9;
+      transition: background 0.12s;
+      font-size: 12px;
+      color: #374151;
+    }
+
+    .repo-item:hover { background: #e8eaf6; }
+    .repo-item.active { background: #3949ab; color: #fff; }
+
+    .repo-item .repo-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .repo-item .repo-meta {
+      font-size: 11px;
+      opacity: 0.75;
+      margin-top: 2px;
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #dde1e7;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 0.55rem 1.2rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active { color: #3949ab; border-bottom-color: #3949ab; }
+    .tab-btn:hover:not(.active) { color: #374151; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Cards and metadata */
+    .meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.65rem;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #e8eaf6;
+      color: #3949ab;
+    }
+
+    .chip.gray { background: #f0f0f0; color: #6b7280; }
+
+    .repo-url-link {
+      font-size: 12px;
+      color: #3949ab;
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .repo-url-link:hover { text-decoration: underline; }
+
+    /* Markdown render area */
+    .markdown-body {
+      line-height: 1.7;
+      max-width: 820px;
+    }
+
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+      margin: 1.2rem 0 0.5rem;
+      color: #1a1a2e;
+    }
+
+    .markdown-body h1 { font-size: 1.4rem; }
+    .markdown-body h2 { font-size: 1.15rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 0.3rem; }
+    .markdown-body h3 { font-size: 1rem; }
+    .markdown-body p { margin-bottom: 0.8rem; }
+    .markdown-body ul, .markdown-body ol { margin: 0.5rem 0 0.8rem 1.5rem; }
+    .markdown-body li { margin-bottom: 0.3rem; }
+    .markdown-body code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-family: monospace; font-size: 12px; }
+    .markdown-body pre { background: #1a1a2e; color: #e8eaf6; padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
+    .markdown-body pre code { background: none; color: inherit; }
+    .markdown-body blockquote { border-left: 3px solid #3949ab; padding-left: 1rem; color: #6b7280; margin: 0.8rem 0; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    thead tr { background: #1a1a2e; color: #e8eaf6; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #f0f0f0; }
+    tr:hover td { background: #f9fafb; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Category badges */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-feature    { background: #dbeafe; color: #1d4ed8; }
+    .badge-fix        { background: #fee2e2; color: #b91c1c; }
+    .badge-refactor   { background: #fef3c7; color: #92400e; }
+    .badge-test       { background: #d1fae5; color: #065f46; }
+    .badge-docs       { background: #ede9fe; color: #5b21b6; }
+    .badge-chore      { background: #f3f4f6; color: #374151; }
+    .badge-default    { background: #f0f0f0; color: #6b7280; }
+
+    /* Signal boxes */
+    .signal-box {
+      border: 1px solid #dde1e7;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #fff;
+      margin-bottom: 1rem;
+    }
+
+    .signal-box h3 { font-size: 13px; font-weight: 700; margin-bottom: 0.5rem; color: #3949ab; }
+    .signal-box dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; }
+    .signal-box dt { font-weight: 600; font-size: 12px; color: #6b7280; }
+    .signal-box dd { font-size: 12px; }
+
+    /* Insight cards */
+    .insight-card {
+      border-left: 4px solid #3949ab;
+      background: #fff;
+      border-radius: 0 6px 6px 0;
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .insight-card .insight-title { font-weight: 700; font-size: 13px; margin-bottom: 0.4rem; }
+    .insight-card .insight-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; letter-spacing: 0.06em; margin-top: 0.5rem; }
+    .insight-card p { font-size: 13px; color: #374151; margin-top: 0.2rem; }
+
+    /* Load more */
+    #load-more-btn {
+      margin-top: 1rem;
+      padding: 0.5rem 1.5rem;
+      background: #3949ab;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #load-more-btn:hover { background: #303f9f; }
+    #load-more-btn:disabled { background: #9e9e9e; cursor: default; }
+
+    /* Utility */
+    .empty-state {
+      text-align: center;
+      color: #9e9e9e;
+      padding: 3rem 1rem;
+      font-size: 13px;
+    }
+
+    .section-heading {
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+      margin: 1.2rem 0 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .url-row { margin-bottom: 0.75rem; }
+
+    #empty-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .sha-code { font-family: monospace; font-size: 12px; color: #6b7280; }
+    .date-cell { white-space: nowrap; color: #6b7280; font-size: 12px; }
+    .summary-cell { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>&#x1F50E; Git It</h1>
+  <select id="repo-select">
+    <option value="">— select a repository —</option>
+  </select>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Repositories</h2>
+    <div id="sidebar-list"></div>
+  </aside>
+
+  <main id="main-area">
+    <div id="empty-banner">
+      <div class="empty-state">
+        <p>Select a repository from the sidebar to explore its case study, patterns, and commits.</p>
+      </div>
+    </div>
+
+    <div id="repo-content" style="display:none; flex-direction:column; gap:1rem;">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="case-study">Case Study</button>
+        <button class="tab-btn" data-tab="patterns">Patterns</button>
+        <button class="tab-btn" data-tab="commits">Commits</button>
+      </div>
+
+      <!-- Case Study panel -->
+      <div class="tab-panel active" id="tab-case-study">
+        <div id="case-study-content"></div>
+      </div>
+
+      <!-- Patterns panel -->
+      <div class="tab-panel" id="tab-patterns">
+        <div id="patterns-content"></div>
+      </div>
+
+      <!-- Commits panel -->
+      <div class="tab-panel" id="tab-commits">
+        <div id="commits-content"></div>
+        <button id="load-more-btn" style="display:none">Load more</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* =========================================================
+   State
+   ========================================================= */
+let currentRepo = null;
+let commitsLimit = 20;
+let commitsTotal = 0;
+
+/* =========================================================
+   Utilities
+   ========================================================= */
+function badgeClass(category) {
+  if (!category) return 'badge-default';
+  const c = category.toLowerCase();
+  if (c.includes('feature') || c.includes('feat')) return 'badge-feature';
+  if (c.includes('fix') || c.includes('bug')) return 'badge-fix';
+  if (c.includes('refactor')) return 'badge-refactor';
+  if (c.includes('test')) return 'badge-test';
+  if (c.includes('doc')) return 'badge-docs';
+  if (c.includes('chore') || c.includes('style') || c.includes('ci')) return 'badge-chore';
+  return 'badge-default';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return iso.slice(0, 10); } catch { return iso; }
+}
+
+function esc(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function truncate(str, n) {
+  if (!str) return '';
+  return str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+function repoShortName(url) {
+  try {
+    const parts = url.replace(/\.git$/, '').split('/');
+    return parts.slice(-2).join('/');
+  } catch { return url; }
+}
+
+async function apiFetch(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw { status: res.status, body: await res.text() };
+  return res.json();
+}
+
+/* =========================================================
+   Sidebar and selector population
+   ========================================================= */
+async function loadRepos() {
+  let data;
+  try {
+    data = await apiFetch('/api/repos');
+  } catch (e) {
+    document.getElementById('sidebar-list').innerHTML =
+      '<div class="empty-state">Could not load repositories.</div>';
+    return;
+  }
+
+  const repos = data.repos || [];
+  const select = document.getElementById('repo-select');
+  const sidebar = document.getElementById('sidebar-list');
+
+  if (repos.length === 0) {
+    sidebar.innerHTML = '<div class="empty-state">No repositories found.</div>';
+    return;
+  }
+
+  repos.forEach(repo => {
+    const shortName = repoShortName(repo.canonical_url);
+
+    // Sidebar item
+    const item = document.createElement('div');
+    item.className = 'repo-item';
+    item.dataset.id = repo.repository_id;
+    item.innerHTML = `
+      <div class="repo-name">${esc(shortName)}</div>
+      <div class="repo-meta">${repo.commit_count} commits · ${repo.status}</div>
+    `;
+    item.addEventListener('click', () => selectRepo(repo.repository_id, item));
+    sidebar.appendChild(item);
+
+    // Dropdown option
+    const opt = document.createElement('option');
+    opt.value = repo.repository_id;
+    opt.textContent = shortName;
+    select.appendChild(opt);
+  });
+}
+
+/* =========================================================
+   Repo selection
+   ========================================================= */
+function selectRepo(repoId, sidebarItem) {
+  if (currentRepo === repoId) return;
+  currentRepo = repoId;
+  commitsLimit = 20;
+
+  // Update sidebar active state
+  document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
+  if (sidebarItem) sidebarItem.classList.add('active');
+
+  // Sync dropdown
+  document.getElementById('repo-select').value = repoId;
+
+  // Show content area, hide empty banner
+  document.getElementById('empty-banner').style.display = 'none';
+  const content = document.getElementById('repo-content');
+  content.style.display = 'flex';
+
+  // Reset to Case Study tab
+  switchTab('case-study');
+
+  // Load all panels in parallel
+  loadCaseStudy(repoId);
+  loadPatterns(repoId);
+  loadCommits(repoId, false);
+}
+
+document.getElementById('repo-select').addEventListener('change', function() {
+  if (!this.value) return;
+  const sidebarItem = document.querySelector(`.repo-item[data-id="${this.value}"]`);
+  selectRepo(this.value, sidebarItem);
+});
+
+/* =========================================================
+   Tabs
+   ========================================================= */
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === 'tab-' + tabName);
+  });
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+/* =========================================================
+   Case Study
+   ========================================================= */
+async function loadCaseStudy(repoId) {
+  const el = document.getElementById('case-study-content');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+
+  let data;
+  try {
+    data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study`);
+  } catch (e) {
+    if (e.status === 404) {
+      el.innerHTML = '<div class="empty-state">No case study generated yet for this repository.</div>';
+    } else {
+      el.innerHTML = '<div class="empty-state">Error loading case study.</div>';
+    }
+    return;
+  }
+
+  const repoUrl = repoId; // repository_id typically is the URL
+  const chips = `
+    <div class="meta-chips">
+      <span class="chip">${data.commit_count} commits</span>
+      <span class="chip">${data.hotspot_count} hotspots</span>
+      ${data.generated_at ? `<span class="chip gray">Generated ${fmtDate(data.generated_at)}</span>` : ''}
+    </div>
+  `;
+
+  const urlRow = `
+    <div class="url-row">
+      <a href="${esc(data.repository_id)}" target="_blank" rel="noopener" class="repo-url-link">${esc(data.repository_id)}</a>
+    </div>
+  `;
+
+  const narrative = typeof marked !== 'undefined'
+    ? marked.parse(data.narrative || '')
+    : '<pre>' + esc(data.narrative || '') + '</pre>';
+
+  el.innerHTML = chips + urlRow + `<div class="markdown-body">${narrative}</div>`;
+}
+
+/* =========================================================
+   Patterns
+   ========================================================= */
+async function loadPatterns(repoId) {
+  const el = document.getElementById('patterns-content');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+
+  let data;
+  try {
+    data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`);
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">No pattern report available yet.</div>';
+    return;
+  }
+
+  let html = '';
+
+  // --- Hotspots ---
+  html += '<div class="section-heading">Hotspots</div>';
+  if (data.hotspots && data.hotspots.length > 0) {
+    html += `<table>
+      <thead><tr>
+        <th>File</th><th>Commits</th><th>Churn</th><th>Confidence</th><th>Period</th>
+      </tr></thead>
+      <tbody>`;
+    data.hotspots.forEach(h => {
+      const period = h.time_range && h.time_range.length >= 2
+        ? `${fmtDate(h.time_range[0])} → ${fmtDate(h.time_range[1])}`
+        : '—';
+      const pct = h.confidence != null ? (h.confidence * 100).toFixed(0) + '%' : '—';
+      html += `<tr>
+        <td><code>${esc(h.file_path)}</code></td>
+        <td>${h.commit_count}</td>
+        <td>${h.churn}</td>
+        <td>${pct}</td>
+        <td class="date-cell">${period}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty-state">No hotspots detected.</div>';
+  }
+
+  // --- Refactor wave ---
+  if (data.refactor_wave) {
+    html += '<div class="section-heading">Refactor Wave</div>';
+    html += buildSignalBox('Refactor Wave', data.refactor_wave);
+  }
+
+  // --- Revert signal ---
+  if (data.revert_signal) {
+    html += '<div class="section-heading">Revert Signal</div>';
+    html += buildSignalBox('Revert Signal', data.revert_signal);
+  }
+
+  // --- Bugfix recurrences ---
+  if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) {
+    html += '<div class="section-heading">Bugfix Recurrences</div><ul style="padding-left:1.5rem">';
+    data.bugfix_recurrences.forEach(r => {
+      html += `<li style="margin-bottom:0.4rem;font-size:13px">${esc(JSON.stringify(r))}</li>`;
+    });
+    html += '</ul>';
+  }
+
+  // --- Dependency migrations ---
+  if (data.dependency_migrations && data.dependency_migrations.length > 0) {
+    html += '<div class="section-heading">Dependency Migrations</div>';
+    html += `<table><thead><tr><th>From</th><th>To</th><th>Commits</th></tr></thead><tbody>`;
+    data.dependency_migrations.forEach(m => {
+      html += `<tr>
+        <td>${esc(m.from_dep || m.from || '')}</td>
+        <td>${esc(m.to_dep || m.to || '')}</td>
+        <td>${m.commit_count || m.commits || '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  // --- Architectural shifts ---
+  if (data.architectural_shifts && data.architectural_shifts.length > 0) {
+    html += '<div class="section-heading">Architectural Shifts</div><ul style="padding-left:1.5rem">';
+    data.architectural_shifts.forEach(s => {
+      html += `<li style="margin-bottom:0.4rem;font-size:13px">${esc(JSON.stringify(s))}</li>`;
+    });
+    html += '</ul>';
+  }
+
+  // --- Educational Insights ---
+  if (data.explanations && data.explanations.length > 0) {
+    html += '<div class="section-heading">Educational Insights</div>';
+    data.explanations.forEach(ex => {
+      html += `<div class="insight-card">
+        <div class="insight-title">${esc(ex.pattern_type || ex.title || 'Insight')}</div>
+        ${ex.why_it_matters ? `<div class="insight-label">Why it matters</div><p>${esc(ex.why_it_matters)}</p>` : ''}
+        ${ex.engineer_takeaway ? `<div class="insight-label">Engineer takeaway</div><p>${esc(ex.engineer_takeaway)}</p>` : ''}
+      </div>`;
+    });
+  }
+
+  if (!html) html = '<div class="empty-state">No patterns detected yet.</div>';
+  el.innerHTML = html;
+}
+
+function buildSignalBox(title, obj) {
+  let rows = '';
+  Object.entries(obj).forEach(([k, v]) => {
+    if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) return;
+    const val = Array.isArray(v) ? v.join(', ') : String(v);
+    rows += `<dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${esc(val)}</dd>`;
+  });
+  return `<div class="signal-box"><h3>${esc(title)}</h3><dl>${rows}</dl></div>`;
+}
+
+/* =========================================================
+   Commits
+   ========================================================= */
+async function loadCommits(repoId, append) {
+  const el = document.getElementById('commits-content');
+  const btn = document.getElementById('load-more-btn');
+
+  if (!append) {
+    el.innerHTML = '<div class="empty-state">Loading…</div>';
+    btn.style.display = 'none';
+  }
+
+  let data;
+  try {
+    data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=${commitsLimit}`);
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">Error loading commits.</div>';
+    return;
+  }
+
+  commitsTotal = data.total;
+  const commits = data.commits || [];
+
+  let rows = '';
+  commits.forEach(c => {
+    const sha7 = (c.sha || '').slice(0, 7);
+    const cat = c.category || '';
+    const bClass = badgeClass(cat);
+    const summary = truncate(c.summary || c.message || '', 80);
+    rows += `<tr>
+      <td><span class="sha-code">${esc(sha7)}</span></td>
+      <td class="date-cell">${fmtDate(c.committed_at)}</td>
+      <td>${cat ? `<span class="badge ${bClass}">${esc(cat)}</span>` : '—'}</td>
+      <td class="summary-cell" title="${esc(c.summary || c.message || '')}">${esc(summary)}</td>
+    </tr>`;
+  });
+
+  const tableHtml = `<table>
+    <thead><tr><th>SHA</th><th>Date</th><th>Category</th><th>Summary</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  el.innerHTML = commits.length === 0
+    ? '<div class="empty-state">No commits found.</div>'
+    : tableHtml;
+
+  // Show load-more if there might be more
+  if (commits.length >= commitsLimit) {
+    btn.style.display = 'inline-block';
+    btn.disabled = false;
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+document.getElementById('load-more-btn').addEventListener('click', function() {
+  if (!currentRepo) return;
+  commitsLimit += 20;
+  this.disabled = true;
+  this.textContent = 'Loading…';
+  loadCommits(currentRepo, false).then(() => {
+    this.textContent = 'Load more';
+  });
+});
+
+/* =========================================================
+   Boot
+   ========================================================= */
+loadRepos();
+</script>
+
+</body>
+</html>
