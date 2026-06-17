@@ -560,7 +560,8 @@ async function loadOverview(repoId) {
   }
 
   const totalCommits = commits.total || (commits.commits || []).length;
-  const hotspotCount = (patterns.hotspots || []).length;
+  const hotspots = (patterns.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
+  const hotspotCount = hotspots.length;
   const patternCount = [
     patterns.refactor_wave, patterns.revert_signal, patterns.test_growth_signal,
     ...(patterns.dependency_migrations || []), ...(patterns.architectural_shifts || []),
@@ -604,7 +605,7 @@ async function loadOverview(repoId) {
     </div>
     <div class="chart-box" style="margin-bottom:1rem">
       <h3>Top Hotspot Files</h3>
-      <div class="chart-container" style="height:${Math.max(120, Math.min((patterns.hotspots || []).slice(0,5).length, 5) * 36)}px">
+      <div class="chart-container" style="height:${Math.max(120, Math.min(hotspots.slice(0,5).length, 5) * 36)}px">
         <canvas id="chart-hotspots" aria-label="Horizontal bar chart showing top hotspot files by commit count"></canvas>
       </div>
     </div>
@@ -659,7 +660,7 @@ async function loadOverview(repoId) {
   }
 
   // Hotspot chart
-  const top5 = (patterns.hotspots || []).slice(0, 5);
+  const top5 = hotspots.slice(0, 5);
   if (top5.length > 0) {
     destroyChart('hotspots');
     _charts['hotspots'] = new Chart(document.getElementById('chart-hotspots'), {
@@ -738,9 +739,10 @@ async function loadPatterns(repoId) {
   let html = '';
 
   // --- HOTSPOTS ---
+  const confHotspots = (data.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
   html += `<div class="section-heading" data-tip="secHotspots" tabindex="0">Hotspots</div>`;
-  if (data.hotspots && data.hotspots.length > 0) {
-    const top10 = data.hotspots.slice(0, 10);
+  if (confHotspots.length > 0) {
+    const top10 = confHotspots.slice(0, 10);
     html += `<div class="chart-box" style="margin-bottom:0.5rem">
       <div class="chart-container" style="height:${Math.max(120, top10.length * 32)}px">
         <canvas id="chart-hotspots-patterns" aria-label="Horizontal bar chart of top hotspot files, colored by confidence level"></canvas>
@@ -752,7 +754,7 @@ async function loadPatterns(repoId) {
       </div>
     </div>`;
     html += `<details style="margin-bottom:1rem">
-      <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:0.4rem 0">Evidence table (${data.hotspots.length} files)</summary>
+      <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:0.4rem 0">Evidence table (${confHotspots.length} files)</summary>
       <div class="table-wrap" style="margin-top:0.5rem">
       <table aria-label="Hotspot files evidence">
         <thead><tr>
@@ -763,7 +765,7 @@ async function loadPatterns(repoId) {
           <th scope="col" data-tip="thPeriod" tabindex="0">Period</th>
         </tr></thead>
         <tbody>`;
-    data.hotspots.forEach(h => {
+    confHotspots.forEach(h => {
       const period = h.time_range && h.time_range.length >= 2 ? `${fmtDate(h.time_range[0])} → ${fmtDate(h.time_range[1])}` : '—';
       const pct = h.confidence != null ? (h.confidence * 100).toFixed(0) + '%' : '—';
       html += `<tr><td><code style="font-size:11px">${esc(h.file_path)}</code></td><td>${h.commit_count}</td><td>${h.churn}</td><td>${pct}</td><td class="date-cell">${period}</td></tr>`;
@@ -827,8 +829,8 @@ async function loadPatterns(repoId) {
   if (!html) html = '<div class="empty-state">No patterns detected yet.</div>';
   el.innerHTML = html;
 
-  if (data.hotspots && data.hotspots.length > 0) {
-    const top10 = data.hotspots.slice(0, 10);
+  if (confHotspots.length > 0) {
+    const top10 = confHotspots.slice(0, 10);
     const canvas = document.getElementById('chart-hotspots-patterns');
     if (canvas) {
       destroyChart('hotspots-patterns');
