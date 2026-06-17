@@ -352,8 +352,15 @@ def main(
         help="Number of parallel LLM calls (default: 1 = sequential)",
     )
 
+    serve_parser = subparsers.add_parser("serve", help="Start the Git It API server")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
+
     args = parser.parse_args(argv)
     resolved_root = Path.cwd() if project_root is None else project_root
+
+    if args.command == "serve":
+        return _run_serve(host=args.host, port=args.port, project_root=resolved_root)
 
     if args.command == "ingest":
         return _run_ingest(
@@ -840,6 +847,16 @@ def _print_commits(commits: list[CommitRecord]) -> None:
         date = commit.committed_at[:10]
         message = commit.message.splitlines()[0][:72]
         print(f"{sha_short}  {date}  {message}  ({commit.author_name})")
+
+
+def _run_serve(*, host: str, port: int, project_root: Path) -> int:
+    import os
+
+    import uvicorn
+
+    os.environ["GIT_IT_DATA_DIR"] = str(project_root)
+    uvicorn.run("git_it.api.app:app", host=host, port=port, reload=False)
+    return 0
 
 
 def _print_ingestion_result(result: IngestionResult) -> None:
