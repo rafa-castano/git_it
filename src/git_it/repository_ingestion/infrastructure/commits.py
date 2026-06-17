@@ -17,7 +17,7 @@ class GitPythonCommitExtractor:
                 ExtractedCommit(
                     sha=commit.hexsha,
                     committed_at=commit.committed_datetime.isoformat(),
-                    message=(commit.message or "").strip(),
+                    message=str(commit.message or "").strip(),
                     author_name=commit.author.name or "",
                     committer_name=commit.committer.name or "",
                     parent_shas=tuple(p.hexsha for p in commit.parents),
@@ -34,7 +34,7 @@ class GitPythonCommitExtractor:
             return ()
         return tuple(
             ExtractedFileChange(
-                path=path,
+                path=str(path),
                 insertions=int(stat.get("insertions", 0)),
                 deletions=int(stat.get("deletions", 0)),
             )
