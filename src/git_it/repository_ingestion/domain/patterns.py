@@ -2,6 +2,15 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
+class PatternExplanation:
+    pattern_type: str  # "hotspot", "bugfix_recurrence", "refactor_wave", etc.
+    pattern_key: str  # file_path for hotspot/ownership, component for bugfix, else ""
+    why_it_matters: str  # 1-2 sentences: educational significance
+    engineer_takeaway: str  # 1 actionable lesson
+    confidence_note: str = ""  # brief note on evidence quality (can be empty)
+
+
+@dataclass(frozen=True)
 class Hotspot:
     file_path: str
     commit_count: int
@@ -79,3 +88,4 @@ class PatternReport:
     revert_signal: RevertSignal | None = None
     test_growth_signal: TestGrowthSignal | None = None
     ownership_concentrations: list[OwnershipConcentration] = field(default_factory=list)
+    explanations: list[PatternExplanation] = field(default_factory=list)  # LLM synthesis

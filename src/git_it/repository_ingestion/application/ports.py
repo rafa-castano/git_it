@@ -3,6 +3,7 @@ from typing import Protocol
 
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 
 __all__ = [
     "CaseStudyRecord",
@@ -30,6 +31,7 @@ __all__ = [
     "LLMClient",
     "LLMMessage",
     "OwnershipReader",
+    "PatternSynthesisClient",
     "RepoContextReader",
     "TemporalAnalysisReader",
     "TimestampedAnalysis",
@@ -194,3 +196,7 @@ class FileEvidenceReader(Protocol):
     def get_file_evidence_commits(
         self, repository_id: str, *, limit: int = 5
     ) -> dict[str, tuple[str, ...]]: ...
+
+
+class PatternSynthesisClient(Protocol):
+    def synthesize(self, report: PatternReport) -> list[PatternExplanation]: ...
