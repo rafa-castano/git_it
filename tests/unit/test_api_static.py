@@ -36,3 +36,25 @@ def test_openapi_docs_still_available(tmp_path: Path) -> None:
     client = TestClient(app)
     response = client.get("/docs")
     assert response.status_code == 200
+
+
+def test_static_index_contains_chartjs(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert "chart.js" in response.text.lower() or "Chart" in response.text
+
+
+def test_static_index_has_four_tabs(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    for tab in ["Overview", "Case Study", "Patterns", "Commits"]:
+        assert tab in response.text
+
+
+def test_static_index_has_category_colors(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert "BUGFIX" in response.text or "bugfix" in response.text.lower()

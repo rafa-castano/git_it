@@ -49,6 +49,11 @@ class HotspotItem(BaseModel):
     time_range: list[str] | None
 
 
+class CategoryCountItem(BaseModel):
+    category: str
+    count: int
+
+
 class PatternReportResponse(BaseModel):
     repository_id: str
     hotspots: list[HotspotItem]
@@ -60,3 +65,4 @@ class PatternReportResponse(BaseModel):
     dependency_migrations: list[dict]
     architectural_shifts: list[dict]
     explanations: list[dict]
+    category_counts: list[CategoryCountItem] = []

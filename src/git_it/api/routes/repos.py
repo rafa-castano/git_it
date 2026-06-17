@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from git_it.api.deps import get_project_root
 from git_it.api.schemas import (
     CaseStudyResponse,
+    CategoryCountItem,
     CommitsResponse,
     CommitSummaryItem,
     HotspotItem,
@@ -139,6 +140,10 @@ def get_patterns(
             return {k: v for k, v in dataclasses.asdict(obj).items()}  # type: ignore[arg-type]
         return {}
 
+    category_counts = [
+        CategoryCountItem(category=cc.category, count=cc.count) for cc in report.category_counts
+    ]
+
     return PatternReportResponse(
         repository_id=report.repository_id,
         hotspots=hotspots,
@@ -152,6 +157,7 @@ def get_patterns(
         dependency_migrations=[_dataclass_to_dict(r) for r in report.dependency_migrations],
         architectural_shifts=[_dataclass_to_dict(r) for r in report.architectural_shifts],
         explanations=[_dataclass_to_dict(e) for e in report.explanations],
+        category_counts=category_counts,
     )
 
 
@@ -199,7 +205,7 @@ def get_commits(
             try:
                 analysis_data = json.loads(str(row[3]))
                 category = analysis_data.get("category")
-                importance = analysis_data.get("importance")
+                importance = analysis_data.get("risk_level")
                 summary = analysis_data.get("summary")
             except (json.JSONDecodeError, AttributeError):
                 pass
