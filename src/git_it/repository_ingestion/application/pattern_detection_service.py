@@ -1,3 +1,5 @@
+import dataclasses
+
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisReader,
     CommitDateReader,
@@ -7,6 +9,7 @@ from git_it.repository_ingestion.application.ports import (
     FileFactReader,
     FileOwnershipRecord,
     OwnershipReader,
+    PatternSynthesisClient,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.patterns import (
@@ -37,6 +40,7 @@ class PatternDetectionService:
         commit_summary_reader: CommitSummaryReader | None = None,
         commit_date_reader: CommitDateReader | None = None,
         file_evidence_reader: FileEvidenceReader | None = None,
+        synthesis_client: PatternSynthesisClient | None = None,
     ) -> None:
         self._reader = reader
         self._analysis_reader = analysis_reader
@@ -44,6 +48,7 @@ class PatternDetectionService:
         self._commit_summary_reader = commit_summary_reader
         self._commit_date_reader = commit_date_reader
         self._file_evidence_reader = file_evidence_reader
+        self._synthesis_client = synthesis_client
 
     def detect(
         self,
@@ -118,7 +123,7 @@ class PatternDetectionService:
                 summaries, threshold=revert_threshold, date_map=date_map
             )
 
-        return PatternReport(
+        report = PatternReport(
             repository_id=repository_id,
             hotspots=hotspots,
             category_counts=category_counts,
@@ -128,6 +133,24 @@ class PatternDetectionService:
             test_growth_signal=test_growth_signal,
             ownership_concentrations=ownership_concentrations,
         )
+
+        if self._synthesis_client is not None and _report_has_patterns(report):
+            explanations = self._synthesis_client.synthesize(report)
+            report = dataclasses.replace(report, explanations=explanations)
+
+        return report
+
+
+def _report_has_patterns(report: PatternReport) -> bool:
+    """Return True if the report contains at least one non-trivial pattern."""
+    return bool(
+        report.hotspots
+        or report.bugfix_recurrences
+        or report.refactor_wave is not None
+        or report.revert_signal is not None
+        or report.test_growth_signal is not None
+        or report.ownership_concentrations
+    )
 
 
 def _time_range_for_shas(shas: tuple[str, ...], date_map: dict[str, str]) -> tuple[str, str] | None:

@@ -110,7 +110,9 @@ class PatternService(Protocol):
 
 
 class PatternFactory(Protocol):
-    def __call__(self, *, project_root: Path, repository_id: str) -> PatternService: ...
+    def __call__(
+        self, *, project_root: Path, repository_id: str, model: str | None
+    ) -> PatternService: ...
 
 
 class NarrativeGeneratorService(Protocol):
@@ -193,8 +195,10 @@ def _default_commit_analysis_factory(
     )
 
 
-def _default_pattern_factory(*, project_root: Path, repository_id: str) -> "PatternService":
-    return build_pattern_detection_service(project_root=project_root)
+def _default_pattern_factory(
+    *, project_root: Path, repository_id: str, model: str | None
+) -> "PatternService":
+    return build_pattern_detection_service(project_root=project_root, model=model)
 
 
 def _default_narrative_factory(
@@ -292,6 +296,12 @@ def main(
     patterns_parser.add_argument("repository_url")
     patterns_parser.add_argument(
         "--hotspot-threshold", type=int, default=_DEFAULT_HOTSPOT_THRESHOLD
+    )
+    patterns_parser.add_argument(
+        "--model",
+        default=None,
+        help="LLM model for educational synthesis (e.g. anthropic/claude-haiku-4-5-20251001)."
+        " If omitted, no synthesis is performed.",
     )
 
     case_study_parser = subparsers.add_parser("case-study")
@@ -393,6 +403,7 @@ def main(
         return _run_patterns(
             raw_url=args.repository_url,
             hotspot_threshold=args.hotspot_threshold,
+            model=args.model,
             project_root=resolved_root,
             pattern_factory=pattern_factory,
         )
@@ -647,11 +658,12 @@ def _run_patterns(
     *,
     raw_url: str,
     hotspot_threshold: int,
+    model: str | None,
     project_root: Path,
     pattern_factory: PatternFactory,
 ) -> int:
     repository_id = repository_id_for_url(raw_url)
-    service = pattern_factory(project_root=project_root, repository_id=repository_id)
+    service = pattern_factory(project_root=project_root, repository_id=repository_id, model=model)
     report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
     _print_pattern_report(report)
     return 0
@@ -719,6 +731,19 @@ def _print_pattern_report(report: PatternReport) -> None:
         print("Ownership Concentrations (knowledge silos):")
         for oc in report.ownership_concentrations:
             print(f"  {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})")
+
+    if report.explanations:
+        print()
+        print("Educational Insights")
+        print("=" * 60)
+        for exp in report.explanations:
+            label = exp.pattern_key if exp.pattern_key else exp.pattern_type.upper()
+            print(f"[{exp.pattern_type.upper()}] {label}")
+            print(f"  Why it matters: {exp.why_it_matters}")
+            print(f"  Takeaway: {exp.engineer_takeaway}")
+            if exp.confidence_note:
+                print(f"  Evidence note: {exp.confidence_note}")
+            print()
 
 
 def _run_case_study(

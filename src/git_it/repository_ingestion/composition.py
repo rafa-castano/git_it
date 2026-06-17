@@ -25,6 +25,7 @@ from git_it.repository_ingestion.infrastructure.git import (
 )
 from git_it.repository_ingestion.infrastructure.llm import (
     InstructorCommitAnalysisAdapter,
+    InstructorPatternSynthesisAdapter,
     LiteLLMLLMClient,
 )
 from git_it.repository_ingestion.infrastructure.sqlite import (
@@ -128,12 +129,15 @@ def build_commit_analysis_service(
     )
 
 
-def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionService:
+def build_pattern_detection_service(
+    *, project_root: Path, model: str | None = None
+) -> PatternDetectionService:
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     analysis_store = SqliteCommitAnalysisStore(db_path)
     analysis_store.initialize()
     file_fact_reader = SqliteFileFactReader(db_path)
     commit_reader = SqliteCommitReader(db_path)
+    synthesis_client = InstructorPatternSynthesisAdapter(model=model) if model is not None else None
     return PatternDetectionService(
         reader=file_fact_reader,
         analysis_reader=analysis_store,
@@ -141,6 +145,7 @@ def build_pattern_detection_service(*, project_root: Path) -> PatternDetectionSe
         commit_summary_reader=commit_reader,
         commit_date_reader=commit_reader,
         file_evidence_reader=file_fact_reader,
+        synthesis_client=synthesis_client,
     )
 
 

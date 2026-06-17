@@ -26,7 +26,7 @@ class FakePatternService:
 
 
 def _factory(service: FakePatternService):  # type: ignore[no-untyped-def]
-    def factory(*, project_root: Path, repository_id: str) -> FakePatternService:
+    def factory(*, project_root: Path, repository_id: str, model: str | None) -> FakePatternService:
         return service
 
     return factory
@@ -75,3 +75,43 @@ def test_patterns_passes_threshold_to_service(tmp_path: Path) -> None:
         pattern_factory=_factory(service),
     )
     assert service.calls[0][1] == 3
+
+
+# ---------------------------------------------------------------------------
+# Batch 45: --model flag
+# ---------------------------------------------------------------------------
+
+
+def _model_capturing_factory(captured: list[str | None]):  # type: ignore[no-untyped-def]
+    """Factory that records the model passed to it."""
+
+    def factory(*, project_root: Path, repository_id: str, model: str | None) -> FakePatternService:
+        captured.append(model)
+        return FakePatternService()
+
+    return factory
+
+
+def test_patterns_model_flag_passed_to_factory(tmp_path: Path) -> None:
+    captured: list[str | None] = []
+    main(
+        [
+            "patterns",
+            "https://github.com/owner/repo",
+            "--model",
+            "anthropic/claude-haiku-4-5-20251001",
+        ],
+        project_root=tmp_path,
+        pattern_factory=_model_capturing_factory(captured),
+    )
+    assert captured == ["anthropic/claude-haiku-4-5-20251001"]
+
+
+def test_patterns_no_model_flag_passes_none(tmp_path: Path) -> None:
+    captured: list[str | None] = []
+    main(
+        ["patterns", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        pattern_factory=_model_capturing_factory(captured),
+    )
+    assert captured == [None]
