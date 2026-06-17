@@ -79,6 +79,10 @@
     .chart-legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 11px; color: var(--muted); }
     .chart-legend-item { display: flex; align-items: center; gap: 0.3rem; }
     .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .donut-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; margin-top: 0.6rem; }
+    .donut-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 11px; color: var(--text); padding: 0.2rem 0.45rem; border-radius: 4px; cursor: help; transition: background 0.1s; }
+    .donut-legend-item:hover, .donut-legend-item:focus { background: var(--border); outline: none; }
+    .donut-legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
     /* Meta chips */
     .meta-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
@@ -589,7 +593,8 @@ async function loadOverview(repoId) {
     <div class="charts-row">
       <div class="chart-box">
         <h3>Commit Categories</h3>
-        <div class="chart-container" style="height:220px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution"></canvas></div>
+        <div class="chart-container" style="height:170px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution"></canvas></div>
+        <div id="donut-legend-custom" class="donut-legend" role="list" aria-label="Category legend"></div>
       </div>
       <div class="chart-box">
         <h3>Commit Activity</h3>
@@ -617,8 +622,18 @@ async function loadOverview(repoId) {
         labels: catCounts.map(c => c.category),
         datasets: [{ data: catCounts.map(c => c.count), backgroundColor: catCounts.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0', font: { size: 11 } } } } },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
+    // Custom HTML legend with tooltips
+    const legendEl = document.getElementById('donut-legend-custom');
+    if (legendEl) {
+      legendEl.innerHTML = catCounts.map(c =>
+        `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem">
+          <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
+          ${esc(c.category.toLowerCase())}
+        </span>`
+      ).join('');
+    }
   } else {
     document.getElementById('chart-donut').parentElement.innerHTML = '<div class="empty-state" style="padding:1rem">No category data</div>';
   }
