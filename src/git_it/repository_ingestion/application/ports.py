@@ -11,6 +11,7 @@ __all__ = [
     "CommitAnalysisClient",
     "CommitAnalysisReader",
     "CommitAnalysisWriter",
+    "CommitDateReader",
     "CommitExtractor",
     "CommitFactWriter",
     "CommitPersistenceResult",
@@ -18,6 +19,7 @@ __all__ = [
     "CommitSummaryRecord",
     "ExtractedCommit",
     "FileChurnRecord",
+    "FileEvidenceReader",
     "FileFactReader",
     "FileFactWriter",
     "FileOwnershipRecord",
@@ -182,3 +184,13 @@ class TemporalAnalysisReader(Protocol):
     def list_analyses_since(
         self, repository_id: str, *, since: str
     ) -> list[TimestampedAnalysis]: ...
+
+
+class CommitDateReader(Protocol):
+    def get_commit_date_map(self, repository_id: str) -> dict[str, str]: ...
+
+
+class FileEvidenceReader(Protocol):
+    def get_file_evidence_commits(
+        self, repository_id: str, *, limit: int = 5
+    ) -> dict[str, tuple[str, ...]]: ...

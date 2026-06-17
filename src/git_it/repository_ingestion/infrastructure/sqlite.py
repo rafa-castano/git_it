@@ -256,6 +256,14 @@ class SqliteCommitReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
 
+    def get_commit_date_map(self, repository_id: str) -> dict[str, str]:
+        with sqlite3.connect(self._database_path) as connection:
+            rows = connection.execute(
+                "SELECT sha, committed_at FROM commit_facts WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+        return {str(row[0]): str(row[1]) for row in rows}
+
     def list_commit_messages(self, repository_id: str) -> list[CommitSummaryRecord]:
         with sqlite3.connect(self._database_path) as connection:
             rows = connection.execute(
@@ -439,6 +447,28 @@ class SqliteFileFactReader:
             )
             for row in rows
         ]
+
+    def get_file_evidence_commits(
+        self, repository_id: str, *, limit: int = 5
+    ) -> dict[str, tuple[str, ...]]:
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT f.file_path, c.sha
+                FROM file_facts f
+                JOIN commit_facts c ON c.sha = f.commit_sha AND c.repository_id = f.repository_id
+                WHERE f.repository_id = ?
+                ORDER BY f.file_path, c.committed_at DESC
+                """,
+                (repository_id,),
+            ).fetchall()
+        result: dict[str, list[str]] = {}
+        for file_path, sha in rows:
+            fp = str(file_path)
+            bucket = result.setdefault(fp, [])
+            if len(bucket) < limit:
+                bucket.append(str(sha))
+        return {fp: tuple(shas) for fp, shas in result.items()}
 
     def get_file_ownership(self, repository_id: str) -> list[FileOwnershipRecord]:
         with sqlite3.connect(self._database_path) as conn:
