@@ -675,6 +675,8 @@ def _print_pattern_report(report: PatternReport) -> None:
         or report.category_counts
         or report.bugfix_recurrences
         or report.ownership_concentrations
+        or report.dependency_migrations
+        or report.architectural_shifts
     )
     if not has_data:
         print("No patterns detected. Ingest the repository first, then run 'git-it patterns'.")
@@ -731,6 +733,34 @@ def _print_pattern_report(report: PatternReport) -> None:
         print("Ownership Concentrations (knowledge silos):")
         for oc in report.ownership_concentrations:
             print(f"  {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})")
+
+    if report.dependency_migrations:
+        print()
+        print("Dependency Migrations:")
+        for m in report.dependency_migrations:
+            confidence_pct = int(m.confidence * 100)
+            print(
+                f"  {m.from_dependency} -> {m.to_dependency}: {m.commit_count} commits"
+                f"  [confidence: {confidence_pct}%]"
+            )
+            if m.evidence_commit_shas:
+                shas_short = ", ".join(s[:7] for s in m.evidence_commit_shas)
+                print(f"    Evidence: {shas_short}")
+            if m.time_range is not None:
+                print(f"    Period: {m.time_range[0]} -> {m.time_range[1]}")
+
+    if report.architectural_shifts:
+        print()
+        print("Architectural Shifts:")
+        for shift in report.architectural_shifts:
+            print(
+                f"  [{shift.shift_type}] {shift.description}  [confidence: {shift.confidence:.2f}]"
+            )
+            if shift.evidence_commit_shas:
+                shas_short = ", ".join(s[:7] for s in shift.evidence_commit_shas)
+                print(f"    Evidence: {shas_short}")
+            if shift.time_range is not None:
+                print(f"    Period: {shift.time_range[0]} -> {shift.time_range[1]}")
 
     if report.explanations:
         print()

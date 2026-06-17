@@ -3,7 +3,7 @@ import pytest
 from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
 )
-from git_it.repository_ingestion.application.ports import FileChurnRecord
+from git_it.repository_ingestion.application.ports import CommitSummaryRecord, FileChurnRecord
 from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
 
 
@@ -152,3 +152,36 @@ def test_detect_enrichment_without_readers_returns_defaults() -> None:
     report = service.detect("repo-1", hotspot_threshold=1)
     assert report.hotspots[0].evidence_commit_shas == ()
     assert report.hotspots[0].time_range is None
+
+
+class FakeCommitSummaryReader:
+    def __init__(self, summaries: list[CommitSummaryRecord] | None = None) -> None:
+        self._summaries = summaries or []
+
+    def list_commit_messages(self, repository_id: str) -> list[CommitSummaryRecord]:
+        return list(self._summaries)
+
+
+def test_detect_includes_dependency_migrations() -> None:
+    reader = FakeFileFactReader()
+    summary_reader = FakeCommitSummaryReader(
+        summaries=[CommitSummaryRecord(sha="abc1234", message="migrate from requests to httpx")]
+    )
+    service = PatternDetectionService(reader=reader, commit_summary_reader=summary_reader)
+    report = service.detect("repo-1")
+    assert len(report.dependency_migrations) == 1
+    assert report.dependency_migrations[0].from_dependency == "requests"
+    assert report.dependency_migrations[0].to_dependency == "httpx"
+
+
+def test_detect_includes_architectural_shifts() -> None:
+    # Two top-level dirs, src/ with 6 files meets threshold
+    records = [_record(f"src/module_{i}/file.py", commit_count=5) for i in range(6)] + [
+        _record("tests/test_main.py", commit_count=5),
+    ]
+    reader = FakeFileFactReader(records=records)
+    service = PatternDetectionService(reader=reader)
+    report = service.detect("repo-1", hotspot_threshold=100)
+    assert len(report.architectural_shifts) >= 1
+    shift_types = [s.shift_type for s in report.architectural_shifts]
+    assert "new_top_level_dir" in shift_types

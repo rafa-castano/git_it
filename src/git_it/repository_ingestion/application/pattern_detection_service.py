@@ -1,10 +1,13 @@
 import dataclasses
+import re
+from pathlib import Path
 
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisReader,
     CommitDateReader,
     CommitSummaryReader,
     CommitSummaryRecord,
+    FileChurnRecord,
     FileEvidenceReader,
     FileFactReader,
     FileOwnershipRecord,
@@ -13,8 +16,10 @@ from git_it.repository_ingestion.application.ports import (
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.patterns import (
+    ArchitecturalShift,
     BugfixRecurrence,
     CategoryCount,
+    DependencyMigration,
     Hotspot,
     OwnershipConcentration,
     PatternReport,
@@ -24,6 +29,27 @@ from git_it.repository_ingestion.domain.patterns import (
 )
 
 _DEFAULT_HOTSPOT_THRESHOLD = 5
+
+# Common words and short tokens to filter out of migration detection
+_MIGRATION_NOISE_WORDS: frozenset[str] = frozenset(
+    {"the", "a", "an", "it", "this", "that", "my", "our", "its", "old", "new"}
+)
+
+_MIGRATION_PATTERNS: list[re.Pattern[str]] = [
+    # "migrate from X to Y" / "migration from X to Y"
+    re.compile(r"migrat\w* from (\w[\w\-\.]+) to (\w[\w\-\.]+)", re.IGNORECASE),
+    # "replace X with Y" / "replace X by Y"
+    re.compile(r"replace (\w[\w\-\.]+) with (\w[\w\-\.]+)", re.IGNORECASE),
+    re.compile(r"replace (\w[\w\-\.]+) by (\w[\w\-\.]+)", re.IGNORECASE),
+    # "switch from X to Y"
+    re.compile(r"switch from (\w[\w\-\.]+) to (\w[\w\-\.]+)", re.IGNORECASE),
+    # "move from X to Y"
+    re.compile(r"move from (\w[\w\-\.]+) to (\w[\w\-\.]+)", re.IGNORECASE),
+]
+
+_NEW_TOP_LEVEL_DIR_MIN_FILES = 5
+_MODULE_EXTRACTION_OTHER_DIRS_MIN = 3
+_MODULE_EXTRACTION_OTHER_DIR_MIN_FILES = 5
 _DEFAULT_BUGFIX_RECURRENCE_THRESHOLD = 2
 _DEFAULT_REFACTOR_WAVE_THRESHOLD = 3
 _DEFAULT_OWNERSHIP_THRESHOLD = 1
@@ -117,11 +143,20 @@ class PatternDetectionService:
             )
 
         revert_signal: RevertSignal | None = None
+        summaries: list[CommitSummaryRecord] = []
         if self._commit_summary_reader is not None:
             summaries = self._commit_summary_reader.list_commit_messages(repository_id)
             revert_signal = _compute_revert_signal(
                 summaries, threshold=revert_threshold, date_map=date_map
             )
+
+        # Dependency migrations (rule-based, no LLM)
+        dependency_migrations = _compute_dependency_migrations(summaries, date_map=date_map)
+
+        # Architectural shifts (rule-based, no LLM)
+        architectural_shifts = _compute_architectural_shifts(
+            churn_records, date_map=date_map, file_evidence=file_evidence
+        )
 
         report = PatternReport(
             repository_id=repository_id,
@@ -132,6 +167,8 @@ class PatternDetectionService:
             revert_signal=revert_signal,
             test_growth_signal=test_growth_signal,
             ownership_concentrations=ownership_concentrations,
+            dependency_migrations=dependency_migrations,
+            architectural_shifts=architectural_shifts,
         )
 
         if self._synthesis_client is not None and _report_has_patterns(report):
@@ -150,6 +187,8 @@ def _report_has_patterns(report: PatternReport) -> bool:
         or report.revert_signal is not None
         or report.test_growth_signal is not None
         or report.ownership_concentrations
+        or report.dependency_migrations
+        or report.architectural_shifts
     )
 
 
@@ -327,3 +366,124 @@ def _compute_revert_signal(
         time_range=_time_range_for_shas(evidence_shas, date_map),
         confidence=round(min(1.0, ratio * 5.0), 3),
     )
+
+
+def _is_noisy_token(token: str) -> bool:
+    """Return True if the token is a common word or too short to be a dependency name."""
+    return len(token) < 3 or token.lower() in _MIGRATION_NOISE_WORDS
+
+
+def _compute_dependency_migrations(
+    summaries: list[CommitSummaryRecord],
+    *,
+    date_map: dict[str, str],
+) -> list[DependencyMigration]:
+    """Detect dependency migration patterns from commit messages using regex."""
+    # Map (from_dep, to_dep) -> list of matching SHAs
+    migration_shas: dict[tuple[str, str], list[str]] = {}
+
+    for summary in summaries:
+        first_line = summary.message.split("\n")[0]
+        for pattern in _MIGRATION_PATTERNS:
+            for match in pattern.finditer(first_line):
+                from_token = match.group(1).lower()
+                to_token = match.group(2).lower()
+                if _is_noisy_token(from_token) or _is_noisy_token(to_token):
+                    continue
+                key = (from_token, to_token)
+                migration_shas.setdefault(key, [])
+                if summary.sha not in migration_shas[key]:
+                    migration_shas[key].append(summary.sha)
+
+    result: list[DependencyMigration] = []
+    for (from_dep, to_dep), shas in migration_shas.items():
+        commit_count = len(shas)
+        evidence = tuple(shas[:5])
+        confidence = round(min(1.0, commit_count / 3.0), 10)
+        result.append(
+            DependencyMigration(
+                from_dependency=from_dep,
+                to_dependency=to_dep,
+                commit_count=commit_count,
+                evidence_commit_shas=evidence,
+                time_range=_time_range_for_shas(evidence, date_map),
+                confidence=confidence,
+            )
+        )
+
+    return sorted(result, key=lambda m: m.commit_count, reverse=True)
+
+
+def _compute_architectural_shifts(
+    file_churn: list[FileChurnRecord],
+    *,
+    date_map: dict[str, str],
+    file_evidence: dict[str, tuple[str, ...]],
+) -> list[ArchitecturalShift]:
+    """Detect architectural shifts by analyzing top-level directory structure."""
+    if not file_churn:
+        return []
+
+    # Count files per top-level directory
+    top_dirs: dict[str, list[str]] = {}
+    for record in file_churn:
+        parts = Path(record.file_path).parts
+        if len(parts) >= 2:
+            top_dir = parts[0]
+            top_dirs.setdefault(top_dir, []).append(record.file_path)
+
+    if len(top_dirs) <= 1:
+        # Only 1 top-level dir — no structural signal
+        return []
+
+    total_files = sum(len(files) for files in top_dirs.values())
+    result: list[ArchitecturalShift] = []
+
+    # Detect new_top_level_dir: dirs with >= _NEW_TOP_LEVEL_DIR_MIN_FILES files
+    significant_dirs: dict[str, int] = {}
+    for top_dir, files in top_dirs.items():
+        count = len(files)
+        if count >= _NEW_TOP_LEVEL_DIR_MIN_FILES:
+            significant_dirs[top_dir] = count
+            confidence = round(min(1.0, count / 20.0), 10)
+            # Gather evidence SHAs from the most-churned file in this dir
+            dir_evidence: tuple[str, ...] = ()
+            if file_evidence:
+                for fpath in files:
+                    shas = file_evidence.get(fpath, ())
+                    if len(shas) > len(dir_evidence):
+                        dir_evidence = shas
+            result.append(
+                ArchitecturalShift(
+                    shift_type="new_top_level_dir",
+                    description=f"Directory '{top_dir}/' contains {count} tracked files",
+                    evidence_commit_shas=dir_evidence,
+                    time_range=_time_range_for_shas(dir_evidence, date_map),
+                    confidence=confidence,
+                )
+            )
+
+    # Detect module_extraction: dominant dir with >= 3 other dirs each having >= 5 files
+    if total_files > 0 and significant_dirs:
+        dominant = max(significant_dirs, key=lambda d: significant_dirs[d])
+        dominant_ratio = significant_dirs[dominant] / total_files
+        other_large_dirs = [
+            d
+            for d, c in significant_dirs.items()
+            if d != dominant and c >= _MODULE_EXTRACTION_OTHER_DIR_MIN_FILES
+        ]
+        if dominant_ratio > 0.3 and len(other_large_dirs) >= _MODULE_EXTRACTION_OTHER_DIRS_MIN - 1:
+            result.append(
+                ArchitecturalShift(
+                    shift_type="module_extraction",
+                    description=(
+                        "Multiple significant top-level modules detected "
+                        "— extraction likely occurred"
+                    ),
+                    evidence_commit_shas=(),
+                    time_range=None,
+                    confidence=0.6,
+                )
+            )
+
+    return result
