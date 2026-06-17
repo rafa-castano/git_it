@@ -908,7 +908,7 @@ function renderCommitsTable(commits, total) {
     <tbody>${rows}</tbody>
   </table></div>`;
 
-  btn.style.display = commits.length >= commitsLimit ? 'inline-block' : 'none';
+  btn.style.display = (total !== undefined && commits.length < total) ? 'inline-block' : 'none';
   btn.disabled = false;
 }
 
