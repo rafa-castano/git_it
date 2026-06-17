@@ -15,7 +15,16 @@
       --green: #22c55e; --yellow: #eab308; --red: #ef4444;
       --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
     }
-    body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; }
+    [data-theme="light"] {
+      --bg: #f1f5f9; --surface: #ffffff; --border: #cbd5e1;
+      --accent: #4f46e5; --text: #0f172a; --muted: #64748b;
+      --green: #16a34a; --yellow: #b45309; --red: #dc2626;
+      --blue: #2563eb; --orange: #c2410c; --purple: #7c3aed;
+    }
+    [data-theme="light"] #repo-subheader { background: #e8edf5; }
+    [data-theme="light"] .repo-item .repo-meta { color: #64748b; }
+    [data-theme="light"] #global-tip { background: #1e293b; color: #f1f5f9; border-color: #334155; }
+    body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; transition: background 0.2s, color 0.2s; }
 
     /* Focus styles — WCAG 2.4.7 / 2.4.11 */
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
@@ -183,6 +192,17 @@
     [data-tip] { cursor: help; }
     .badge[data-tip], .dna-pill[data-tip], .section-heading[data-tip] { cursor: help; }
 
+    /* Header icon buttons */
+    .hdr-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+    .hdr-btn:hover { background: var(--border); color: var(--text); }
+    .hdr-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .hdr-btn svg { flex-shrink: 0; }
+
+    /* GitHub button in subheader */
+    .gh-btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+    .gh-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
+    .gh-btn svg { flex-shrink: 0; }
+
     /* Utils */
     .empty-state { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 13px; }
     #empty-banner { display: flex; align-items: center; justify-content: center; height: 100%; }
@@ -195,14 +215,26 @@
 
 <header>
   <h1>&#x1F50E; Git It</h1>
-  <label for="repo-select" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Select repository</label>
+  <label for="repo-select" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Select repository</label>
   <select id="repo-select" aria-label="Select repository">
     <option value="">— select a repository —</option>
   </select>
+  <button id="btn-tips" class="hdr-btn active" aria-pressed="true" title="Toggle tooltips" aria-label="Toggle tooltips">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    Tooltips
+  </button>
+  <button id="btn-theme" class="hdr-btn" aria-label="Switch to light mode" title="Toggle light/dark mode">
+    <svg id="icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg id="icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <span id="theme-label">Dark</span>
+  </button>
 </header>
 
 <div id="repo-subheader" aria-live="polite">
-  <a id="sh-url" href="#" target="_blank" rel="noopener"></a>
+  <a id="sh-url" href="#" target="_blank" rel="noopener" class="gh-btn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    <span id="sh-url-text">View on GitHub</span>
+  </a>
   <span class="sh-sep" aria-hidden="true">·</span>
   <span id="sh-commits" class="sh-badge"></span>
   <span class="sh-sep" aria-hidden="true">·</span>
@@ -334,9 +366,28 @@ function _hideTip() {
   _tipEl.style.display = 'none';
   if (_tipTarget) { _tipTarget.removeAttribute('aria-describedby'); _tipTarget = null; }
 }
-document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) _showTip(t); else _hideTip(); });
-document.addEventListener('focusin',   e => { const t = e.target.closest('[data-tip]'); if (t) _showTip(t); });
+let _tipsEnabled = true;
+document.addEventListener('mouseover', e => { if (!_tipsEnabled) return; const t = e.target.closest('[data-tip]'); if (t) _showTip(t); else _hideTip(); });
+document.addEventListener('mouseout',  e => { if (e.target.closest('[data-tip]')) _hideTip(); });
+document.addEventListener('focusin',   e => { if (!_tipsEnabled) return; const t = e.target.closest('[data-tip]'); if (t) _showTip(t); });
 document.addEventListener('focusout',  e => { if (e.target.closest('[data-tip]')) _hideTip(); });
+
+document.getElementById('btn-tips').addEventListener('click', function() {
+  _tipsEnabled = !_tipsEnabled;
+  _hideTip();
+  this.classList.toggle('active', _tipsEnabled);
+  this.setAttribute('aria-pressed', _tipsEnabled ? 'true' : 'false');
+  this.title = _tipsEnabled ? 'Tooltips on — click to disable' : 'Tooltips off — click to enable';
+});
+
+document.getElementById('btn-theme').addEventListener('click', function() {
+  const isLight = document.documentElement.dataset.theme === 'light';
+  document.documentElement.dataset.theme = isLight ? '' : 'light';
+  document.getElementById('icon-moon').style.display = isLight ? '' : 'none';
+  document.getElementById('icon-sun').style.display  = isLight ? 'none' : '';
+  document.getElementById('theme-label').textContent = isLight ? 'Dark' : 'Light';
+  this.setAttribute('aria-label', isLight ? 'Switch to light mode' : 'Switch to dark mode');
+});
 
 /* =========================================================
    State
@@ -502,7 +553,7 @@ function selectRepo(repoId, sidebarItem) {
   if (currentRepoMeta) {
     const urlEl = document.getElementById('sh-url');
     urlEl.href = currentRepoMeta.canonical_url;
-    urlEl.textContent = repoShortName(currentRepoMeta.canonical_url) + ' ↗';
+    document.getElementById('sh-url-text').textContent = repoShortName(currentRepoMeta.canonical_url);
     document.getElementById('sh-commits').textContent = currentRepoMeta.commit_count + ' commits';
     document.getElementById('sh-status').textContent = currentRepoMeta.status;
     const analyzed = document.getElementById('sh-analyzed');
