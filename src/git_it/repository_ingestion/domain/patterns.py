@@ -7,6 +7,9 @@ class Hotspot:
     commit_count: int
     total_insertions: int
     total_deletions: int
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
     @property
     def churn(self) -> int:
@@ -23,12 +26,18 @@ class CategoryCount:
 class BugfixRecurrence:
     component: str
     bugfix_commit_count: int
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
 
 @dataclass(frozen=True)
 class RefactorWave:
     commit_count: int
     refactor_ratio: float
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -36,12 +45,18 @@ class TestGrowthSignal:
     test_commit_count: int
     bugfix_commit_count: int
     test_to_bugfix_ratio: float
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
 
 @dataclass(frozen=True)
 class RevertSignal:
     revert_count: int
     revert_ratio: float
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -49,6 +64,9 @@ class OwnershipConcentration:
     file_path: str
     author_count: int
     commit_count: int
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
 
 
 @dataclass
