@@ -327,6 +327,7 @@ def test_get_commits_returns_paginated(tmp_path: Path) -> None:
             committed_at=f"2024-01-{i + 1:02d}T10:00:00",
             message=f"commit {i}",
         )
+        _insert_analysis(db, commit_sha=f"sha{i:04d}", category="feature", summary=f"commit {i}")
 
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
@@ -347,6 +348,8 @@ def test_get_commits_order_newest_first(tmp_path: Path) -> None:
     _insert_ingestion_run(db, repository_id="repo-abc")
     _insert_commit(db, sha="old111", committed_at="2023-01-01T10:00:00", message="old commit")
     _insert_commit(db, sha="new222", committed_at="2024-06-01T10:00:00", message="new commit")
+    _insert_analysis(db, commit_sha="old111", category="chore", summary="old")
+    _insert_analysis(db, commit_sha="new222", category="feature", summary="new")
 
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
@@ -365,6 +368,8 @@ def test_get_commits_order_oldest_first(tmp_path: Path) -> None:
     _insert_ingestion_run(db, repository_id="repo-abc")
     _insert_commit(db, sha="old111", committed_at="2023-01-01T10:00:00", message="old commit")
     _insert_commit(db, sha="new222", committed_at="2024-06-01T10:00:00", message="new commit")
+    _insert_analysis(db, commit_sha="old111", category="chore", summary="old")
+    _insert_analysis(db, commit_sha="new222", category="feature", summary="new")
 
     app = create_app(project_root=tmp_path)
     client = TestClient(app)

@@ -182,10 +182,10 @@ def get_commits(
         rows = conn.execute(
             f"""
             SELECT cf.sha, cf.message, cf.committed_at, ca.data
-            FROM commit_facts cf
-            LEFT JOIN commit_analyses ca
-              ON ca.commit_sha = cf.sha AND ca.repository_id = cf.repository_id
-            WHERE cf.repository_id = ?
+            FROM commit_analyses ca
+            JOIN commit_facts cf
+              ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+            WHERE ca.repository_id = ?
             ORDER BY cf.committed_at {order_dir}
             LIMIT ?
             """,
