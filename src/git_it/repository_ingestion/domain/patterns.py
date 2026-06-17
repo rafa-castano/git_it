@@ -78,6 +78,25 @@ class OwnershipConcentration:
     confidence: float = 0.0
 
 
+@dataclass(frozen=True)
+class DependencyMigration:
+    from_dependency: str  # e.g. "requests"
+    to_dependency: str  # e.g. "httpx"
+    commit_count: int  # number of commits mentioning this migration
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
+
+
+@dataclass(frozen=True)
+class ArchitecturalShift:
+    shift_type: str  # "new_top_level_dir" | "large_file_move" | "module_extraction"
+    description: str  # human-readable e.g. "New directory 'services/' appeared"
+    evidence_commit_shas: tuple[str, ...] = ()
+    time_range: tuple[str, str] | None = None
+    confidence: float = 0.0
+
+
 @dataclass
 class PatternReport:
     repository_id: str
@@ -89,3 +108,5 @@ class PatternReport:
     test_growth_signal: TestGrowthSignal | None = None
     ownership_concentrations: list[OwnershipConcentration] = field(default_factory=list)
     explanations: list[PatternExplanation] = field(default_factory=list)  # LLM synthesis
+    dependency_migrations: list[DependencyMigration] = field(default_factory=list)  # NEW
+    architectural_shifts: list[ArchitecturalShift] = field(default_factory=list)  # NEW
