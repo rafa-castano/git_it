@@ -753,7 +753,11 @@ def _print_narrative(result: NarrativeResult) -> None:
         return
     print(f"Case Study ({result.commit_count} commits, {result.hotspot_count} hotspot files)")
     print("=" * 60)
-    print(result.narrative)
+    import sys
+
+    sys.stdout.buffer.write(result.narrative.encode("utf-8"))
+    sys.stdout.buffer.write(b"\n")
+    sys.stdout.buffer.flush()
 
 
 def _print_analysis_result(result: AnalysisResult) -> None:
