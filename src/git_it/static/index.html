@@ -5,29 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Git It — Repository Insights</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2d3148;
+      --accent: #6366f1; --text: #e2e8f0; --muted: #64748b;
+      --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+      --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
+    }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
-      color: #1a1a2e;
-      background: #f4f6f9;
+      color: var(--text);
+      background: var(--bg);
       height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     header {
-      background: #1a1a2e;
-      color: #e8eaf6;
+      background: var(--surface);
+      color: var(--text);
       padding: 0 1.5rem;
       height: 52px;
       display: flex;
       align-items: center;
       gap: 1rem;
       flex-shrink: 0;
-      border-bottom: 2px solid #3949ab;
+      border-bottom: 2px solid var(--accent);
     }
 
     header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
@@ -35,10 +43,10 @@
     #repo-select {
       margin-left: auto;
       padding: 0.35rem 0.7rem;
-      border: 1px solid #3949ab;
+      border: 1px solid var(--border);
       border-radius: 4px;
-      background: #16213e;
-      color: #e8eaf6;
+      background: var(--bg);
+      color: var(--text);
       font-size: 13px;
       min-width: 260px;
       cursor: pointer;
@@ -52,8 +60,8 @@
 
     aside {
       width: 220px;
-      background: #ffffff;
-      border-right: 1px solid #dde1e7;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       overflow-y: auto;
       flex-shrink: 0;
     }
@@ -64,21 +72,21 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #6b7280;
-      border-bottom: 1px solid #f0f0f0;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
     }
 
     .repo-item {
       padding: 0.6rem 1rem;
       cursor: pointer;
-      border-bottom: 1px solid #f4f6f9;
+      border-bottom: 1px solid var(--border);
       transition: background 0.12s;
       font-size: 12px;
-      color: #374151;
+      color: var(--text);
     }
 
-    .repo-item:hover { background: #e8eaf6; }
-    .repo-item.active { background: #3949ab; color: #fff; }
+    .repo-item:hover { background: var(--border); }
+    .repo-item.active { background: var(--accent); color: #fff; }
 
     .repo-item .repo-name {
       font-weight: 600;
@@ -105,7 +113,7 @@
     .tabs {
       display: flex;
       gap: 0;
-      border-bottom: 2px solid #dde1e7;
+      border-bottom: 2px solid var(--border);
       flex-shrink: 0;
     }
 
@@ -116,19 +124,82 @@
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
-      color: #6b7280;
+      color: var(--muted);
       border-bottom: 2px solid transparent;
       margin-bottom: -2px;
       transition: all 0.15s;
     }
 
-    .tab-btn.active { color: #3949ab; border-bottom-color: #3949ab; }
-    .tab-btn:hover:not(.active) { color: #374151; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
 
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* Cards and metadata */
+    /* Stat cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+
+    .stat-card .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .stat-card .stat-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-card .stat-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Charts grid */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .chart-box h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .chart-container { position: relative; }
+
+    /* Meta chips */
     .meta-chips {
       display: flex;
       flex-wrap: wrap;
@@ -143,58 +214,60 @@
       border-radius: 12px;
       font-size: 11px;
       font-weight: 600;
-      background: #e8eaf6;
-      color: #3949ab;
+      background: var(--border);
+      color: var(--accent);
     }
 
-    .chip.gray { background: #f0f0f0; color: #6b7280; }
+    .chip.gray { background: var(--surface); color: var(--muted); }
 
     .repo-url-link {
       font-size: 12px;
-      color: #3949ab;
+      color: var(--accent);
       text-decoration: none;
       word-break: break-all;
     }
 
     .repo-url-link:hover { text-decoration: underline; }
 
-    /* Markdown render area */
+    /* Markdown */
     .markdown-body {
       line-height: 1.7;
       max-width: 820px;
+      color: var(--text);
     }
 
     .markdown-body h1, .markdown-body h2, .markdown-body h3 {
       margin: 1.2rem 0 0.5rem;
-      color: #1a1a2e;
+      color: var(--text);
     }
 
     .markdown-body h1 { font-size: 1.4rem; }
-    .markdown-body h2 { font-size: 1.15rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 0.3rem; }
+    .markdown-body h2 { font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
     .markdown-body h3 { font-size: 1rem; }
     .markdown-body p { margin-bottom: 0.8rem; }
     .markdown-body ul, .markdown-body ol { margin: 0.5rem 0 0.8rem 1.5rem; }
     .markdown-body li { margin-bottom: 0.3rem; }
-    .markdown-body code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-family: monospace; font-size: 12px; }
-    .markdown-body pre { background: #1a1a2e; color: #e8eaf6; padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
+    .markdown-body code { background: var(--border); padding: 0.1em 0.35em; border-radius: 3px; font-family: monospace; font-size: 12px; }
+    .markdown-body pre { background: var(--bg); color: var(--text); padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; border: 1px solid var(--border); }
     .markdown-body pre code { background: none; color: inherit; }
-    .markdown-body blockquote { border-left: 3px solid #3949ab; padding-left: 1rem; color: #6b7280; margin: 0.8rem 0; }
+    .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--muted); margin: 0.8rem 0; }
 
     /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      background: #fff;
+      background: var(--surface);
       border-radius: 6px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
     }
 
-    thead tr { background: #1a1a2e; color: #e8eaf6; }
-    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #f0f0f0; }
-    tr:hover td { background: #f9fafb; }
+    thead tr { background: var(--bg); color: var(--text); }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); cursor: pointer; user-select: none; }
+    th:hover { color: var(--text); }
+    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:hover td { background: var(--border); }
     tr:last-child td { border-bottom: none; }
 
     /* Category badges */
@@ -208,47 +281,116 @@
       letter-spacing: 0.04em;
     }
 
-    .badge-feature    { background: #dbeafe; color: #1d4ed8; }
-    .badge-fix        { background: #fee2e2; color: #b91c1c; }
-    .badge-refactor   { background: #fef3c7; color: #92400e; }
-    .badge-test       { background: #d1fae5; color: #065f46; }
-    .badge-docs       { background: #ede9fe; color: #5b21b6; }
-    .badge-chore      { background: #f3f4f6; color: #374151; }
-    .badge-default    { background: #f0f0f0; color: #6b7280; }
+    .badge-feature  { background: #1e3a5f; color: #93c5fd; }
+    .badge-bugfix   { background: #3b0e0e; color: #fca5a5; }
+    .badge-refactor { background: #3d1f00; color: #fdba74; }
+    .badge-test     { background: #052e16; color: #86efac; }
+    .badge-docs     { background: #2e1065; color: #d8b4fe; }
+    .badge-build    { background: #1c1c1c; color: #9ca3af; }
+    .badge-other    { background: #1a1d27; color: #64748b; }
+    .badge-default  { background: #1a1d27; color: #64748b; }
 
     /* Signal boxes */
     .signal-box {
-      border: 1px solid #dde1e7;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 1rem;
-      background: #fff;
+      background: var(--surface);
       margin-bottom: 1rem;
     }
 
-    .signal-box h3 { font-size: 13px; font-weight: 700; margin-bottom: 0.5rem; color: #3949ab; }
+    .signal-box h3 { font-size: 13px; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
     .signal-box dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; }
-    .signal-box dt { font-weight: 600; font-size: 12px; color: #6b7280; }
-    .signal-box dd { font-size: 12px; }
+    .signal-box dt { font-weight: 600; font-size: 12px; color: var(--muted); }
+    .signal-box dd { font-size: 12px; color: var(--text); }
+
+    /* Ratio ring for pattern signals */
+    .signal-cards-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .signal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ratio-ring {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .signal-card-info h4 { font-size: 13px; font-weight: 700; color: var(--text); }
+    .signal-card-info p { font-size: 12px; color: var(--muted); margin-top: 0.2rem; }
+
+    /* Migration pills */
+    .migration-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.3rem 0.75rem;
+      font-size: 12px;
+      margin: 0.25rem;
+      color: var(--text);
+    }
+
+    .migration-pill .arrow { color: var(--muted); }
+    .migration-pill .count { background: var(--accent); color: #fff; border-radius: 10px; padding: 0.1rem 0.4rem; font-size: 11px; font-weight: 700; }
 
     /* Insight cards */
     .insight-card {
-      border-left: 4px solid #3949ab;
-      background: #fff;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
       border-radius: 0 6px 6px 0;
       padding: 0.8rem 1rem;
       margin-bottom: 0.75rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border-top: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
     }
 
-    .insight-card .insight-title { font-weight: 700; font-size: 13px; margin-bottom: 0.4rem; }
-    .insight-card .insight-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; letter-spacing: 0.06em; margin-top: 0.5rem; }
-    .insight-card p { font-size: 13px; color: #374151; margin-top: 0.2rem; }
+    .insight-card .insight-title { font-weight: 700; font-size: 13px; margin-bottom: 0.4rem; color: var(--text); }
+    .insight-card .insight-icon { margin-right: 0.3rem; }
+    .insight-card .insight-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; margin-top: 0.5rem; }
+    .insight-card p { font-size: 13px; color: var(--muted); margin-top: 0.2rem; }
+
+    /* Commits filter bar */
+    .filter-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar select, .filter-bar input {
+      padding: 0.35rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .filter-bar input { flex: 1; min-width: 180px; }
 
     /* Load more */
     #load-more-btn {
       margin-top: 1rem;
       padding: 0.5rem 1.5rem;
-      background: #3949ab;
+      background: var(--accent);
       color: #fff;
       border: none;
       border-radius: 4px;
@@ -258,13 +400,27 @@
       transition: background 0.15s;
     }
 
-    #load-more-btn:hover { background: #303f9f; }
-    #load-more-btn:disabled { background: #9e9e9e; cursor: default; }
+    #load-more-btn:hover { background: #4f46e5; }
+    #load-more-btn:disabled { background: var(--muted); cursor: default; }
+
+    /* Expandable rows */
+    .expand-row { display: none; }
+    .expand-row.open { display: table-row; }
+    .expand-cell {
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0.5rem 0.8rem 0.75rem 2rem;
+      white-space: pre-wrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr.clickable-row { cursor: pointer; }
 
     /* Utility */
     .empty-state {
       text-align: center;
-      color: #9e9e9e;
+      color: var(--muted);
       padding: 3rem 1rem;
       font-size: 13px;
     }
@@ -272,7 +428,7 @@
     .section-heading {
       font-size: 13px;
       font-weight: 700;
-      color: #374151;
+      color: var(--muted);
       margin: 1.2rem 0 0.6rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -287,9 +443,24 @@
       height: 100%;
     }
 
-    .sha-code { font-family: monospace; font-size: 12px; color: #6b7280; }
-    .date-cell { white-space: nowrap; color: #6b7280; font-size: 12px; }
+    .sha-code { font-family: monospace; font-size: 12px; color: var(--muted); }
+    .date-cell { white-space: nowrap; color: var(--muted); font-size: 12px; }
     .summary-cell { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .arch-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.6rem 0.8rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .arch-icon { font-size: 16px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -310,19 +481,25 @@
   <main id="main-area">
     <div id="empty-banner">
       <div class="empty-state">
-        <p>Select a repository from the sidebar to explore its case study, patterns, and commits.</p>
+        <p>Select a repository from the sidebar to explore its overview, case study, patterns, and commits.</p>
       </div>
     </div>
 
     <div id="repo-content" style="display:none; flex-direction:column; gap:1rem;">
       <div class="tabs">
-        <button class="tab-btn active" data-tab="case-study">Case Study</button>
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="case-study">Case Study</button>
         <button class="tab-btn" data-tab="patterns">Patterns</button>
         <button class="tab-btn" data-tab="commits">Commits</button>
       </div>
 
+      <!-- Overview panel -->
+      <div class="tab-panel active" id="tab-overview">
+        <div id="overview-content"></div>
+      </div>
+
       <!-- Case Study panel -->
-      <div class="tab-panel active" id="tab-case-study">
+      <div class="tab-panel" id="tab-case-study">
         <div id="case-study-content"></div>
       </div>
 
@@ -333,6 +510,19 @@
 
       <!-- Commits panel -->
       <div class="tab-panel" id="tab-commits">
+        <div class="filter-bar">
+          <select id="cat-filter">
+            <option value="">All categories</option>
+            <option value="FEATURE">FEATURE</option>
+            <option value="BUGFIX">BUGFIX</option>
+            <option value="REFACTOR">REFACTOR</option>
+            <option value="BUILD">BUILD</option>
+            <option value="DOCS">DOCS</option>
+            <option value="TEST">TEST</option>
+            <option value="OTHER">OTHER</option>
+          </select>
+          <input type="text" id="keyword-filter" placeholder="Search commits…">
+        </div>
         <div id="commits-content"></div>
         <button id="load-more-btn" style="display:none">Load more</button>
       </div>
@@ -346,23 +536,49 @@
    ========================================================= */
 let currentRepo = null;
 let commitsLimit = 20;
-let commitsTotal = 0;
+let allCommits = [];
+let patternsData = null;
+
+/* =========================================================
+   Chart registry — destroy before recreating
+   ========================================================= */
+const _charts = {};
+function destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+/* =========================================================
+   Category config
+   ========================================================= */
+const CAT_COLORS = {
+  FEATURE:  '#3b82f6',
+  BUGFIX:   '#ef4444',
+  REFACTOR: '#f97316',
+  BUILD:    '#6b7280',
+  DOCS:     '#a855f7',
+  TEST:     '#22c55e',
+  OTHER:    '#64748b',
+};
+
+function catColor(cat) {
+  return CAT_COLORS[(cat || '').toUpperCase()] || '#64748b';
+}
+
+function badgeClass(category) {
+  if (!category) return 'badge-default';
+  const c = category.toLowerCase();
+  if (c === 'feature' || c.includes('feat')) return 'badge-feature';
+  if (c === 'bugfix' || c.includes('bug') || c.includes('fix')) return 'badge-bugfix';
+  if (c === 'refactor') return 'badge-refactor';
+  if (c === 'test') return 'badge-test';
+  if (c === 'docs' || c.includes('doc')) return 'badge-docs';
+  if (c === 'build' || c.includes('chore') || c.includes('ci')) return 'badge-build';
+  return 'badge-other';
+}
 
 /* =========================================================
    Utilities
    ========================================================= */
-function badgeClass(category) {
-  if (!category) return 'badge-default';
-  const c = category.toLowerCase();
-  if (c.includes('feature') || c.includes('feat')) return 'badge-feature';
-  if (c.includes('fix') || c.includes('bug')) return 'badge-fix';
-  if (c.includes('refactor')) return 'badge-refactor';
-  if (c.includes('test')) return 'badge-test';
-  if (c.includes('doc')) return 'badge-docs';
-  if (c.includes('chore') || c.includes('style') || c.includes('ci')) return 'badge-chore';
-  return 'badge-default';
-}
-
 function fmtDate(iso) {
   if (!iso) return '—';
   try { return iso.slice(0, 10); } catch { return iso; }
@@ -370,7 +586,7 @@ function fmtDate(iso) {
 
 function esc(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function truncate(str, n) {
@@ -416,7 +632,6 @@ async function loadRepos() {
   repos.forEach(repo => {
     const shortName = repoShortName(repo.canonical_url);
 
-    // Sidebar item
     const item = document.createElement('div');
     item.className = 'repo-item';
     item.dataset.id = repo.repository_id;
@@ -427,7 +642,6 @@ async function loadRepos() {
     item.addEventListener('click', () => selectRepo(repo.repository_id, item));
     sidebar.appendChild(item);
 
-    // Dropdown option
     const opt = document.createElement('option');
     opt.value = repo.repository_id;
     opt.textContent = shortName;
@@ -442,23 +656,20 @@ function selectRepo(repoId, sidebarItem) {
   if (currentRepo === repoId) return;
   currentRepo = repoId;
   commitsLimit = 20;
+  allCommits = [];
+  patternsData = null;
 
-  // Update sidebar active state
   document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
   if (sidebarItem) sidebarItem.classList.add('active');
 
-  // Sync dropdown
   document.getElementById('repo-select').value = repoId;
-
-  // Show content area, hide empty banner
   document.getElementById('empty-banner').style.display = 'none';
   const content = document.getElementById('repo-content');
   content.style.display = 'flex';
 
-  // Reset to Case Study tab
-  switchTab('case-study');
+  switchTab('overview');
 
-  // Load all panels in parallel
+  loadOverview(repoId);
   loadCaseStudy(repoId);
   loadPatterns(repoId);
   loadCommits(repoId, false);
@@ -487,6 +698,178 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 /* =========================================================
+   Overview tab
+   ========================================================= */
+async function loadOverview(repoId) {
+  const el = document.getElementById('overview-content');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+
+  let patterns, commits, caseStudy;
+  try {
+    [patterns, commits] = await Promise.all([
+      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`),
+      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=200&order=newest`),
+    ]);
+    try {
+      caseStudy = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study`);
+    } catch { caseStudy = null; }
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">Error loading overview data.</div>';
+    return;
+  }
+
+  const totalCommits = commits.total || (commits.commits || []).length;
+  const hotspotCount = (patterns.hotspots || []).length;
+  const patternCount = [
+    patterns.refactor_wave,
+    patterns.revert_signal,
+    patterns.test_growth_signal,
+    ...(patterns.dependency_migrations || []),
+    ...(patterns.architectural_shifts || []),
+  ].filter(Boolean).length;
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Commits Analyzed</div>
+        <div class="stat-value">${totalCommits}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Hotspot Files</div>
+        <div class="stat-value">${hotspotCount}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Patterns Detected</div>
+        <div class="stat-value">${patternCount}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Case Study</div>
+        <div class="stat-value" style="font-size:1.3rem">${caseStudy ? '✓' : '✗'}</div>
+        <div class="stat-sub">${caseStudy ? 'Available' : 'Not generated'}</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box">
+        <h3>Commit Categories</h3>
+        <div class="chart-container" style="height:220px">
+          <canvas id="chart-donut"></canvas>
+        </div>
+      </div>
+      <div class="chart-box">
+        <h3>Commit Activity</h3>
+        <div class="chart-container" style="height:220px">
+          <canvas id="chart-activity"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-box" style="margin-bottom:1rem">
+      <h3>Top Hotspot Files</h3>
+      <div class="chart-container" style="height:${Math.max(120, hotspotCount * 28)}px">
+        <canvas id="chart-hotspots"></canvas>
+      </div>
+    </div>
+  `;
+
+  // Donut chart — category counts
+  const catCounts = patterns.category_counts || [];
+  if (catCounts.length > 0) {
+    destroyChart('donut');
+    _charts['donut'] = new Chart(document.getElementById('chart-donut'), {
+      type: 'doughnut',
+      data: {
+        labels: catCounts.map(c => c.category),
+        datasets: [{
+          data: catCounts.map(c => c.count),
+          backgroundColor: catCounts.map(c => catColor(c.category)),
+          borderWidth: 1,
+          borderColor: '#0f1117',
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: '#e2e8f0', font: { size: 11 } } },
+        },
+      },
+    });
+  } else {
+    document.getElementById('chart-donut').parentElement.innerHTML =
+      '<div class="empty-state" style="padding:1rem">No category data</div>';
+  }
+
+  // Activity bar chart — commits by month
+  const commitList = commits.commits || [];
+  const monthMap = {};
+  commitList.forEach(c => {
+    if (!c.committed_at) return;
+    const month = c.committed_at.slice(0, 7);
+    monthMap[month] = (monthMap[month] || 0) + 1;
+  });
+  const months = Object.keys(monthMap).sort();
+  if (months.length > 0) {
+    destroyChart('activity');
+    _charts['activity'] = new Chart(document.getElementById('chart-activity'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [{
+          label: 'Commits',
+          data: months.map(m => monthMap[m]),
+          backgroundColor: '#6366f1',
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+        },
+      },
+    });
+  }
+
+  // Hotspot horizontal bar chart
+  const top5 = (patterns.hotspots || []).slice(0, 5);
+  if (top5.length > 0) {
+    destroyChart('hotspots');
+    _charts['hotspots'] = new Chart(document.getElementById('chart-hotspots'), {
+      type: 'bar',
+      data: {
+        labels: top5.map(h => h.file_path.split('/').pop()),
+        datasets: [{
+          label: 'Commits',
+          data: top5.map(h => h.commit_count),
+          backgroundColor: top5.map(h => {
+            const conf = h.confidence || 0;
+            if (conf >= 0.8) return '#ef4444';
+            if (conf >= 0.5) return '#f97316';
+            return '#eab308';
+          }),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+          y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
+        },
+      },
+    });
+  } else {
+    document.getElementById('chart-hotspots').parentElement.innerHTML =
+      '<div class="empty-state" style="padding:1rem">No hotspot data</div>';
+  }
+}
+
+/* =========================================================
    Case Study
    ========================================================= */
 async function loadCaseStudy(repoId) {
@@ -505,7 +888,6 @@ async function loadCaseStudy(repoId) {
     return;
   }
 
-  const repoUrl = repoId; // repository_id typically is the URL
   const chips = `
     <div class="meta-chips">
       <span class="chip">${data.commit_count} commits</span>
@@ -542,76 +924,114 @@ async function loadPatterns(repoId) {
     return;
   }
 
+  patternsData = data;
   let html = '';
 
-  // --- Hotspots ---
+  // --- Hotspots horizontal bar chart ---
   html += '<div class="section-heading">Hotspots</div>';
   if (data.hotspots && data.hotspots.length > 0) {
-    html += `<table>
-      <thead><tr>
-        <th>File</th><th>Commits</th><th>Churn</th><th>Confidence</th><th>Period</th>
-      </tr></thead>
-      <tbody>`;
+    const top10 = data.hotspots.slice(0, 10);
+    html += `<div class="chart-box" style="margin-bottom:1rem">
+      <div class="chart-container" style="height:${Math.max(120, top10.length * 32)}px">
+        <canvas id="chart-hotspots-patterns"></canvas>
+      </div>
+    </div>`;
+
+    html += `<details style="margin-bottom:1rem">
+      <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:0.4rem 0">Evidence table (${data.hotspots.length} files)</summary>
+      <table style="margin-top:0.5rem">
+        <thead><tr>
+          <th>File</th><th>Commits</th><th>Churn</th><th>Confidence</th><th>Period</th>
+        </tr></thead>
+        <tbody>`;
     data.hotspots.forEach(h => {
       const period = h.time_range && h.time_range.length >= 2
         ? `${fmtDate(h.time_range[0])} → ${fmtDate(h.time_range[1])}`
         : '—';
       const pct = h.confidence != null ? (h.confidence * 100).toFixed(0) + '%' : '—';
       html += `<tr>
-        <td><code>${esc(h.file_path)}</code></td>
+        <td><code style="font-size:11px">${esc(h.file_path)}</code></td>
         <td>${h.commit_count}</td>
         <td>${h.churn}</td>
         <td>${pct}</td>
         <td class="date-cell">${period}</td>
       </tr>`;
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></details>';
   } else {
     html += '<div class="empty-state">No hotspots detected.</div>';
   }
 
-  // --- Refactor wave ---
+  // --- Pattern signal cards ---
+  const signalCards = [];
   if (data.refactor_wave) {
-    html += '<div class="section-heading">Refactor Wave</div>';
-    html += buildSignalBox('Refactor Wave', data.refactor_wave);
+    const ratio = data.refactor_wave.ratio || 0;
+    signalCards.push({ title: 'Refactor Wave', obj: data.refactor_wave, ratio, color: '#f97316' });
+  }
+  if (data.revert_signal) {
+    const ratio = data.revert_signal.ratio || 0;
+    signalCards.push({ title: 'Revert Signal', obj: data.revert_signal, ratio, color: '#ef4444' });
+  }
+  if (data.test_growth_signal) {
+    const ratio = data.test_growth_signal.ratio || 0;
+    signalCards.push({ title: 'Test Growth', obj: data.test_growth_signal, ratio, color: '#22c55e' });
   }
 
-  // --- Revert signal ---
-  if (data.revert_signal) {
-    html += '<div class="section-heading">Revert Signal</div>';
-    html += buildSignalBox('Revert Signal', data.revert_signal);
+  if (signalCards.length > 0) {
+    html += '<div class="section-heading">Pattern Signals</div><div class="signal-cards-row">';
+    signalCards.forEach(s => {
+      const pct = Math.round((s.ratio || 0) * 100);
+      const bg = `conic-gradient(${s.color} 0% ${pct}%, var(--border) ${pct}% 100%)`;
+      html += `<div class="signal-card">
+        <div class="ratio-ring" style="background:${bg}"></div>
+        <div class="signal-card-info">
+          <h4>${esc(s.title)}</h4>
+          <p>${pct}% ratio</p>
+          ${s.obj.commit_count !== undefined ? `<p>${s.obj.commit_count} commits</p>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
   }
 
   // --- Bugfix recurrences ---
   if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) {
     html += '<div class="section-heading">Bugfix Recurrences</div><ul style="padding-left:1.5rem">';
     data.bugfix_recurrences.forEach(r => {
-      html += `<li style="margin-bottom:0.4rem;font-size:13px">${esc(JSON.stringify(r))}</li>`;
+      html += `<li style="margin-bottom:0.4rem;font-size:13px;color:var(--text)">${esc(typeof r === 'string' ? r : JSON.stringify(r))}</li>`;
     });
     html += '</ul>';
   }
 
   // --- Dependency migrations ---
   if (data.dependency_migrations && data.dependency_migrations.length > 0) {
-    html += '<div class="section-heading">Dependency Migrations</div>';
-    html += `<table><thead><tr><th>From</th><th>To</th><th>Commits</th></tr></thead><tbody>`;
+    html += '<div class="section-heading">Dependency Migrations</div><div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-bottom:1rem">';
     data.dependency_migrations.forEach(m => {
-      html += `<tr>
-        <td>${esc(m.from_dep || m.from || '')}</td>
-        <td>${esc(m.to_dep || m.to || '')}</td>
-        <td>${m.commit_count || m.commits || '—'}</td>
-      </tr>`;
+      const from = m.from_dependency || m.from_dep || m.from || '?';
+      const to = m.to_dependency || m.to_dep || m.to || '?';
+      const count = m.commit_count || m.commits || 0;
+      html += `<span class="migration-pill">
+        <span>${esc(from)}</span>
+        <span class="arrow">──→</span>
+        <span>${esc(to)}</span>
+        <span class="count">${count}</span>
+      </span>`;
     });
-    html += '</tbody></table>';
+    html += '</div>';
   }
 
   // --- Architectural shifts ---
   if (data.architectural_shifts && data.architectural_shifts.length > 0) {
-    html += '<div class="section-heading">Architectural Shifts</div><ul style="padding-left:1.5rem">';
+    html += '<div class="section-heading">Architectural Shifts</div>';
     data.architectural_shifts.forEach(s => {
-      html += `<li style="margin-bottom:0.4rem;font-size:13px">${esc(JSON.stringify(s))}</li>`;
+      const icon = s.shift_type === 'infrastructure' ? '🏗️' : '📦';
+      const desc = s.description || JSON.stringify(s);
+      const conf = s.confidence != null ? ` · ${(s.confidence * 100).toFixed(0)}% confidence` : '';
+      html += `<div class="arch-item">
+        <span class="arch-icon">${icon}</span>
+        <span>${esc(desc)}${esc(conf)}</span>
+      </div>`;
     });
-    html += '</ul>';
   }
 
   // --- Educational Insights ---
@@ -619,7 +1039,7 @@ async function loadPatterns(repoId) {
     html += '<div class="section-heading">Educational Insights</div>';
     data.explanations.forEach(ex => {
       html += `<div class="insight-card">
-        <div class="insight-title">${esc(ex.pattern_type || ex.title || 'Insight')}</div>
+        <div class="insight-title"><span class="insight-icon">💡</span>${esc(ex.pattern_type || ex.title || 'Insight')}</div>
         ${ex.why_it_matters ? `<div class="insight-label">Why it matters</div><p>${esc(ex.why_it_matters)}</p>` : ''}
         ${ex.engineer_takeaway ? `<div class="insight-label">Engineer takeaway</div><p>${esc(ex.engineer_takeaway)}</p>` : ''}
       </div>`;
@@ -628,16 +1048,42 @@ async function loadPatterns(repoId) {
 
   if (!html) html = '<div class="empty-state">No patterns detected yet.</div>';
   el.innerHTML = html;
-}
 
-function buildSignalBox(title, obj) {
-  let rows = '';
-  Object.entries(obj).forEach(([k, v]) => {
-    if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) return;
-    const val = Array.isArray(v) ? v.join(', ') : String(v);
-    rows += `<dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${esc(val)}</dd>`;
-  });
-  return `<div class="signal-box"><h3>${esc(title)}</h3><dl>${rows}</dl></div>`;
+  // Render hotspot chart after DOM update
+  if (data.hotspots && data.hotspots.length > 0) {
+    const top10 = data.hotspots.slice(0, 10);
+    const canvas = document.getElementById('chart-hotspots-patterns');
+    if (canvas) {
+      destroyChart('hotspots-patterns');
+      _charts['hotspots-patterns'] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: top10.map(h => h.file_path.split('/').pop()),
+          datasets: [{
+            label: 'Commits',
+            data: top10.map(h => h.commit_count),
+            backgroundColor: top10.map(h => {
+              const conf = h.confidence || 0;
+              if (conf >= 0.8) return '#ef4444';
+              if (conf >= 0.5) return '#f97316';
+              return '#eab308';
+            }),
+            borderRadius: 3,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+            y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
+          },
+        },
+      });
+    }
+  }
 }
 
 /* =========================================================
@@ -650,43 +1096,73 @@ async function loadCommits(repoId, append) {
   if (!append) {
     el.innerHTML = '<div class="empty-state">Loading…</div>';
     btn.style.display = 'none';
+    allCommits = [];
   }
 
   let data;
   try {
-    data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=${commitsLimit}`);
+    data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=${commitsLimit}&order=newest`);
   } catch (e) {
     el.innerHTML = '<div class="empty-state">Error loading commits.</div>';
     return;
   }
 
-  commitsTotal = data.total;
-  const commits = data.commits || [];
+  allCommits = data.commits || [];
+  renderCommitsTable(allCommits, data.total);
+}
+
+function renderCommitsTable(commits, total) {
+  const el = document.getElementById('commits-content');
+  const btn = document.getElementById('load-more-btn');
+  const catFilter = document.getElementById('cat-filter').value;
+  const keyword = document.getElementById('keyword-filter').value.toLowerCase();
+
+  let filtered = commits;
+  if (catFilter) {
+    filtered = filtered.filter(c => (c.category || '').toUpperCase() === catFilter);
+  }
+  if (keyword) {
+    filtered = filtered.filter(c =>
+      (c.message || '').toLowerCase().includes(keyword) ||
+      (c.summary || '').toLowerCase().includes(keyword) ||
+      (c.sha || '').toLowerCase().includes(keyword)
+    );
+  }
+
+  if (filtered.length === 0) {
+    el.innerHTML = '<div class="empty-state">No commits match the current filter.</div>';
+    btn.style.display = 'none';
+    return;
+  }
 
   let rows = '';
-  commits.forEach(c => {
+  filtered.forEach((c, i) => {
     const sha7 = (c.sha || '').slice(0, 7);
-    const cat = c.category || '';
+    const cat = (c.category || '').toUpperCase();
     const bClass = badgeClass(cat);
     const summary = truncate(c.summary || c.message || '', 80);
-    rows += `<tr>
+    const expandId = `expand-${i}`;
+    rows += `<tr class="clickable-row" onclick="toggleExpand('${expandId}')">
       <td><span class="sha-code">${esc(sha7)}</span></td>
       <td class="date-cell">${fmtDate(c.committed_at)}</td>
       <td>${cat ? `<span class="badge ${bClass}">${esc(cat)}</span>` : '—'}</td>
       <td class="summary-cell" title="${esc(c.summary || c.message || '')}">${esc(summary)}</td>
+    </tr>
+    <tr class="expand-row" id="${expandId}">
+      <td colspan="4" class="expand-cell">${esc(c.summary || c.message || '(no summary)')}</td>
     </tr>`;
   });
 
-  const tableHtml = `<table>
-    <thead><tr><th>SHA</th><th>Date</th><th>Category</th><th>Summary</th></tr></thead>
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>SHA</th>
+      <th>Date</th>
+      <th>Category</th>
+      <th>Summary</th>
+    </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 
-  el.innerHTML = commits.length === 0
-    ? '<div class="empty-state">No commits found.</div>'
-    : tableHtml;
-
-  // Show load-more if there might be more
   if (commits.length >= commitsLimit) {
     btn.style.display = 'inline-block';
     btn.disabled = false;
@@ -694,6 +1170,19 @@ async function loadCommits(repoId, append) {
     btn.style.display = 'none';
   }
 }
+
+function toggleExpand(id) {
+  const row = document.getElementById(id);
+  if (row) row.classList.toggle('open');
+}
+
+document.getElementById('cat-filter').addEventListener('change', () => {
+  renderCommitsTable(allCommits, allCommits.length);
+});
+
+document.getElementById('keyword-filter').addEventListener('input', () => {
+  renderCommitsTable(allCommits, allCommits.length);
+});
 
 document.getElementById('load-more-btn').addEventListener('click', function() {
   if (!currentRepo) return;
