@@ -11,11 +11,15 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0f1117; --surface: #1a1d27; --border: #2d3148;
-      --accent: #6366f1; --text: #e2e8f0; --muted: #64748b;
+      --accent: #6366f1; --text: #e2e8f0; --muted: #94a3b8;
       --green: #22c55e; --yellow: #eab308; --red: #ef4444;
       --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
     }
     body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; }
+
+    /* Focus styles — WCAG 2.4.7 / 2.4.11 */
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
     header { background: var(--surface); padding: 0 1.5rem; height: 52px; display: flex; align-items: center; gap: 1rem; flex-shrink: 0; border-bottom: 2px solid var(--accent); }
     header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap; }
     #repo-select { margin-left: auto; padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 13px; min-width: 260px; cursor: pointer; font-family: inherit; }
@@ -29,15 +33,17 @@
     aside { width: 220px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
     aside h2 { padding: 0.9rem 1rem 0.5rem; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
     .repo-item { padding: 0.6rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.12s; font-size: 12px; color: var(--text); }
-    .repo-item:hover { background: var(--border); }
+    .repo-item:hover, .repo-item:focus { background: var(--border); outline: none; }
     .repo-item.active { background: var(--accent); color: #fff; }
+    .repo-item.active:focus { outline: 2px solid #fff; outline-offset: -3px; }
     .repo-item .repo-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .repo-item .repo-meta { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+    .repo-item .repo-meta { font-size: 11px; color: #8b9ab5; margin-top: 2px; }
+    .repo-item.active .repo-meta { color: rgba(255,255,255,0.75); }
     main { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
     .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); flex-shrink: 0; }
     .tab-btn { padding: 0.55rem 1.2rem; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab-btn:hover:not(.active) { color: var(--text); }
+    .tab-btn[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not([aria-selected="true"]) { color: var(--text); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
@@ -57,7 +63,7 @@
     .dna-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
     .dna-card h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.75rem; }
     .dna-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .dna-pill { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.75rem; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+    .dna-pill { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.75rem; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid transparent; cursor: help; }
     .dna-pill.blue   { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
     .dna-pill.red    { background: #3b0e0e; color: #fca5a5; border-color: #7f1d1d; }
     .dna-pill.orange { background: #3d1f00; color: #fdba74; border-color: #7c2d12; }
@@ -99,6 +105,7 @@
     .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--muted); margin: 0.8rem 0; }
 
     /* Tables */
+    .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
     thead tr { background: var(--bg); }
     th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
@@ -107,20 +114,21 @@
     tr:last-child td { border-bottom: none; }
 
     /* Badges */
-    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; cursor: help; }
     .badge-feature  { background: #ef4444; color: #fff; }
     .badge-bugfix   { background: #3b82f6; color: #fff; }
     .badge-refactor { background: #f97316; color: #fff; }
-    .badge-test     { background: #22c55e; color: #fff; }
+    .badge-test     { background: #22c55e; color: #111; }
     .badge-docs     { background: #a855f7; color: #fff; }
     .badge-build    { background: #6b7280; color: #fff; }
     .badge-security { background: #dc2626; color: #fff; }
     .badge-chore    { background: #6b7280; color: #fff; }
-    .badge-unknown  { background: #374151; color: #9ca3af; }
-    .badge-default  { background: #374151; color: #9ca3af; }
+    .badge-unknown  { background: #374151; color: #d1d5db; }
+    .badge-default  { background: #374151; color: #d1d5db; }
 
     /* Patterns sections */
-    .section-heading { font-size: 13px; font-weight: 700; color: var(--muted); margin: 1.2rem 0 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .section-heading { font-size: 13px; font-weight: 700; color: var(--muted); margin: 1.2rem 0 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; cursor: help; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .section-heading::after { content: "ⓘ"; font-size: 11px; opacity: 0.7; font-style: normal; }
     .signal-cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
     .signal-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 1rem; }
     .signal-card .sc-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
@@ -131,7 +139,7 @@
     .migration-row .from-dep, .migration-row .to-dep { font-weight: 600; color: var(--text); }
     .migration-row .arrow { color: var(--accent); font-weight: 700; }
     .migration-row .m-count { background: var(--accent); color: #fff; border-radius: 10px; padding: 0.1rem 0.45rem; font-size: 11px; font-weight: 700; margin-left: auto; }
-    .migration-row .m-conf { color: var(--muted); font-size: 11px; }
+    .migration-row .m-conf { color: var(--muted); font-size: 11px; cursor: help; }
     .arch-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; font-size: 13px; }
     .arch-icon { font-size: 16px; flex-shrink: 0; }
     .insight-card { border-left: 4px solid var(--yellow); background: var(--surface); border-radius: 0 6px 6px 0; padding: 0.8rem 1rem; margin-bottom: 0.75rem; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -151,6 +159,26 @@
     .expand-cell { background: var(--bg); color: var(--muted); font-size: 12px; padding: 0.5rem 0.8rem 0.75rem 2rem; white-space: pre-wrap; border-bottom: 1px solid var(--border); }
     tr.clickable-row { cursor: pointer; }
 
+    /* Tooltip */
+    #global-tip {
+      position: fixed;
+      display: none;
+      z-index: 9999;
+      max-width: 280px;
+      background: #1e2333;
+      color: #e2e8f0;
+      border: 1px solid #3d4263;
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-size: 12px;
+      line-height: 1.55;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    [data-tip] { cursor: help; }
+    .badge[data-tip], .dna-pill[data-tip], .section-heading[data-tip] { cursor: help; }
+
     /* Utils */
     .empty-state { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 13px; }
     #empty-banner { display: flex; align-items: center; justify-content: center; height: 100%; }
@@ -163,25 +191,26 @@
 
 <header>
   <h1>&#x1F50E; Git It</h1>
-  <select id="repo-select">
+  <label for="repo-select" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Select repository</label>
+  <select id="repo-select" aria-label="Select repository">
     <option value="">— select a repository —</option>
   </select>
 </header>
 
-<div id="repo-subheader">
+<div id="repo-subheader" aria-live="polite">
   <a id="sh-url" href="#" target="_blank" rel="noopener"></a>
-  <span class="sh-sep">·</span>
+  <span class="sh-sep" aria-hidden="true">·</span>
   <span id="sh-commits" class="sh-badge"></span>
-  <span class="sh-sep">·</span>
+  <span class="sh-sep" aria-hidden="true">·</span>
   <span id="sh-status" class="sh-status"></span>
-  <span class="sh-sep">·</span>
-  <span id="sh-analyzed" style="color:var(--muted)"></span>
+  <span class="sh-sep" aria-hidden="true">·</span>
+  <span id="sh-analyzed" style="color:var(--muted)" tabindex="0"></span>
 </div>
 
 <div class="layout">
-  <aside>
-    <h2>Repositories</h2>
-    <div id="sidebar-list"></div>
+  <aside aria-label="Repository list">
+    <h2 id="sidebar-heading">Repositories</h2>
+    <div id="sidebar-list" role="list" aria-labelledby="sidebar-heading"></div>
   </aside>
 
   <main id="main-area">
@@ -192,19 +221,19 @@
     </div>
 
     <div id="repo-content" style="display:none; flex-direction:column; gap:1rem;">
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="overview">Overview</button>
-        <button class="tab-btn" data-tab="case-study">Case Study</button>
-        <button class="tab-btn" data-tab="patterns">Patterns</button>
-        <button class="tab-btn" data-tab="commits">Commits</button>
+      <div class="tabs" role="tablist" aria-label="Repository views">
+        <button class="tab-btn" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" id="tbtn-overview">Overview</button>
+        <button class="tab-btn" data-tab="case-study" role="tab" aria-selected="false" aria-controls="tab-case-study" id="tbtn-case-study">Case Study</button>
+        <button class="tab-btn" data-tab="patterns" role="tab" aria-selected="false" aria-controls="tab-patterns" id="tbtn-patterns">Patterns</button>
+        <button class="tab-btn" data-tab="commits" role="tab" aria-selected="false" aria-controls="tab-commits" id="tbtn-commits">Commits</button>
       </div>
 
-      <div class="tab-panel active" id="tab-overview"><div id="overview-content"></div></div>
-      <div class="tab-panel" id="tab-case-study"><div id="case-study-content"></div></div>
-      <div class="tab-panel" id="tab-patterns"><div id="patterns-content"></div></div>
-      <div class="tab-panel" id="tab-commits">
+      <div class="tab-panel active" id="tab-overview" role="tabpanel" aria-labelledby="tbtn-overview" tabindex="0"><div id="overview-content"></div></div>
+      <div class="tab-panel" id="tab-case-study" role="tabpanel" aria-labelledby="tbtn-case-study" tabindex="0"><div id="case-study-content"></div></div>
+      <div class="tab-panel" id="tab-patterns" role="tabpanel" aria-labelledby="tbtn-patterns" tabindex="0"><div id="patterns-content"></div></div>
+      <div class="tab-panel" id="tab-commits" role="tabpanel" aria-labelledby="tbtn-commits" tabindex="0">
         <div class="filter-bar">
-          <select id="cat-filter">
+          <select id="cat-filter" aria-label="Filter commits by category">
             <option value="">All categories</option>
             <option value="FEATURE">FEATURE</option>
             <option value="BUGFIX">BUGFIX</option>
@@ -214,21 +243,101 @@
             <option value="TEST">TEST</option>
             <option value="OTHER">OTHER</option>
           </select>
-          <input type="text" id="keyword-filter" placeholder="Search commits…">
+          <input type="text" id="keyword-filter" placeholder="Search commits…" aria-label="Search commits by keyword, SHA, or summary">
         </div>
-        <div id="commits-content"></div>
-        <button id="load-more-btn" style="display:none">Load more</button>
+        <div id="commits-content" aria-live="polite"></div>
+        <button id="load-more-btn" style="display:none" aria-label="Load more commits">Load more</button>
       </div>
     </div>
   </main>
 </div>
 
+<div id="global-tip" role="tooltip"></div>
+
 <script>
+/* =========================================================
+   Tooltip engine
+   ========================================================= */
+const TIPS = {
+  // Stat cards
+  statCommits:   "Total number of commits in this repository's full history.",
+  statHotspots:  "Files changed most frequently. A 'hotspot' is a file touched by many commits — high count may indicate complexity, instability, or active development.",
+  statPatterns:  "Recurring engineering behaviors detected across commits: refactoring waves, revert signals, dependency migrations, and architectural shifts.",
+  statCaseStudy: "An AI-generated narrative summarizing this repository's engineering history, key decisions, and observable patterns.",
+  // Sub-header
+  shAnalyzed:    "Number of commits sampled and analyzed by AI to extract categories, summaries, and risk levels. Not every commit is analyzed — only a representative sample.",
+  // DNA pills
+  dnaCommits:    "Total commits in the full repository history.",
+  dnaBugfix:     "Over 30% of analyzed commits are bug fixes. May indicate accumulated technical debt, insufficient test coverage, or a mature product in maintenance mode.",
+  dnaFeature:    "Over 40% of analyzed commits introduce new features — suggests an active product development phase.",
+  dnaChurn:      "Files changed repeatedly across many commits. High churn can signal complexity, instability, or areas under active refactoring.",
+  dnaAnalyzed:   "Number of commits analyzed by AI to extract categories, summaries, risk levels, and patterns.",
+  dnaCaseStudy:  "A narrative case study has been generated for this repository — check the Case Study tab.",
+  // Commit categories
+  catFeature:    "Introduces new functionality or capabilities. Increases codebase scope.",
+  catBugfix:     "Fixes a defect, error, or unexpected behavior in existing code.",
+  catRefactor:   "Restructures code without changing external behavior — improves readability, reduces complexity, or prepares for future changes.",
+  catDocs:       "Updates documentation, README files, comments, or code specifications. No behavior changes.",
+  catTest:       "Adds, modifies, or removes automated tests. No production behavior changes.",
+  catBuild:      "Changes to the build system, CI/CD pipeline, dependencies, or tooling configuration.",
+  catChore:      "Routine maintenance: version bumps, cleanup, formatting, configuration. No feature or behavior changes.",
+  catSecurity:   "Addresses a security vulnerability, hardens access controls, or improves authentication and authorization.",
+  catUnknown:    "AI could not confidently classify this commit into a known category.",
+  // Risk levels
+  riskLow:       "Low risk — the change is small, well-scoped, and unlikely to introduce regressions.",
+  riskMedium:    "Medium risk — the change touches multiple areas or has moderate complexity. Review carefully.",
+  riskHigh:      "High risk — the change is large, touches core systems, or could introduce significant regressions. Requires thorough review.",
+  // Hotspot table columns
+  thChurn:       "Total lines inserted + deleted across all commits touching this file. High churn = a lot of modification activity, often signaling complexity or instability.",
+  thConfidence:  "Statistical confidence (0–100%) that this file is a true hotspot, based on its change frequency relative to the repository baseline.",
+  thPeriod:      "Date range from the first to the last commit that touched this file.",
+  thCommitCount: "Number of commits that modified this file.",
+  // Pattern signals
+  sigRefactor:   "A cluster of refactoring commits concentrated in time — the team paid down technical debt in a focused burst. Healthy if followed by stability.",
+  sigRevert:     "Multiple commit reverts detected — signals unstable periods, integration conflicts, or changes that needed to be rolled back.",
+  sigTest:       "Tests are growing faster than bug fixes — a positive quality signal suggesting improving test coverage over time.",
+  sigBugfixRec:  "The same files or areas are repeatedly fixed across multiple commits. Suggests deeper design issues that partial fixes haven't resolved.",
+  // Section headings
+  secHotspots:   "Files with disproportionately high change frequency. Hotspots reveal complexity bottlenecks or areas that may need architectural attention.",
+  secMigrations: "Commits that replaced one library or tool with another. Reveals technology evolution and decision-making patterns over time.",
+  secArchShifts: "Commits that changed the structural approach of the project — directory layout, framework adoption, or infrastructure changes.",
+  secInsights:   "AI-generated educational explanations of detected patterns and what they mean for engineering quality.",
+  // Misc
+  migConf:       "Statistical confidence that these commits represent a genuine dependency migration rather than incidental co-occurrence.",
+};
+
+const _tipEl = document.getElementById('global-tip');
+let _tipTarget = null;
+
+function _showTip(el) {
+  const key = el.dataset.tip;
+  if (!key) return;
+  const text = TIPS[key] || key;
+  _tipEl.textContent = text;
+  _tipEl.style.display = 'block';
+  const r = el.getBoundingClientRect();
+  let top = r.bottom + 8;
+  let left = r.left;
+  if (left + 290 > window.innerWidth) left = Math.max(8, window.innerWidth - 298);
+  if (top + 120 > window.innerHeight) top = r.top - _tipEl.offsetHeight - 8;
+  _tipEl.style.top = top + 'px';
+  _tipEl.style.left = left + 'px';
+  el.setAttribute('aria-describedby', 'global-tip');
+  _tipTarget = el;
+}
+function _hideTip() {
+  _tipEl.style.display = 'none';
+  if (_tipTarget) { _tipTarget.removeAttribute('aria-describedby'); _tipTarget = null; }
+}
+document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) _showTip(t); else _hideTip(); });
+document.addEventListener('focusin',   e => { const t = e.target.closest('[data-tip]'); if (t) _showTip(t); });
+document.addEventListener('focusout',  e => { if (e.target.closest('[data-tip]')) _hideTip(); });
+
 /* =========================================================
    State
    ========================================================= */
 let currentRepo = null;
-let currentRepoMeta = null;  // { canonical_url, commit_count, status, analysis_count }
+let currentRepoMeta = null;
 let commitsLimit = 20;
 let allCommits = [];
 let patternsData = null;
@@ -264,6 +373,23 @@ function badgeClass(category) {
   if (c === 'unknown') return 'badge-unknown';
   return 'badge-default';
 }
+function catTipKey(category) {
+  const c = (category || '').toLowerCase();
+  if (c === 'feature' || c === 'feat') return 'catFeature';
+  if (c === 'bugfix' || c === 'bug' || c === 'fix') return 'catBugfix';
+  if (c === 'refactor') return 'catRefactor';
+  if (c === 'test') return 'catTest';
+  if (c === 'docs') return 'catDocs';
+  if (c === 'security') return 'catSecurity';
+  if (c === 'build' || c === 'chore' || c === 'ci') return 'catChore';
+  return 'catUnknown';
+}
+function riskTipKey(level) {
+  const l = (level || '').toLowerCase();
+  if (l === 'high') return 'riskHigh';
+  if (l === 'medium') return 'riskMedium';
+  return 'riskLow';
+}
 
 /* =========================================================
    Utilities
@@ -279,7 +405,7 @@ function repoShortName(url) {
   catch { return url; }
 }
 function spinner() {
-  return '<div class="loading-spinner"><div class="spinner"></div><p>Loading repository data…</p></div>';
+  return '<div class="loading-spinner" role="status" aria-label="Loading repository data"><div class="spinner" aria-hidden="true"></div><p>Loading repository data…</p></div>';
 }
 async function apiFetch(url) {
   const res = await fetch(url);
@@ -298,7 +424,6 @@ function bestGranularity(commits) {
   if (months.size <= 2) return 'day';
   return 'month';
 }
-
 function buildActivityData(commits) {
   const g = bestGranularity(commits);
   const map = {};
@@ -322,7 +447,7 @@ async function loadRepos() {
   let data;
   try { data = await apiFetch('/api/repos'); }
   catch {
-    document.getElementById('sidebar-list').innerHTML = '<div class="empty-state">Could not load repositories.</div>';
+    document.getElementById('sidebar-list').innerHTML = '<div class="empty-state" role="alert">Could not load repositories.</div>';
     return;
   }
   reposCache = data.repos || [];
@@ -337,8 +462,13 @@ async function loadRepos() {
     const item = document.createElement('div');
     item.className = 'repo-item';
     item.dataset.id = repo.repository_id;
+    item.setAttribute('role', 'listitem');
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('aria-label', `${short} — ${repo.commit_count} commits, ${repo.status}`);
     item.innerHTML = `<div class="repo-name">${esc(short)}</div><div class="repo-meta">${repo.commit_count} commits · ${repo.status}</div>`;
-    item.addEventListener('click', () => selectRepo(repo.repository_id, item));
+    const activate = () => selectRepo(repo.repository_id, item);
+    item.addEventListener('click', activate);
+    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
     sidebar.appendChild(item);
     const opt = document.createElement('option');
     opt.value = repo.repository_id;
@@ -362,7 +492,6 @@ function selectRepo(repoId, sidebarItem) {
   if (sidebarItem) sidebarItem.classList.add('active');
   document.getElementById('repo-select').value = repoId;
 
-  // Update sub-header
   const sh = document.getElementById('repo-subheader');
   sh.style.display = 'flex';
   if (currentRepoMeta) {
@@ -371,7 +500,9 @@ function selectRepo(repoId, sidebarItem) {
     urlEl.textContent = repoShortName(currentRepoMeta.canonical_url) + ' ↗';
     document.getElementById('sh-commits').textContent = currentRepoMeta.commit_count + ' commits';
     document.getElementById('sh-status').textContent = currentRepoMeta.status;
-    document.getElementById('sh-analyzed').textContent = currentRepoMeta.analysis_count + ' analyzed';
+    const analyzed = document.getElementById('sh-analyzed');
+    analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
+    analyzed.dataset.tip = 'shAnalyzed';
   }
 
   document.getElementById('empty-banner').style.display = 'none';
@@ -395,7 +526,10 @@ document.getElementById('repo-select').addEventListener('change', function() {
    Tabs
    ========================================================= */
 function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const active = btn.dataset.tab === tabName;
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
   document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'tab-' + tabName));
 }
 document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -416,7 +550,7 @@ async function loadOverview(repoId) {
     try { caseStudy = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study`); }
     catch { caseStudy = null; }
   } catch {
-    el.innerHTML = '<div class="empty-state">Error loading overview data.</div>';
+    el.innerHTML = '<div class="empty-state" role="alert">Error loading overview data.</div>';
     return;
   }
 
@@ -433,21 +567,21 @@ async function loadOverview(repoId) {
 
   // DNA pills
   const pills = [];
-  pills.push(`<span class="dna-pill blue">⚡ ${totalCommits} commits</span>`);
-  if (totalCat > 0 && bugfixCount / totalCat > 0.30) pills.push('<span class="dna-pill red">🐛 High bug-fix rate</span>');
-  if (totalCat > 0 && featureCount / totalCat > 0.40) pills.push('<span class="dna-pill blue">🚀 Feature-heavy</span>');
-  if (hotspotCount > 200) pills.push('<span class="dna-pill orange">🔥 High churn</span>');
-  else if (hotspotCount > 0) pills.push(`<span class="dna-pill orange">🔥 ${hotspotCount} hotspot files</span>`);
-  if (currentRepoMeta && currentRepoMeta.analysis_count > 0) pills.push(`<span class="dna-pill purple">📦 ${currentRepoMeta.analysis_count} analyzed</span>`);
-  if (caseStudy) pills.push('<span class="dna-pill green">✅ Case study ready</span>');
+  pills.push(`<span class="dna-pill blue" data-tip="dnaCommits">⚡ ${totalCommits} commits</span>`);
+  if (totalCat > 0 && bugfixCount / totalCat > 0.30) pills.push(`<span class="dna-pill red" data-tip="dnaBugfix">🐛 High bug-fix rate</span>`);
+  if (totalCat > 0 && featureCount / totalCat > 0.40) pills.push(`<span class="dna-pill blue" data-tip="dnaFeature">🚀 Feature-heavy</span>`);
+  if (hotspotCount > 200) pills.push(`<span class="dna-pill orange" data-tip="dnaChurn">🔥 High churn</span>`);
+  else if (hotspotCount > 0) pills.push(`<span class="dna-pill orange" data-tip="dnaChurn">🔥 ${hotspotCount} hotspot files</span>`);
+  if (currentRepoMeta && currentRepoMeta.analysis_count > 0) pills.push(`<span class="dna-pill purple" data-tip="dnaAnalyzed">📦 ${currentRepoMeta.analysis_count} analyzed</span>`);
+  if (caseStudy) pills.push(`<span class="dna-pill green" data-tip="dnaCaseStudy">✅ Case study ready</span>`);
 
   el.innerHTML = `
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Commits</div><div class="stat-value">${totalCommits}</div></div>
-      <div class="stat-card"><div class="stat-label">Hotspot Files</div><div class="stat-value">${hotspotCount}</div></div>
-      <div class="stat-card"><div class="stat-label">Patterns</div><div class="stat-value">${patternCount}</div></div>
+      <div class="stat-card"><div class="stat-label" data-tip="statCommits" tabindex="0">Commits</div><div class="stat-value">${totalCommits}</div></div>
+      <div class="stat-card"><div class="stat-label" data-tip="statHotspots" tabindex="0">Hotspot Files</div><div class="stat-value">${hotspotCount}</div></div>
+      <div class="stat-card"><div class="stat-label" data-tip="statPatterns" tabindex="0">Patterns</div><div class="stat-value">${patternCount}</div></div>
       <div class="stat-card">
-        <div class="stat-label">Case Study</div>
+        <div class="stat-label" data-tip="statCaseStudy" tabindex="0">Case Study</div>
         <div class="stat-value" style="font-size:1.6rem">${caseStudy ? '✓' : '✗'}</div>
         <div class="stat-sub">${caseStudy ? 'Available' : 'Not generated'}</div>
       </div>
@@ -455,17 +589,17 @@ async function loadOverview(repoId) {
     <div class="charts-row">
       <div class="chart-box">
         <h3>Commit Categories</h3>
-        <div class="chart-container" style="height:220px"><canvas id="chart-donut"></canvas></div>
+        <div class="chart-container" style="height:220px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution"></canvas></div>
       </div>
       <div class="chart-box">
         <h3>Commit Activity</h3>
-        <div class="chart-container" style="height:220px"><canvas id="chart-activity"></canvas></div>
+        <div class="chart-container" style="height:220px"><canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas></div>
       </div>
     </div>
     <div class="chart-box" style="margin-bottom:1rem">
       <h3>Top Hotspot Files</h3>
       <div class="chart-container" style="height:${Math.max(120, Math.min((patterns.hotspots || []).slice(0,5).length, 5) * 36)}px">
-        <canvas id="chart-hotspots"></canvas>
+        <canvas id="chart-hotspots" aria-label="Horizontal bar chart showing top hotspot files by commit count"></canvas>
       </div>
     </div>
     <div class="dna-card">
@@ -489,7 +623,7 @@ async function loadOverview(repoId) {
     document.getElementById('chart-donut').parentElement.innerHTML = '<div class="empty-state" style="padding:1rem">No category data</div>';
   }
 
-  // Activity chart — auto-detect granularity
+  // Activity chart
   const commitList = commits.commits || [];
   const { labels: actLabels, data: actData } = buildActivityData(commitList);
   if (actLabels.length > 0) {
@@ -501,8 +635,8 @@ async function loadOverview(repoId) {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2d3148' } },
-          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+          x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2d3148' } },
+          y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
         },
       },
     });
@@ -522,7 +656,7 @@ async function loadOverview(repoId) {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+          x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
           y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
         },
       },
@@ -543,7 +677,7 @@ async function loadCaseStudy(repoId) {
   catch (e) {
     el.innerHTML = e.status === 404
       ? '<div class="empty-state">No case study generated yet for this repository.</div>'
-      : '<div class="empty-state">Error loading case study.</div>';
+      : '<div class="empty-state" role="alert">Error loading case study.</div>';
     return;
   }
 
@@ -552,8 +686,8 @@ async function loadCaseStudy(repoId) {
   const readMin = Math.ceil(words / 200);
 
   const chips = `<div class="meta-chips">
-    <span class="chip">${data.commit_count} commits</span>
-    <span class="chip">${data.hotspot_count} hotspots</span>
+    <span class="chip" data-tip="statCommits" tabindex="0">${data.commit_count} commits</span>
+    <span class="chip" data-tip="secHotspots" tabindex="0">${data.hotspot_count} hotspots</span>
     <span class="chip gray">~${readMin} min read · ${words} words</span>
     ${data.generated_at ? `<span class="chip gray">Generated ${fmtDate(data.generated_at)}</span>` : ''}
   </div>`;
@@ -588,46 +722,53 @@ async function loadPatterns(repoId) {
   let html = '';
 
   // --- HOTSPOTS ---
-  html += '<div class="section-heading">Hotspots</div>';
+  html += `<div class="section-heading" data-tip="secHotspots" tabindex="0">Hotspots</div>`;
   if (data.hotspots && data.hotspots.length > 0) {
     const top10 = data.hotspots.slice(0, 10);
     html += `<div class="chart-box" style="margin-bottom:0.5rem">
       <div class="chart-container" style="height:${Math.max(120, top10.length * 32)}px">
-        <canvas id="chart-hotspots-patterns"></canvas>
+        <canvas id="chart-hotspots-patterns" aria-label="Horizontal bar chart of top hotspot files, colored by confidence level"></canvas>
       </div>
-      <div class="chart-legend">
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#ef4444"></span>High confidence (&gt;70%)</span>
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#eab308"></span>Medium (40–70%)</span>
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#22c55e"></span>Low (&lt;40%)</span>
+      <div class="chart-legend" aria-label="Confidence level legend">
+        <span class="chart-legend-item"><span class="legend-dot" style="background:#ef4444" aria-hidden="true"></span><span data-tip="thConfidence" tabindex="0">High confidence (&gt;70%)</span></span>
+        <span class="chart-legend-item"><span class="legend-dot" style="background:#eab308" aria-hidden="true"></span><span>Medium (40–70%)</span></span>
+        <span class="chart-legend-item"><span class="legend-dot" style="background:#22c55e" aria-hidden="true"></span><span>Low (&lt;40%)</span></span>
       </div>
     </div>`;
     html += `<details style="margin-bottom:1rem">
       <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:0.4rem 0">Evidence table (${data.hotspots.length} files)</summary>
-      <table style="margin-top:0.5rem">
-        <thead><tr><th>File</th><th>Commits</th><th>Churn</th><th>Confidence</th><th>Period</th></tr></thead>
+      <div class="table-wrap" style="margin-top:0.5rem">
+      <table aria-label="Hotspot files evidence">
+        <thead><tr>
+          <th scope="col">File</th>
+          <th scope="col" data-tip="thCommitCount" tabindex="0">Commits</th>
+          <th scope="col" data-tip="thChurn" tabindex="0">Churn</th>
+          <th scope="col" data-tip="thConfidence" tabindex="0">Confidence</th>
+          <th scope="col" data-tip="thPeriod" tabindex="0">Period</th>
+        </tr></thead>
         <tbody>`;
     data.hotspots.forEach(h => {
       const period = h.time_range && h.time_range.length >= 2 ? `${fmtDate(h.time_range[0])} → ${fmtDate(h.time_range[1])}` : '—';
       const pct = h.confidence != null ? (h.confidence * 100).toFixed(0) + '%' : '—';
       html += `<tr><td><code style="font-size:11px">${esc(h.file_path)}</code></td><td>${h.commit_count}</td><td>${h.churn}</td><td>${pct}</td><td class="date-cell">${period}</td></tr>`;
     });
-    html += '</tbody></table></details>';
+    html += '</tbody></table></div></details>';
   } else { html += '<div class="empty-state">No hotspots detected.</div>'; }
 
   // --- PATTERN SIGNALS ---
   const signalDefs = [];
-  if (data.refactor_wave) signalDefs.push({ icon: '🔁', name: 'Refactor Wave', obj: data.refactor_wave, color: '#f97316', desc: (d) => `${d.commit_count||0} refactor commits · ${((d.ratio||0)*100).toFixed(1)}% of analyzed` });
-  if (data.revert_signal) signalDefs.push({ icon: '↩️', name: 'Revert Signal', obj: data.revert_signal, color: '#ef4444', desc: (d) => `${d.commit_count||0} reverts · Indicates unstable periods` });
-  if (data.test_growth_signal) signalDefs.push({ icon: '🧪', name: 'Test Growth', obj: data.test_growth_signal, color: '#22c55e', desc: (d) => `test:bug ratio ${(d.ratio||0).toFixed(2)} · Growing test coverage` });
-  if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) signalDefs.push({ icon: '🐛', name: 'Bugfix Recurrences', obj: { count: data.bugfix_recurrences.length }, color: '#ef4444', desc: (d) => `${d.count} recurring bugs · Same areas keep breaking` });
+  if (data.refactor_wave) signalDefs.push({ icon: '🔁', name: 'Refactor Wave', tip: 'sigRefactor', obj: data.refactor_wave, color: '#f97316', desc: (d) => `${d.commit_count||0} refactor commits · ${((d.ratio||0)*100).toFixed(1)}% of analyzed` });
+  if (data.revert_signal) signalDefs.push({ icon: '↩️', name: 'Revert Signal', tip: 'sigRevert', obj: data.revert_signal, color: '#ef4444', desc: (d) => `${d.commit_count||0} reverts · Indicates unstable periods` });
+  if (data.test_growth_signal) signalDefs.push({ icon: '🧪', name: 'Test Growth', tip: 'sigTest', obj: data.test_growth_signal, color: '#22c55e', desc: (d) => `test:bug ratio ${(d.ratio||0).toFixed(2)} · Growing test coverage` });
+  if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) signalDefs.push({ icon: '🐛', name: 'Bugfix Recurrences', tip: 'sigBugfixRec', obj: { count: data.bugfix_recurrences.length }, color: '#ef4444', desc: (d) => `${d.count} recurring bugs · Same areas keep breaking` });
   if (signalDefs.length > 0) {
-    html += '<div class="section-heading">Pattern Signals</div><div class="signal-cards-row">';
+    html += `<div class="section-heading" data-tip="statPatterns" tabindex="0">Pattern Signals</div><div class="signal-cards-row">`;
     signalDefs.forEach(s => {
       const big = s.obj.commit_count != null ? s.obj.commit_count : (s.obj.count != null ? s.obj.count : ((s.obj.ratio||0)*100).toFixed(0)+'%');
-      html += `<div class="signal-card" style="border-left-color:${s.color}">
-        <div class="sc-icon">${s.icon}</div>
+      html += `<div class="signal-card" style="border-left-color:${s.color}" data-tip="${s.tip}" tabindex="0">
+        <div class="sc-icon" aria-hidden="true">${s.icon}</div>
         <div class="sc-name">${esc(s.name)}</div>
-        <div class="sc-count" style="color:${s.color}">${big}</div>
+        <div class="sc-count" style="color:${s.color}" aria-label="${esc(s.name)} count: ${big}">${big}</div>
         <div class="sc-desc">${esc(s.desc(s.obj))}</div>
       </div>`;
     });
@@ -636,7 +777,7 @@ async function loadPatterns(repoId) {
 
   // --- DEPENDENCY MIGRATIONS ---
   if (data.dependency_migrations && data.dependency_migrations.length > 0) {
-    html += '<div class="section-heading">Dependency Migrations</div>';
+    html += `<div class="section-heading" data-tip="secMigrations" tabindex="0">Dependency Migrations</div>`;
     data.dependency_migrations.forEach(m => {
       const from = m.from_dependency || m.from_dep || m.from || '?';
       const to = m.to_dependency || m.to_dep || m.to || '?';
@@ -644,28 +785,28 @@ async function loadPatterns(repoId) {
       const conf = m.confidence != null ? `confidence: ${(m.confidence*100).toFixed(0)}%` : '';
       html += `<div class="migration-row">
         <span class="from-dep">${esc(from)}</span>
-        <span class="arrow">──→</span>
+        <span class="arrow" aria-hidden="true">──→</span>
         <span class="to-dep">${esc(to)}</span>
-        ${conf ? `<span class="m-conf">${esc(conf)}</span>` : ''}
-        <span class="m-count">${count}</span>
+        ${conf ? `<span class="m-conf" data-tip="migConf" tabindex="0">${esc(conf)}</span>` : ''}
+        <span class="m-count" aria-label="${count} commits">${count}</span>
       </div>`;
     });
   }
 
   // --- ARCHITECTURAL SHIFTS ---
   if (data.architectural_shifts && data.architectural_shifts.length > 0) {
-    html += '<div class="section-heading">Architectural Shifts</div>';
+    html += `<div class="section-heading" data-tip="secArchShifts" tabindex="0">Architectural Shifts</div>`;
     data.architectural_shifts.forEach(s => {
       const icon = s.shift_type === 'infrastructure' ? '🏗️' : '📦';
       const desc = s.description || JSON.stringify(s);
       const conf = s.confidence != null ? ` · ${(s.confidence * 100).toFixed(0)}% confidence` : '';
-      html += `<div class="arch-item"><span class="arch-icon">${icon}</span><span>${esc(desc)}${esc(conf)}</span></div>`;
+      html += `<div class="arch-item"><span class="arch-icon" aria-hidden="true">${icon}</span><span>${esc(desc)}${esc(conf)}</span></div>`;
     });
   }
 
   // --- EDUCATIONAL INSIGHTS ---
   if (data.explanations && data.explanations.length > 0) {
-    html += '<div class="section-heading">💡 Educational Insights</div>';
+    html += `<div class="section-heading" data-tip="secInsights" tabindex="0">💡 Educational Insights</div>`;
     data.explanations.forEach(ex => {
       html += `<div class="insight-card">
         <div class="insight-title">💡 ${esc(ex.pattern_type || ex.title || 'Insight')}</div>
@@ -678,7 +819,6 @@ async function loadPatterns(repoId) {
   if (!html) html = '<div class="empty-state">No patterns detected yet.</div>';
   el.innerHTML = html;
 
-  // Render chart after DOM update
   if (data.hotspots && data.hotspots.length > 0) {
     const top10 = data.hotspots.slice(0, 10);
     const canvas = document.getElementById('chart-hotspots-patterns');
@@ -694,7 +834,7 @@ async function loadPatterns(repoId) {
           indexAxis: 'y', responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3148' } },
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
             y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
           },
         },
@@ -712,7 +852,7 @@ async function loadCommits(repoId, append) {
   if (!append) { el.innerHTML = spinner(); btn.style.display = 'none'; allCommits = []; }
   let data;
   try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=${commitsLimit}&order=newest`); }
-  catch { el.innerHTML = '<div class="empty-state">Error loading commits.</div>'; return; }
+  catch { el.innerHTML = '<div class="empty-state" role="alert">Error loading commits.</div>'; return; }
   allCommits = data.commits || [];
   renderCommitsTable(allCommits, data.total);
 }
@@ -732,13 +872,17 @@ function renderCommitsTable(commits, total) {
     const sha7 = (c.sha || '').slice(0, 7);
     const cat = (c.category || '').toUpperCase();
     const bClass = badgeClass(c.category || '');
-    const importance = c.importance ? `<span class="badge" style="background:#1e293b;color:${c.importance==='high'?'#ef4444':c.importance==='medium'?'#eab308':'#64748b'}">${esc(c.importance.toUpperCase())}</span>` : '';
+    const catKey = catTipKey(c.category || '');
+    const riskKey = riskTipKey(c.importance || '');
+    const importance = c.importance
+      ? `<span class="badge" style="background:#1e293b;color:${c.importance==='high'?'#ef4444':c.importance==='medium'?'#eab308':'#6ee7b7'}" data-tip="${riskKey}" tabindex="0">${esc(c.importance.toUpperCase())}</span>`
+      : '';
     const summary = truncate(c.summary || c.message || '', 80);
     const expandId = `expand-${i}`;
-    rows += `<tr class="clickable-row" onclick="toggleExpand('${expandId}')">
+    rows += `<tr class="clickable-row" onclick="toggleExpand('${expandId}')" aria-expanded="false">
       <td><span class="sha-code">${esc(sha7)}</span></td>
       <td class="date-cell">${fmtDate(c.committed_at)}</td>
-      <td>${cat ? `<span class="badge ${bClass}">${esc(cat)}</span>` : '—'} ${importance}</td>
+      <td>${cat ? `<span class="badge ${bClass}" data-tip="${catKey}" tabindex="0">${esc(cat)}</span>` : '<span aria-label="uncategorized">—</span>'} ${importance}</td>
       <td class="summary-cell" title="${esc(c.summary || c.message || '')}">${esc(summary)}</td>
     </tr>
     <tr class="expand-row" id="${expandId}">
@@ -746,16 +890,27 @@ function renderCommitsTable(commits, total) {
     </tr>`;
   });
 
-  el.innerHTML = `<table>
-    <thead><tr><th>SHA</th><th>Date</th><th>Category</th><th>Summary</th></tr></thead>
+  el.innerHTML = `<div class="table-wrap"><table aria-label="Analyzed commits">
+    <thead><tr>
+      <th scope="col">SHA</th>
+      <th scope="col">Date</th>
+      <th scope="col" data-tip="catUnknown" tabindex="0">Category</th>
+      <th scope="col">Summary</th>
+    </tr></thead>
     <tbody>${rows}</tbody>
-  </table>`;
+  </table></div>`;
 
   btn.style.display = commits.length >= commitsLimit ? 'inline-block' : 'none';
   btn.disabled = false;
 }
 
-function toggleExpand(id) { const r = document.getElementById(id); if (r) r.classList.toggle('open'); }
+function toggleExpand(id) {
+  const r = document.getElementById(id);
+  if (!r) return;
+  r.classList.toggle('open');
+  const row = r.previousElementSibling;
+  if (row) row.setAttribute('aria-expanded', r.classList.contains('open') ? 'true' : 'false');
+}
 
 document.getElementById('cat-filter').addEventListener('change', () => renderCommitsTable(allCommits, allCommits.length));
 document.getElementById('keyword-filter').addEventListener('input', () => renderCommitsTable(allCommits, allCommits.length));

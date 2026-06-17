@@ -21,6 +21,7 @@ Codex should use these subagents as role-specific operating modes. A subagent is
 | Threat modeling | Security Agent | Architecture Agent |
 | Documentation system | AI Development Flow Agent | Quality Agent |
 | ADRs | Architecture Agent | Security Agent when risk-related |
+| UI accessibility, contrast, ARIA, tooltips | frontend-a11y skill | Quality Agent |
 
 ## Available subagents
 

@@ -58,3 +58,29 @@ def test_static_index_has_category_colors(tmp_path: Path) -> None:
     client = TestClient(app)
     response = client.get("/static/index.html")
     assert "BUGFIX" in response.text or "bugfix" in response.text.lower()
+
+
+def test_static_index_has_aria_roles(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert 'role="tablist"' in response.text
+    assert 'role="tab"' in response.text
+    assert 'role="tabpanel"' in response.text
+    assert 'role="tooltip"' in response.text
+
+
+def test_static_index_has_tooltip_system(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert "TIPS" in response.text
+    assert "global-tip" in response.text
+    assert "data-tip" in response.text
+
+
+def test_static_index_lang_attribute(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert 'lang="en"' in response.text
