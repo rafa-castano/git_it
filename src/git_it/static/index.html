@@ -298,7 +298,8 @@ const TIPS = {
   thCommitCount: "Number of commits that modified this file.",
   // Pattern signals
   sigRefactor:   "A cluster of refactoring commits concentrated in time — the team paid down technical debt in a focused burst. Healthy if followed by stability.",
-  sigRevert:     "Multiple commit reverts detected — signals unstable periods, integration conflicts, or changes that needed to be rolled back.",
+  sigRevert:     "Commit reverts detected — signals unstable periods, integration conflicts, or changes that needed to be rolled back.",
+  sigRevertNone: "No reverts detected in the analyzed commits — a positive signal indicating stable development with few rollbacks.",
   sigTest:       "Tests are growing faster than bug fixes — a positive quality signal suggesting improving test coverage over time.",
   sigBugfixRec:  "The same files or areas are repeatedly fixed across multiple commits. Suggests deeper design issues that partial fixes haven't resolved.",
   // Section headings
@@ -773,7 +774,10 @@ async function loadPatterns(repoId) {
   // --- PATTERN SIGNALS ---
   const signalDefs = [];
   if (data.refactor_wave) signalDefs.push({ icon: '🔁', name: 'Refactor Wave', tip: 'sigRefactor', obj: data.refactor_wave, color: '#f97316', desc: (d) => `${d.commit_count||0} refactor commits · ${((d.ratio||0)*100).toFixed(1)}% of analyzed` });
-  if (data.revert_signal) signalDefs.push({ icon: '↩️', name: 'Revert Signal', tip: 'sigRevert', obj: data.revert_signal, color: '#ef4444', desc: (d) => `${d.commit_count||0} reverts · Indicates unstable periods` });
+  if (data.revert_signal) {
+    const revertCount = data.revert_signal.commit_count || 0;
+    signalDefs.push({ icon: '↩️', name: 'Revert Signal', tip: revertCount === 0 ? 'sigRevertNone' : 'sigRevert', obj: data.revert_signal, color: revertCount === 0 ? '#22c55e' : '#ef4444', desc: (d) => revertCount === 0 ? 'No reverts · Stable development' : `${revertCount} reverts · Indicates unstable periods` });
+  }
   if (data.test_growth_signal) signalDefs.push({ icon: '🧪', name: 'Test Growth', tip: 'sigTest', obj: data.test_growth_signal, color: '#22c55e', desc: (d) => `test:bug ratio ${(d.ratio||0).toFixed(2)} · Growing test coverage` });
   if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) signalDefs.push({ icon: '🐛', name: 'Bugfix Recurrences', tip: 'sigBugfixRec', obj: { count: data.bugfix_recurrences.length }, color: '#ef4444', desc: (d) => `${d.count} recurring bugs · Same areas keep breaking` });
   if (signalDefs.length > 0) {
@@ -805,17 +809,6 @@ async function loadPatterns(repoId) {
         ${conf ? `<span class="m-conf" data-tip="migConf" tabindex="0">${esc(conf)}</span>` : ''}
         <span class="m-count" aria-label="${count} commits">${count}</span>
       </div>`;
-    });
-  }
-
-  // --- ARCHITECTURAL SHIFTS ---
-  if (data.architectural_shifts && data.architectural_shifts.length > 0) {
-    html += `<div class="section-heading" data-tip="secArchShifts" tabindex="0">Architectural Shifts</div>`;
-    data.architectural_shifts.forEach(s => {
-      const icon = s.shift_type === 'infrastructure' ? '🏗️' : '📦';
-      const desc = s.description || JSON.stringify(s);
-      const conf = s.confidence != null ? ` · ${(s.confidence * 100).toFixed(0)}% confidence` : '';
-      html += `<div class="arch-item"><span class="arch-icon" aria-hidden="true">${icon}</span><span>${esc(desc)}${esc(conf)}</span></div>`;
     });
   }
 
