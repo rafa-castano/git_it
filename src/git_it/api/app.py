@@ -4,7 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
+from git_it.api.limiter import limiter
 from git_it.api.routes.repos import router as repos_router
 
 _STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -19,6 +23,10 @@ def create_app(project_root: Path | None = None) -> FastAPI:
             (see :mod:`git_it.api.deps`).
     """
     app = FastAPI(title="Git It API", version="0.1.0")
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_middleware(SlowAPIMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

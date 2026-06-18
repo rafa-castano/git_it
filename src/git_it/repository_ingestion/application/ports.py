@@ -12,12 +12,17 @@ __all__ = [
     "CommitAnalysisClient",
     "CommitAnalysisReader",
     "CommitAnalysisWriter",
+    "CommitCountReader",
     "CommitDateReader",
     "CommitExtractor",
     "CommitFactWriter",
     "CommitPersistenceResult",
     "CommitSummaryReader",
     "CommitSummaryRecord",
+    "CommitWithAnalysisReader",
+    "CommitWithAnalysisRecord",
+    "ContributorReader",
+    "ContributorRecord",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -33,6 +38,8 @@ __all__ = [
     "OwnershipReader",
     "PatternSynthesisClient",
     "RepoContextReader",
+    "RepositoryListReader",
+    "RepositoryRecord",
     "TemporalAnalysisReader",
     "TimestampedAnalysis",
 ]
@@ -107,7 +114,7 @@ class LLMClient(Protocol):
 
 
 class CommitAnalysisClient(Protocol):
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis: ...
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis: ...
 
 
 @dataclass(frozen=True)
@@ -200,3 +207,78 @@ class FileEvidenceReader(Protocol):
 
 class PatternSynthesisClient(Protocol):
     def synthesize(self, report: PatternReport) -> list[PatternExplanation]: ...
+
+
+# ---------------------------------------------------------------------------
+# Repository list port
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RepositoryRecord:
+    repository_id: str
+    canonical_url: str
+    status: str
+    commit_count: int
+    analysis_count: int
+    has_case_study: bool
+
+
+class RepositoryListReader(Protocol):
+    def list_repositories(self) -> list[RepositoryRecord]: ...
+
+
+# ---------------------------------------------------------------------------
+# Commit count port (for estimate endpoint)
+# ---------------------------------------------------------------------------
+
+
+class CommitCountReader(Protocol):
+    def count_commits(self, repository_id: str) -> int: ...
+
+    def count_analyses(self, repository_id: str) -> int: ...
+
+
+# ---------------------------------------------------------------------------
+# Commit with analysis port (for commits endpoint)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CommitWithAnalysisRecord:
+    sha: str
+    message: str
+    committed_at: str
+    analysis_data: str | None
+
+
+class CommitWithAnalysisReader(Protocol):
+    def list_commits_with_analyses(
+        self,
+        repository_id: str,
+        *,
+        limit: int,
+        order: str = "newest",
+    ) -> list[CommitWithAnalysisRecord]: ...
+
+
+# ---------------------------------------------------------------------------
+# Contributor port
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ContributorRecord:
+    author_name: str
+    commit_count: int
+    first_commit: str | None
+    last_commit: str | None
+    is_bot: bool
+    active_days: int
+    github_username: str | None
+    category_counts: dict[str, int]
+    top_files: list[str]
+
+
+class ContributorReader(Protocol):
+    def list_contributors(self, repository_id: str) -> list[ContributorRecord]: ...

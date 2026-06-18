@@ -1,8 +1,14 @@
+import logging
+import time
+from typing import cast
+
 from pydantic import BaseModel
 
 from git_it.repository_ingestion.application.ports import LLMMessage
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
+
+_logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 _DEFAULT_MAX_TOKENS = 4096
@@ -47,18 +53,40 @@ class InstructorCommitAnalysisAdapter:
     def __init__(self, *, model: str = _DEFAULT_MODEL) -> None:
         self._model = model
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         import instructor
         import litellm
 
+        # Extract commit sha for logging (best-effort — may not be present)
+        sha_hint = "unknown"
+        for m in messages:
+            for line in m.content.splitlines():
+                if line.startswith("sha:"):
+                    sha_hint = line.split(":", 1)[1].strip()[:8]
+                    break
+
+        _logger.debug("llm call started: model=%s sha=%s", self._model, sha_hint)
+        t0 = time.monotonic()
+
         client = instructor.from_litellm(litellm.completion)
-        litellm_messages = [{"role": m.role, "content": m.content} for m in messages]
-        return client.chat.completions.create(  # type: ignore[no-any-return]
+        litellm_messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+        litellm_messages += [{"role": m.role, "content": m.content} for m in messages]
+        result = client.chat.completions.create(
             model=self._model,
             messages=litellm_messages,
             response_model=CommitAnalysis,
             max_tokens=_ANALYSIS_MAX_TOKENS,
         )
+
+        duration_ms = round((time.monotonic() - t0) * 1000)
+        _logger.debug(
+            "llm call completed: model=%s sha=%s duration_ms=%d",
+            self._model,
+            sha_hint,
+            duration_ms,
+        )
+
+        return cast(CommitAnalysis, result)
 
 
 # ---------------------------------------------------------------------------

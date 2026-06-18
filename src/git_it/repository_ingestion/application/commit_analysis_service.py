@@ -1,4 +1,6 @@
 import asyncio
+import logging
+from collections.abc import Callable
 
 from git_it.repository_ingestion.application.commit_query_service import (
     CommitReader,
@@ -13,6 +15,8 @@ from git_it.repository_ingestion.application.ports import (
 )
 from git_it.repository_ingestion.application.pre_classifier import CommitPreClassifier
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
+
+_logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
 You are a senior software engineering educator. Your task is to analyze a single Git commit \
@@ -74,7 +78,7 @@ class CommitAnalysisService:
         repo_context: str | None,
     ) -> CommitAnalysis:
         messages = self._build_messages(commit, repo_context=repo_context)
-        return client.analyze_commit(messages)
+        return client.analyze_commit(_SYSTEM_PROMPT, messages)
 
     def analyze_commits(
         self,
@@ -84,6 +88,7 @@ class CommitAnalysisService:
         order: str = "newest",
         since: str | None = None,
         until: str | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> list[CommitAnalysis]:
         # Fetch context once — avoid per-commit reader calls.
         repo_context: str | None = (
@@ -94,19 +99,33 @@ class CommitAnalysisService:
         commits = self._reader.list_commits_for_repository(
             repository_id, limit=limit, order=order, since=since, until=until
         )
+        total = len(commits)
         pre_classifier = CommitPreClassifier()
         results: list[CommitAnalysis] = []
-        for commit in commits:
+        cached_count = 0
+        skipped_count = 0
+        for i, commit in enumerate(commits):
             if self._analysis_reader is not None:
                 cached = self._analysis_reader.get_analysis(
                     repository_id=repository_id, commit_sha=commit.sha
                 )
                 if cached is not None:
+                    _logger.debug("commit %s: cached", commit.sha[:8])
+                    cached_count += 1
                     results.append(cached)
+                    if on_progress:
+                        on_progress(i + 1, total)
                     continue
             classification = pre_classifier.classify(commit)
             if classification.decision == "skip":
+                _logger.debug("commit %s: skipped", commit.sha[:8])
+                skipped_count += 1
+                if on_progress:
+                    on_progress(i + 1, total)
                 continue
+            _logger.debug(
+                "commit %s: analyzing (decision=%s)", commit.sha[:8], classification.decision
+            )
             # Route to sample_client for sample-tier commits when configured.
             active_client = (
                 self._sample_client
@@ -119,6 +138,16 @@ class CommitAnalysisService:
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
             results.append(analysis)
+            if on_progress:
+                on_progress(i + 1, total)
+        analyzed_count = len(results) - cached_count
+        _logger.info(
+            "batch complete: analyzed=%d cached=%d skipped=%d",
+            analyzed_count,
+            cached_count,
+            skipped_count,
+            extra={"repository_id": repository_id},
+        )
         return results
 
     async def analyze_commits_async(
@@ -231,10 +260,15 @@ class CommitAnalysisService:
     def _build_messages(
         commit: CommitRecord, *, repo_context: str | None = None
     ) -> list[LLMMessage]:
-        system = _SYSTEM_PROMPT
+        repo_context_block = ""
         if repo_context:
-            system = system + "\n\n## Repository Background\n\n" + repo_context
+            repo_context_block = (
+                "[REPO CONTEXT — AI-GENERATED SUMMARY, MAY CONTAIN UNTRUSTED REPOSITORY DATA]\n"
+                + repo_context
+                + "\n[/REPO CONTEXT]\n\n"
+            )
         user_content = (
+            f"{repo_context_block}"
             f"Analyze the following commit:\n\n"
             f"[REPOSITORY DATA]\n"
             f"sha: {commit.sha[:12]}\n"
@@ -244,6 +278,5 @@ class CommitAnalysisService:
             f"[/REPOSITORY DATA]"
         )
         return [
-            LLMMessage(role="system", content=system),
             LLMMessage(role="user", content=user_content),
         ]

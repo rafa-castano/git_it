@@ -34,5 +34,14 @@ dev = [
     "pre-commit>=4.6.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=6.0.0",
     "ruff>=0.15.16",
+    "slowapi>=0.1.9",
 ]
+
+[tool.coverage.run]
+source = ["git_it"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true

@@ -46,7 +46,24 @@ class SubprocessGitCommandRunner:
         self._run_command = (
             cast(SubprocessRun, subprocess.run) if run_command is None else run_command
         )
-        self._base_env = dict(os.environ if base_env is None else base_env)
+        if base_env is None:
+            _keep = (
+                "HOME",
+                "USERPROFILE",
+                "PATH",
+                "SYSTEMROOT",
+                "TEMP",
+                "TMP",
+                "GIT_CONFIG_GLOBAL",
+                "GIT_EXEC_PATH",
+                "GIT_TEMPLATE_DIR",
+                "SSL_CERT_FILE",
+                "SSL_CERT_DIR",
+                "CURL_CA_BUNDLE",
+            )
+            self._base_env = {k: v for k, v in os.environ.items() if k in _keep}
+        else:
+            self._base_env = dict(base_env)
 
     def run(self, plan: GitCommandPlan) -> GitCommandResult:
         try:
