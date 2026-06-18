@@ -62,6 +62,11 @@ One file per batch, organized by feature area.
 - [Batch 48 — HTML dashboard](api/batch-48-html-dashboard.md)
 - [Batch 49 — Visual dashboard with Chart.js](api/batch-49-visual-dashboard-chartjs.md)
 - [Batch 50 — Accessibility, tooltips, and UX polish](api/batch-50-accessibility-tooltips-ux-polish.md)
+- [Batch 51 — GitHub username extraction and analyze progress indicator](api/batch-51-github-username-analyze-progress.md)
+- [Batch 52 — Security hardening](api/batch-52-security-hardening.md)
+- [Batch 53 — Quality fixes, observability, and ruff compliance](api/batch-53-quality-observability-ruff.md)
+- [Batch 54 — TDD endpoint tests for API routes](api/batch-54-tdd-endpoint-tests.md)
+- [Batch 55 — Hexagonal architecture refactor of API routes](api/batch-55-hexagonal-architecture-refactor.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

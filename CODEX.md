@@ -94,6 +94,21 @@ During implementation, Codex must:
 - avoid broad filesystem access,
 - avoid direct production database mutation.
 
+## Commit and documentation discipline
+
+Every batch of work must produce exactly one commit and one progress document, in the same commit.
+
+Commit rules:
+- Use conventional commits format: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`
+- Never add AI attribution or Co-Authored-By lines
+- Commit after every logical batch — do not accumulate uncommitted work across sessions
+
+Documentation rules:
+- Create one file per batch under `docs/progress/{area}/batch-{N}-{slug}.md`
+- Follow the format in existing batch files: Goal, What was added, Tests added, Gotchas, Commits
+- Add the entry to `docs/progress/README.md` in the same commit
+- Area folders: `ingestion`, `analysis`, `patterns`, `pipeline`, `api`
+
 ## Definition of truth
 
 Priority order:
