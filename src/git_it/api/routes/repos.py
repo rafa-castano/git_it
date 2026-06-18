@@ -12,7 +12,6 @@ from git_it.api.auth import require_api_key
 from git_it.api.deps import get_project_root
 from git_it.api.limiter import limiter
 from git_it.api.schemas import (
-    AllowedModel,
     AnalyzeEstimateResponse,
     AnalyzeRequest,
     AnalyzeResponse,
@@ -435,7 +434,7 @@ def estimate_analyze(
     repository_id: str,
     project_root: ProjectRoot,
     limit: int = 20,
-    model: AllowedModel = "anthropic/claude-haiku-4-5-20251001",
+    model: str = "anthropic/claude-haiku-4-5-20251001",
 ) -> AnalyzeEstimateResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():

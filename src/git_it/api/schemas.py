@@ -1,12 +1,4 @@
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict
-
-AllowedModel = Literal[
-    "anthropic/claude-haiku-4-5-20251001",
-    "anthropic/claude-sonnet-4-6",
-    "anthropic/claude-opus-4-8",
-]
 
 # ---------------------------------------------------------------------------
 # Pattern sub-type schemas
@@ -160,7 +152,7 @@ class IngestResponse(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     limit: int = 10
-    model: AllowedModel = "anthropic/claude-haiku-4-5-20251001"
+    model: str = "anthropic/claude-haiku-4-5-20251001"
 
 
 class AnalyzeResponse(BaseModel):

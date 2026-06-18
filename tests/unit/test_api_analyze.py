@@ -221,19 +221,20 @@ def test_analyze_returns_analyzing_status(tmp_path: Path) -> None:
     assert body["status"] == "ANALYZING"
 
 
-def test_analyze_rejects_non_anthropic_model(tmp_path: Path) -> None:
+def test_analyze_accepts_any_litellm_model(tmp_path: Path) -> None:
     from git_it.api.app import create_app
 
     db = _db_path(tmp_path)
     _init_db(db)
+    _insert_commit(db, sha="aaa111")
 
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     response = client.post(
         "/api/repos/repo-abc/analyze",
-        json={"model": "openai/gpt-4"},
+        json={"model": "openai/gpt-4o"},
     )
-    assert response.status_code == 422
+    assert response.status_code == 200
 
 
 def test_analyze_requires_auth_when_api_key_set(
