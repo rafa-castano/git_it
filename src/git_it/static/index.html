@@ -21,34 +21,120 @@
       --green: #16a34a; --yellow: #b45309; --red: #dc2626;
       --blue: #2563eb; --orange: #c2410c; --purple: #7c3aed;
     }
-    [data-theme="light"] #repo-subheader { background: #e8edf5; }
-    [data-theme="light"] .repo-item .repo-meta { color: #64748b; }
     [data-theme="light"] #global-tip { background: #1e293b; color: #f1f5f9; border-color: #334155; }
-    body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; transition: background 0.2s, color 0.2s; }
-
-    /* Focus styles — WCAG 2.4.7 / 2.4.11 */
+    [data-theme="light"] .repo-item .repo-meta { color: #64748b; }
+    body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s, color 0.2s; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
-    header { background: var(--surface); padding: 0 1.5rem; height: 52px; display: flex; align-items: center; gap: 1rem; flex-shrink: 0; border-bottom: 2px solid var(--accent); }
-    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap; }
-    #repo-select { margin-left: auto; padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 13px; min-width: 260px; cursor: pointer; font-family: inherit; }
-    #repo-subheader { background: #12151f; border-bottom: 1px solid var(--border); padding: 0.45rem 1.5rem; display: none; align-items: center; gap: 1rem; font-size: 12px; color: var(--muted); flex-shrink: 0; flex-wrap: wrap; }
-    #repo-subheader a { color: var(--accent); text-decoration: none; font-weight: 500; }
-    #repo-subheader a:hover { text-decoration: underline; }
-    #repo-subheader .sh-sep { color: var(--border); }
-    #repo-subheader .sh-badge { background: var(--border); color: var(--text); padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 11px; }
-    #repo-subheader .sh-status { background: #052e16; color: var(--green); padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+    /* ── Header ── */
+    header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 2px solid var(--accent); }
+    .hdr-logo { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
+    #hdr-center { flex: 1; display: flex; align-items: center; gap: 0.75rem; min-width: 0; overflow: hidden; }
+    #hdr-repo-info { display: none; align-items: center; gap: 0.75rem; min-width: 0; overflow: hidden; }
+    .hdr-back-btn { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; transition: color 0.1s; white-space: nowrap; flex-shrink: 0; }
+    .hdr-back-btn:hover { color: var(--text); }
+    .hdr-sep { color: var(--border); }
+    #hdr-repo-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .hdr-meta { font-size: 11px; color: var(--muted); display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .hdr-badge { background: var(--border); color: var(--text); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 600; font-size: 10px; }
+    .hdr-status { background: #052e16; color: var(--green); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; }
+    .hdr-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+    .hdr-btn:hover { background: var(--border); color: var(--text); }
+    .hdr-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .hdr-btn svg { flex-shrink: 0; }
+    .gh-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.15s; flex-shrink: 0; }
+    .gh-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
+    .gh-btn svg { flex-shrink: 0; }
+
+    /* ── Home view ── */
+    #home-view { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .home-inner { padding: 2rem 1.5rem; max-width: 1100px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 2rem; }
+    .add-repo-wrap { display: flex; justify-content: center; }
+    .add-repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 2rem; max-width: 560px; width: 100%; }
+    .add-repo-card h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.9rem; }
+    .add-repo-row { display: flex; gap: 0.5rem; }
+    .add-repo-input { flex: 1; padding: 0.6rem 0.9rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.15s; }
+    .add-repo-input:focus { outline: none; border-color: var(--accent); }
+    .add-repo-btn { padding: 0.6rem 1.1rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; }
+    .add-repo-btn:hover { background: #4f46e5; }
+    .add-repo-hint { font-size: 11px; color: var(--muted); margin-top: 0.5rem; }
+    #ingest-status { font-size: 12px; margin-top: 0.6rem; min-height: 1.2em; }
+    #search-results { margin-top: 0.6rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: none; }
+    .sr-item { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--border); transition: background 0.1s; display: flex; align-items: center; justify-content: space-between; }
+    .sr-item:last-child { border-bottom: none; }
+    .sr-item:hover { background: var(--border); }
+    .repo-cards-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .repo-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; position: relative; display: flex; flex-direction: column; gap: 0.4rem; }
+    .repo-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.15); }
+    .repo-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .rc-accent { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--accent); border-radius: 10px 10px 0 0; }
+    .rc-name { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 0.2rem; }
+    .rc-url { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-stats { display: flex; gap: 0.75rem; font-size: 12px; color: var(--muted); }
+    .rc-stat strong { color: var(--text); }
+    .rc-patterns { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 1.5rem; }
+    .rc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 0.5rem; }
+    .rc-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .rc-status.completed { color: var(--green); }
+    .rc-status.ingesting { color: var(--yellow); }
+    .rc-open-btn { font-size: 12px; font-weight: 700; color: var(--accent); background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
+    .rc-open-btn:hover { text-decoration: underline; }
+
+    /* ── Repo view ── */
+    #repo-view { display: none; flex: 1; overflow: hidden; }
+    #repo-view.visible { display: flex; }
     .layout { display: flex; flex: 1; overflow: hidden; }
-    aside { width: 220px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
-    aside h2 { padding: 0.9rem 1rem 0.5rem; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
-    .repo-item { padding: 0.6rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.12s; font-size: 12px; color: var(--text); }
+    aside { width: 210px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+    .rv-back-row { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .rv-back-btn { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; transition: color 0.1s; display: flex; align-items: center; gap: 0.3rem; }
+    .rv-back-btn:hover { color: var(--text); }
+    aside h2 { padding: 0.7rem 1rem 0.4rem; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .repo-item { padding: 0.55rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.12s; font-size: 12px; color: var(--text); }
     .repo-item:hover, .repo-item:focus { background: var(--border); outline: none; }
     .repo-item.active { background: var(--accent); color: #fff; }
     .repo-item.active:focus { outline: 2px solid #fff; outline-offset: -3px; }
     .repo-item .repo-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .repo-item .repo-meta { font-size: 11px; color: #8b9ab5; margin-top: 2px; }
+    .repo-item .repo-meta { font-size: 10px; color: #8b9ab5; margin-top: 2px; }
     .repo-item.active .repo-meta { color: rgba(255,255,255,0.75); }
-    main { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    main { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+    /* ── View nav ── */
+    .view-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); flex-shrink: 0; }
+    .view-nav-btn { padding: 0.45rem 1.1rem; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
+    .view-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .view-nav-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── Timeline ── */
+    .tl-signals-bar { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem 0 0.75rem; border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; }
+    .tl-sig-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .timeline { max-width: 740px; }
+    .tl-month { margin-bottom: 0.5rem; }
+    .tl-month-hdr { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0 0.25rem; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .tl-month-line { flex: 1; height: 1px; background: var(--border); }
+    .tl-signal-row { display: flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0.65rem; margin: 0.2rem 0 0.4rem 0.75rem; background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; font-size: 12px; }
+    .tl-sig-icon { font-size: 0.95rem; }
+    .tl-sig-label { font-weight: 700; color: var(--text); }
+    .tl-sig-desc { color: var(--muted); }
+    .tl-commits-group { padding-left: 0.75rem; border-left: 2px solid var(--border); margin-left: 0.5rem; }
+    .tl-row { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.35rem 0.6rem; cursor: pointer; border-radius: 6px; transition: background 0.1s; position: relative; }
+    .tl-row:hover { background: var(--surface); }
+    .tl-row::before { content: ''; position: absolute; left: -1rem; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--border); border: 2px solid var(--bg); }
+    .tl-row.analyzed::before { background: var(--accent); }
+    .tl-row.risk-high { background: rgba(239,68,68,0.06); border-left: 2px solid var(--red); border-radius: 0 6px 6px 0; padding-left: 0.5rem; }
+    .tl-row.risk-high .tl-msg { font-size: 14px; font-weight: 600; color: var(--text); }
+    .tl-row.risk-high::before { background: var(--red); width: 10px; height: 10px; }
+    .badge-risk-high { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.4); font-weight: 800; font-size: 9px; letter-spacing: 0.06em; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    .tl-date { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 38px; font-family: monospace; padding-top: 2px; }
+    .tl-msg { font-size: 13px; color: var(--text); flex: 1; line-height: 1.4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tl-badges { display: flex; gap: 0.25rem; align-items: center; flex-shrink: 0; }
+    .tl-detail { display: none; padding: 0.4rem 0.5rem 0.5rem 3.2rem; font-size: 12px; color: var(--muted); background: var(--surface); margin: 0 0 0.2rem; border-radius: 6px; line-height: 1.6; }
+    .tl-detail.open { display: block; }
+    .tl-empty { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 13px; }
+    .tl-empty code { background: var(--surface); padding: 0.15rem 0.45rem; border-radius: 3px; font-family: monospace; font-size: 12px; }
+
+    /* ── Deep Analysis panel ── */
+    #panel-detail { flex-direction: column; gap: 1rem; }
     .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); flex-shrink: 0; }
     .tab-btn { padding: 0.55rem 1.2rem; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
     .tab-btn[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
@@ -56,19 +142,19 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* Loading spinner */
+    /* ── Spinner ── */
     .loading-spinner { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 1rem; color: var(--muted); font-size: 13px; }
     .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Stat cards */
+    /* ── Stat cards ── */
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; }
     .stat-card .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.35rem; }
     .stat-card .stat-value { font-size: 2.5rem; font-weight: 800; color: var(--accent); line-height: 1; }
     .stat-card .stat-sub { font-size: 11px; color: var(--muted); margin-top: 0.25rem; }
 
-    /* DNA card */
+    /* ── DNA card ── */
     .dna-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
     .dna-card h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.75rem; }
     .dna-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -80,7 +166,7 @@
     .dna-pill.purple { background: #2e1065; color: #d8b4fe; border-color: #4c1d95; }
     .dna-pill.gray   { background: #1c1c1c; color: #9ca3af; border-color: #374151; }
 
-    /* Charts */
+    /* ── Charts ── */
     .charts-row { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem; }
     .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
     .chart-box h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.75rem; }
@@ -93,17 +179,23 @@
     .donut-legend-item:hover, .donut-legend-item:focus { background: var(--border); outline: none; }
     .donut-legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
-    /* Meta chips */
+    /* ── Meta chips ── */
     .meta-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
     .chip { display: inline-flex; align-items: center; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 11px; font-weight: 600; background: var(--border); color: var(--accent); }
     .chip.gray { background: var(--surface); color: var(--muted); }
 
-    /* Case Study */
-    .case-study-header { margin-bottom: 1.25rem; }
+    /* ── Case Study ── */
+    .case-study-header { margin-bottom: 1rem; }
     .case-study-title { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; color: var(--text); }
     .case-study-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 0.75rem; }
     .case-study-meta a { color: var(--accent); text-decoration: none; font-weight: 500; }
     .case-study-meta a:hover { text-decoration: underline; }
+    .cs-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.25rem; }
+    .cs-tab-btn { padding: 0.4rem 0.9rem; border: none; background: none; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+    .cs-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .cs-tab-btn:hover:not(.active) { color: var(--text); }
+    .cs-section { display: none; }
+    .cs-section.active { display: block; }
     .markdown-body { line-height: 1.7; max-width: 820px; color: var(--text); }
     .markdown-body h1 { font-size: 1.4rem; font-weight: 700; margin: 1.4rem 0 0.5rem; border-left: 4px solid var(--accent); padding-left: 0.75rem; }
     .markdown-body h2 { font-size: 1.25rem; font-weight: 600; color: var(--accent); margin: 1.2rem 0 0.5rem; border-left: 3px solid var(--accent); padding-left: 0.6rem; }
@@ -117,7 +209,7 @@
     .markdown-body pre code { background: none; color: inherit; }
     .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--muted); margin: 0.8rem 0; }
 
-    /* Tables */
+    /* ── Tables ── */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
     thead tr { background: var(--bg); }
@@ -126,7 +218,7 @@
     tr:hover td { background: var(--border); }
     tr:last-child td { border-bottom: none; }
 
-    /* Badges */
+    /* ── Badges ── */
     .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; cursor: help; }
     .badge-feature  { background: #ef4444; color: #fff; }
     .badge-bugfix   { background: #3b82f6; color: #fff; }
@@ -139,9 +231,9 @@
     .badge-unknown  { background: #374151; color: #d1d5db; }
     .badge-default  { background: #374151; color: #d1d5db; }
 
-    /* Patterns sections */
+    /* ── Patterns ── */
     .section-heading { font-size: 13px; font-weight: 700; color: var(--muted); margin: 1.2rem 0 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; cursor: help; display: inline-flex; align-items: center; gap: 0.4rem; }
-    .section-heading::after { content: "ⓘ"; font-size: 11px; opacity: 0.7; font-style: normal; }
+    .section-heading::after { content: "ⓘ"; font-size: 11px; opacity: 0.7; }
     .signal-cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
     .signal-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 1rem; }
     .signal-card .sc-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
@@ -153,14 +245,12 @@
     .migration-row .arrow { color: var(--accent); font-weight: 700; }
     .migration-row .m-count { background: var(--accent); color: #fff; border-radius: 10px; padding: 0.1rem 0.45rem; font-size: 11px; font-weight: 700; margin-left: auto; }
     .migration-row .m-conf { color: var(--muted); font-size: 11px; cursor: help; }
-    .arch-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; font-size: 13px; }
-    .arch-icon { font-size: 16px; flex-shrink: 0; }
     .insight-card { border-left: 4px solid var(--yellow); background: var(--surface); border-radius: 0 6px 6px 0; padding: 0.8rem 1rem; margin-bottom: 0.75rem; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     .insight-card .insight-title { font-weight: 700; font-size: 13px; margin-bottom: 0.4rem; color: var(--text); }
     .insight-card .insight-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; margin-top: 0.5rem; }
     .insight-card p { font-size: 13px; color: var(--muted); margin-top: 0.2rem; }
 
-    /* Commits */
+    /* ── Commits ── */
     .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
     .filter-bar select, .filter-bar input { padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; }
     .filter-bar input { flex: 1; min-width: 180px; }
@@ -172,54 +262,123 @@
     .expand-cell { background: var(--bg); color: var(--muted); font-size: 12px; padding: 0.5rem 0.8rem 0.75rem 2rem; white-space: pre-wrap; border-bottom: 1px solid var(--border); }
     tr.clickable-row { cursor: pointer; }
 
-    /* Tooltip */
-    #global-tip {
-      position: fixed;
-      display: none;
-      z-index: 9999;
-      max-width: 280px;
-      background: #1e2333;
-      color: #e2e8f0;
-      border: 1px solid #3d4263;
-      border-radius: 6px;
-      padding: 7px 11px;
-      font-size: 12px;
-      line-height: 1.55;
-      pointer-events: none;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-      font-family: 'Inter', system-ui, sans-serif;
-    }
+    /* ── Tooltip ── */
+    #global-tip { position: fixed; display: none; z-index: 9999; max-width: 280px; background: #1e2333; color: #e2e8f0; border: 1px solid #3d4263; border-radius: 6px; padding: 7px 11px; font-size: 12px; line-height: 1.55; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.5); font-family: 'Inter', system-ui, sans-serif; }
     [data-tip] { cursor: help; }
-    .badge[data-tip], .dna-pill[data-tip], .section-heading[data-tip] { cursor: help; }
 
-    /* Header icon buttons */
-    .hdr-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
-    .hdr-btn:hover { background: var(--border); color: var(--text); }
-    .hdr-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .hdr-btn svg { flex-shrink: 0; }
-
-    /* GitHub button in subheader */
-    .gh-btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.15s; }
-    .gh-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
-    .gh-btn svg { flex-shrink: 0; }
-
-    /* Utils */
+    /* ── Utils ── */
     .empty-state { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 13px; }
-    #empty-banner { display: flex; align-items: center; justify-content: center; height: 100%; }
     .sha-code { font-family: monospace; font-size: 12px; color: var(--muted); }
     .date-cell { white-space: nowrap; color: var(--muted); font-size: 12px; }
     .summary-cell { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Timeline extras ── */
+    .tl-timeframe { font-size: 11px; color: var(--muted); padding: 0.4rem 0 0.75rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .tl-timeframe strong { color: var(--text); }
+    .tl-timeframe-sep { color: var(--border); }
+
+    /* ── Case study collapsible sub-cards ── */
+    .cs-subcard { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem; overflow: hidden; }
+    .cs-subcard-hdr { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 1rem; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); background: var(--surface); transition: background 0.1s; user-select: none; }
+    .cs-subcard-hdr:hover { background: var(--border); }
+    .cs-subcard-icon { font-size: 1rem; flex-shrink: 0; }
+    .cs-subcard-title { flex: 1; }
+    .cs-subcard-chevron { font-size: 10px; color: var(--muted); transition: transform 0.15s; flex-shrink: 0; }
+    .cs-subcard.open .cs-subcard-chevron { transform: rotate(90deg); }
+    .cs-subcard-body { display: none; padding: 0.75rem 1rem 1rem; border-top: 1px solid var(--border); }
+    .cs-subcard.open .cs-subcard-body { display: block; }
+
+    /* ── Contributor cards ── */
+    .contributor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .contributor-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.25rem; }
+    .cc-top { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .cc-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .cc-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .cc-meta { font-size: 11px; color: var(--muted); }
+    .cc-bot { font-size: 10px; background: var(--border); color: var(--muted); padding: 0.1rem 0.4rem; border-radius: 3px; font-weight: 600; margin-left: 0.4rem; }
+    .cc-stats { display: flex; gap: 0.75rem; font-size: 12px; color: var(--muted); margin-bottom: 0.6rem; flex-wrap: wrap; }
+    .cc-stat strong { color: var(--text); font-weight: 700; }
+    .cc-cats { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.6rem; }
+    .cc-files { font-size: 11px; color: var(--muted); }
+    .cc-files code { font-family: monospace; font-size: 10px; background: var(--border); padding: 0.1rem 0.3rem; border-radius: 2px; margin-right: 0.2rem; color: var(--text); }
+
+    /* ── Analyze button ── */
+    .analyze-btn { font-size: 10px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.1rem 0.4rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
+    .analyze-btn:hover { background: var(--accent); color: #fff; }
+
+    /* ── Light mode chart label fix ── */
+    [data-theme="light"] .chart-box h3 { color: #475569; }
+
+    /* ── Architecture transition diagram ── */
+    .arch-transition-diagram { display:flex; align-items:center; gap:1rem; margin:0.75rem 0 1rem; flex-wrap:wrap; }
+    .arch-box { flex:1; min-width:120px; padding:0.75rem 1rem; border-radius:8px; font-size:13px; font-weight:600; line-height:1.4; }
+    .arch-before { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:var(--text); }
+    .arch-after  { background:rgba(34,197,94,0.12);  border:1px solid rgba(34,197,94,0.4);  color:var(--text); }
+    .arch-lbl { display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:0.25rem; }
+    .arch-arrow { font-size:1.5rem; color:var(--accent); flex-shrink:0; }
+
+    /* ── Bugfix recurrence cards ── */
+    .bugfix-rec-card { background:var(--surface); border:1px solid var(--border); border-left:3px solid #ef4444; border-radius:8px; padding:0.75rem 1rem; margin-bottom:0.5rem; }
+    .brc-top { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.25rem; }
+    .brc-file { font-size:12px; }
+    .brc-count { font-size:12px; font-weight:700; }
+    .brc-range { font-size:11px; color:var(--muted); margin-bottom:0.3rem; }
+    .brc-msgs { margin:0.25rem 0 0 1rem; padding:0; font-size:11px; color:var(--muted); }
+    .brc-msgs li { margin-bottom:0.15rem; }
+
+    /* ── cs-subcard chevron rotation ── */
+    .cs-subcard.open .cs-subcard-chevron { transform:rotate(90deg); }
+    .cs-subcard-chevron { display:inline-block; transition:transform 0.15s; margin-left:auto; font-size:9px; color:var(--muted); }
+
+    /* ── Case Study Timeline rail ── */
+    .cs-tl-rail { display:flex; align-items:flex-start; gap:0; overflow-x:auto; padding:1.5rem 0.5rem 0.5rem; margin-bottom:1rem; }
+    .cs-tl-node { display:flex; flex-direction:column; align-items:center; position:relative; min-width:100px; max-width:140px; flex:1; cursor:pointer; }
+    .cs-tl-node:hover .cs-tl-dot { background:var(--accent); color:#fff; transform:scale(1.15); }
+    .cs-tl-dot { width:40px; height:40px; border-radius:50%; background:var(--surface); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.2rem; z-index:1; transition:transform 0.15s, background 0.15s; flex-shrink:0; }
+    .cs-tl-line { position:absolute; top:20px; left:calc(50% + 20px); right:calc(-50% + 20px); height:2px; background:var(--accent); opacity:0.4; }
+    .cs-tl-label { text-align:center; margin-top:0.5rem; padding:0 0.25rem; }
+    .cs-tl-label-title { font-size:11px; font-weight:600; color:var(--text); line-height:1.3; }
+    .cs-tl-label-range { font-size:9px; color:var(--muted); margin-top:0.15rem; }
+    .cs-tl-label-cnt { font-size:9px; color:var(--accent); font-weight:700; margin-top:0.1rem; }
+    /* ── Nested sub-rail inside phase cards ── */
+    .cs-tl-sub-rail { display:flex; align-items:flex-start; overflow-x:auto; padding:0.5rem 0; gap:0; border-top:1px solid var(--border); }
+    .cs-tl-sub-node { display:flex; flex-direction:column; align-items:center; position:relative; min-width:80px; max-width:110px; flex:1; }
+    .cs-tl-sub-dot { width:28px; height:28px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:0.85rem; z-index:1; flex-shrink:0; }
+    .cs-tl-sub-line { position:absolute; top:14px; left:calc(50% + 14px); right:calc(-50% + 14px); height:1px; background:var(--border); }
+    .cs-tl-sub-label { text-align:center; margin-top:0.3rem; font-size:9px; color:var(--muted); padding:0 0.2rem; line-height:1.3; }
   </style>
 </head>
 <body>
 
+<!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
 <header>
-  <h1>&#x1F50E; Git It</h1>
-  <label for="repo-select" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Select repository</label>
-  <select id="repo-select" aria-label="Select repository">
-    <option value="">— select a repository —</option>
-  </select>
-  <button id="btn-tips" class="hdr-btn active" aria-pressed="true" title="Toggle tooltips" aria-label="Toggle tooltips">
+  <button class="hdr-logo" onclick="goHome()" aria-label="Go to home" style="background:none;border:none;cursor:pointer;font-family:inherit;color:inherit;font-size:1.05rem;font-weight:800;letter-spacing:.04em;white-space:nowrap;flex-shrink:0;padding:0">&#x1F50E; Git It</button>
+  <div id="hdr-center">
+    <div id="hdr-repo-info">
+      <span class="hdr-sep" aria-hidden="true" style="color:var(--border)">/</span>
+      <span id="hdr-repo-name"></span>
+      <div class="hdr-meta">
+        <span id="sh-commits" class="hdr-badge" tabindex="0" data-tip="shCommits"></span>
+        <span id="sh-status" class="hdr-status" tabindex="0" data-tip="shStatus"></span>
+        <span id="sh-analyzed" class="hdr-badge" tabindex="0" data-tip="shAnalyzed"></span>
+        <button id="sh-analyze-btn" class="analyze-btn" onclick="_showAnalyzePicker()" aria-label="Analyze more commits" title="Analyze more commits">+ Analyze</button>
+        <div id="sh-analyze-picker" style="display:none;align-items:center;gap:0.3rem;background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:0.2rem 0.4rem">
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">How many commits?</span>
+          <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(10)">10</button>
+          <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(20)">20</button>
+          <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(50)">50</button>
+          <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(100)">100</button>
+          <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(9999)">All</button>
+          <button style="font-size:10px;background:none;border:none;color:var(--muted);cursor:pointer;padding:0 0.2rem" onclick="_hideAnalyzePicker()" aria-label="Cancel">✕</button>
+        </div>
+      </div>
+      <a id="hdr-gh-link" class="gh-btn" href="#" target="_blank" rel="noopener" aria-label="View on GitHub">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        <span id="hdr-gh-text">GitHub</span>
+      </a>
+    </div>
+  </div>
+  <button id="btn-tips" class="hdr-btn active" aria-pressed="true" aria-label="Toggle tooltips" title="Toggle tooltips" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     Tooltips
   </button>
@@ -230,62 +389,114 @@
   </button>
 </header>
 
-<div id="repo-subheader" aria-live="polite">
-  <a id="sh-url" href="#" target="_blank" rel="noopener" class="gh-btn">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-    <span id="sh-url-text">View on GitHub</span>
-  </a>
-  <span class="sh-sep" aria-hidden="true">·</span>
-  <span id="sh-commits" class="sh-badge"></span>
-  <span class="sh-sep" aria-hidden="true">·</span>
-  <span id="sh-status" class="sh-status"></span>
-  <span class="sh-sep" aria-hidden="true">·</span>
-  <span id="sh-analyzed" style="color:var(--muted)" tabindex="0"></span>
+<!-- ═══════════════════════════════ HOME VIEW ═══════════════════════════ -->
+<div id="home-view">
+  <div class="home-inner">
+
+    <div class="add-repo-wrap">
+      <div class="add-repo-card">
+        <h3>Add Repository</h3>
+        <div class="add-repo-row">
+          <input id="home-repo-input" class="add-repo-input" type="text"
+            placeholder="owner/repo or full GitHub URL…"
+            aria-label="Repository URL or owner/repo shorthand"
+            onkeydown="if(event.key==='Enter') handleAddRepo()">
+          <button class="add-repo-btn" onclick="handleAddRepo()" aria-label="Add repository">+ Add</button>
+        </div>
+        <p class="add-repo-hint">Try: <code style="background:var(--border);padding:.1rem .35rem;border-radius:3px;font-family:monospace;font-size:11px">anthropics/anthropic-sdk-python</code> or a full GitHub URL</p>
+        <div id="ingest-status" aria-live="polite"></div>
+        <div id="search-results" role="listbox" aria-label="Matching repositories"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="repo-cards-label">
+        <span>Your Repositories</span>
+        <span id="repos-count" style="color:var(--accent);font-weight:800"></span>
+      </div>
+      <div id="repo-cards-grid" class="repo-cards-grid" aria-live="polite"></div>
+    </div>
+
+  </div>
 </div>
 
-<div class="layout">
-  <aside aria-label="Repository list">
-    <h2 id="sidebar-heading">Repositories</h2>
-    <div id="sidebar-list" role="list" aria-labelledby="sidebar-heading"></div>
-  </aside>
-
-  <main id="main-area">
-    <div id="empty-banner">
-      <div class="empty-state">
-        <p>Select a repository from the sidebar to explore its overview, case study, patterns, and commits.</p>
+<!-- ═══════════════════════════════ REPO VIEW ═══════════════════════════ -->
+<div id="repo-view">
+  <div class="layout">
+    <aside aria-label="Repository list">
+      <div class="rv-back-row">
+        <button class="rv-back-btn" onclick="goHome()" aria-label="Back to all repositories">← All repos</button>
       </div>
-    </div>
+      <h2 id="sidebar-heading">Repositories</h2>
+      <div id="sidebar-list" role="list" aria-labelledby="sidebar-heading"></div>
+    </aside>
 
-    <div id="repo-content" style="display:none; flex-direction:column; gap:1rem;">
-      <div class="tabs" role="tablist" aria-label="Repository views">
-        <button class="tab-btn" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" id="tbtn-overview">Overview</button>
-        <button class="tab-btn" data-tab="case-study" role="tab" aria-selected="false" aria-controls="tab-case-study" id="tbtn-case-study">Case Study</button>
-        <button class="tab-btn" data-tab="patterns" role="tab" aria-selected="false" aria-controls="tab-patterns" id="tbtn-patterns">Patterns</button>
-        <button class="tab-btn" data-tab="commits" role="tab" aria-selected="false" aria-controls="tab-commits" id="tbtn-commits">Commits</button>
+    <main id="main-area">
+
+      <!-- Timeline / Deep Analysis switcher -->
+      <div class="view-nav" role="tablist" aria-label="Repository views">
+        <button id="view-btn-timeline" class="view-nav-btn active" role="tab" aria-selected="true" aria-controls="panel-timeline">Timeline</button>
+        <button id="view-btn-detail" class="view-nav-btn" role="tab" aria-selected="false" aria-controls="panel-detail">Deep Analysis</button>
       </div>
 
-      <div class="tab-panel active" id="tab-overview" role="tabpanel" aria-labelledby="tbtn-overview" tabindex="0"><div id="overview-content"></div></div>
-      <div class="tab-panel" id="tab-case-study" role="tabpanel" aria-labelledby="tbtn-case-study" tabindex="0"><div id="case-study-content"></div></div>
-      <div class="tab-panel" id="tab-patterns" role="tabpanel" aria-labelledby="tbtn-patterns" tabindex="0"><div id="patterns-content"></div></div>
-      <div class="tab-panel" id="tab-commits" role="tabpanel" aria-labelledby="tbtn-commits" tabindex="0">
-        <div class="filter-bar">
-          <select id="cat-filter" aria-label="Filter commits by category">
-            <option value="">All categories</option>
-            <option value="FEATURE">FEATURE</option>
-            <option value="BUGFIX">BUGFIX</option>
-            <option value="REFACTOR">REFACTOR</option>
-            <option value="BUILD">BUILD</option>
-            <option value="DOCS">DOCS</option>
-            <option value="TEST">TEST</option>
-            <option value="OTHER">OTHER</option>
+      <!-- ── Timeline panel ── -->
+      <div id="panel-timeline" role="tabpanel" aria-labelledby="view-btn-timeline" tabindex="0">
+        <div class="filter-bar" style="margin-bottom:0.5rem">
+          <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load">
+            <option value="200" selected>All analyzed</option>
           </select>
-          <input type="text" id="keyword-filter" placeholder="Search commits…" aria-label="Search commits by keyword, SHA, or summary">
+          <input type="text" id="tl-search" placeholder="Filter timeline…" aria-label="Filter timeline by keyword, author, or SHA" onkeydown="if(event.key==='Enter')_applyTimelineFilters()">
+          <button class="hdr-btn" id="tl-apply-btn" onclick="_applyTimelineFilters()" style="font-size:11px;padding:0.25rem 0.6rem">Apply</button>
         </div>
-        <div id="commits-content" aria-live="polite"></div>
-        <button id="load-more-btn" style="display:none" aria-label="Load more commits">Load more</button>
+        <div id="timeline-content"></div>
       </div>
-    </div>
-  </main>
+
+      <!-- ── Deep Analysis panel ── -->
+      <div id="panel-detail" role="tabpanel" aria-labelledby="view-btn-detail" tabindex="0" style="display:none">
+        <div id="repo-content" style="display:flex; flex-direction:column; gap:1rem;">
+          <div class="tabs" role="tablist" aria-label="Repository views">
+            <button class="tab-btn" data-tab="overview"      role="tab" aria-selected="true"  aria-controls="tab-overview"      id="tbtn-overview">Overview</button>
+            <button class="tab-btn" data-tab="case-study"   role="tab" aria-selected="false" aria-controls="tab-case-study"   id="tbtn-case-study">Case Study</button>
+            <button class="tab-btn" data-tab="patterns"     role="tab" aria-selected="false" aria-controls="tab-patterns"     id="tbtn-patterns">Patterns</button>
+            <button class="tab-btn" data-tab="commits"      role="tab" aria-selected="false" aria-controls="tab-commits"      id="tbtn-commits">Commits</button>
+            <button class="tab-btn" data-tab="contributors" role="tab" aria-selected="false" aria-controls="tab-contributors" id="tbtn-contributors">Contributors</button>
+          </div>
+
+          <div class="tab-panel active" id="tab-overview"   role="tabpanel" aria-labelledby="tbtn-overview"   tabindex="0"><div id="overview-content"></div></div>
+          <div class="tab-panel"        id="tab-case-study" role="tabpanel" aria-labelledby="tbtn-case-study" tabindex="0"><div id="case-study-content"></div></div>
+          <div class="tab-panel"        id="tab-patterns"   role="tabpanel" aria-labelledby="tbtn-patterns"   tabindex="0"><div id="patterns-content"></div></div>
+          <div class="tab-panel"        id="tab-commits"    role="tabpanel" aria-labelledby="tbtn-commits"    tabindex="0">
+            <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.25rem;margin-bottom:0.25rem;border-bottom:1px solid var(--border)">
+              <button class="hdr-btn" onclick="switchTab('overview')" aria-label="Go back to Overview">← Overview</button>
+              <div id="commits-back-bar" style="display:none;align-items:center;gap:0.5rem">
+                <button class="hdr-btn" onclick="_clearCommitFilters()" aria-label="Clear filter">Clear filter</button>
+                <span id="commits-filter-desc" style="font-size:12px;color:var(--muted)"></span>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <select id="cat-filter" aria-label="Filter commits by category">
+                <option value="">All categories</option>
+                <option value="FEATURE">FEATURE</option>
+                <option value="BUGFIX">BUGFIX</option>
+                <option value="REFACTOR">REFACTOR</option>
+                <option value="BUILD">BUILD</option>
+                <option value="DOCS">DOCS</option>
+                <option value="TEST">TEST</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+              <input type="text" id="keyword-filter" placeholder="Search commits…" aria-label="Search commits by keyword, SHA, or summary">
+            </div>
+            <div id="commits-content" aria-live="polite"></div>
+            <button id="load-more-btn" style="display:none" aria-label="Load more commits">Load more</button>
+          </div>
+          <div class="tab-panel" id="tab-contributors" role="tabpanel" aria-labelledby="tbtn-contributors" tabindex="0">
+            <div id="contributors-content"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
 </div>
 
 <div id="global-tip" role="tooltip"></div>
@@ -295,21 +506,24 @@
    Tooltip engine
    ========================================================= */
 const TIPS = {
-  // Stat cards
   statCommits:   "Total number of commits in this repository's full history.",
   statHotspots:  "Files changed most frequently. A 'hotspot' is a file touched by many commits — high count may indicate complexity, instability, or active development.",
   statPatterns:  "Recurring engineering behaviors detected across commits: refactoring waves, revert signals, dependency migrations, and architectural shifts.",
   statCaseStudy: "An AI-generated narrative summarizing this repository's engineering history, key decisions, and observable patterns.",
-  // Sub-header
-  shAnalyzed:    "Number of commits sampled and analyzed by AI to extract categories, summaries, and risk levels. Not every commit is analyzed — only a representative sample.",
-  // DNA pills
+  shCommits:     "Total commits extracted from this repository's full history via git clone. This includes ALL commits, not just the analyzed sample.",
+  shStatus:      "Ingestion status — 'COMPLETED' means all commits have been extracted from the repository and stored locally. This does NOT mean all commits were AI-analyzed; analysis runs separately on a representative sample.",
+  shAnalyzed:    "Commits analyzed by AI so far. Only a sample is analyzed (not all commits) to keep costs manageable. Click '+ Analyze' to run more analyses on additional commits.",
+  tlRevert:      "Reverts detected in this period. A revert undoes a previous commit — too many can indicate integration instability or premature merges.",
+  tlHotspot:     "A file or area that was modified significantly more often than average during this period. May indicate complexity, active development, or a design bottleneck.",
+  tlRefactorWave:"A concentrated burst of refactoring commits — the team paid down technical debt. Healthy if followed by a period of stability.",
+  tlTestGrowth:  "The ratio of test commits to bugfix commits is growing — a positive signal indicating improving test coverage and engineering maturity.",
+  tlMerge:       "Merge commits detected (commits with 2+ parent commits). These result from merging branches. A high number indicates an active branching workflow. Branch names are not stored, but merge activity is visible here.",
   dnaCommits:    "Total commits in the full repository history.",
   dnaBugfix:     "Over 30% of analyzed commits are bug fixes. May indicate accumulated technical debt, insufficient test coverage, or a mature product in maintenance mode.",
   dnaFeature:    "Over 40% of analyzed commits introduce new features — suggests an active product development phase.",
   dnaChurn:      "Files changed repeatedly across many commits. High churn can signal complexity, instability, or areas under active refactoring.",
   dnaAnalyzed:   "Number of commits analyzed by AI to extract categories, summaries, risk levels, and patterns.",
   dnaCaseStudy:  "A narrative case study has been generated for this repository — check the Case Study tab.",
-  // Commit categories
   catFeature:    "Introduces new functionality or capabilities. Increases codebase scope.",
   catBugfix:     "Fixes a defect, error, or unexpected behavior in existing code.",
   catRefactor:   "Restructures code without changing external behavior — improves readability, reduces complexity, or prepares for future changes.",
@@ -319,33 +533,26 @@ const TIPS = {
   catChore:      "Routine maintenance: version bumps, cleanup, formatting, configuration. No feature or behavior changes.",
   catSecurity:   "Addresses a security vulnerability, hardens access controls, or improves authentication and authorization.",
   catUnknown:    "AI could not confidently classify this commit into a known category.",
-  // Risk levels
   riskLow:       "Low risk — the change is small, well-scoped, and unlikely to introduce regressions.",
   riskMedium:    "Medium risk — the change touches multiple areas or has moderate complexity. Review carefully.",
   riskHigh:      "High risk — the change is large, touches core systems, or could introduce significant regressions. Requires thorough review.",
-  // Hotspot table columns
   thChurn:       "Total lines inserted + deleted across all commits touching this file. High churn = a lot of modification activity, often signaling complexity or instability.",
   thConfidence:  "Statistical confidence (0–100%) that this file is a true hotspot, based on its change frequency relative to the repository baseline.",
   thPeriod:      "Date range from the first to the last commit that touched this file.",
   thCommitCount: "Number of commits that modified this file.",
-  // Pattern signals
   sigRefactor:   "A cluster of refactoring commits concentrated in time — the team paid down technical debt in a focused burst. Healthy if followed by stability.",
   sigRevert:     "Commit reverts detected — signals unstable periods, integration conflicts, or changes that needed to be rolled back.",
   sigRevertNone: "No reverts detected in the analyzed commits — a positive signal indicating stable development with few rollbacks.",
   sigTest:       "Tests are growing faster than bug fixes — a positive quality signal suggesting improving test coverage over time.",
   sigBugfixRec:  "The same files or areas are repeatedly fixed across multiple commits. Suggests deeper design issues that partial fixes haven't resolved.",
-  // Section headings
   secHotspots:   "Files with disproportionately high change frequency. Hotspots reveal complexity bottlenecks or areas that may need architectural attention.",
   secMigrations: "Commits that replaced one library or tool with another. Reveals technology evolution and decision-making patterns over time.",
-  secArchShifts: "Commits that changed the structural approach of the project — directory layout, framework adoption, or infrastructure changes.",
   secInsights:   "AI-generated educational explanations of detected patterns and what they mean for engineering quality.",
-  // Misc
   migConf:       "Statistical confidence that these commits represent a genuine dependency migration rather than incidental co-occurrence.",
 };
 
 const _tipEl = document.getElementById('global-tip');
 let _tipTarget = null;
-
 function _showTip(el) {
   const key = el.dataset.tip;
   if (!key) return;
@@ -377,7 +584,6 @@ document.getElementById('btn-tips').addEventListener('click', function() {
   _hideTip();
   this.classList.toggle('active', _tipsEnabled);
   this.setAttribute('aria-pressed', _tipsEnabled ? 'true' : 'false');
-  this.title = _tipsEnabled ? 'Tooltips on — click to disable' : 'Tooltips off — click to enable';
 });
 
 document.getElementById('btn-theme').addEventListener('click', function() {
@@ -387,6 +593,11 @@ document.getElementById('btn-theme').addEventListener('click', function() {
   document.getElementById('icon-sun').style.display  = isLight ? 'none' : '';
   document.getElementById('theme-label').textContent = isLight ? 'Dark' : 'Light';
   this.setAttribute('aria-label', isLight ? 'Switch to light mode' : 'Switch to dark mode');
+  // Rebuild charts so axis colors reflect the new theme
+  if (currentRepo && detailLoaded) {
+    loadOverview(currentRepo);
+    _rebuildPatternsChart();
+  }
 });
 
 /* =========================================================
@@ -396,7 +607,10 @@ let currentRepo = null;
 let currentRepoMeta = null;
 let commitsLimit = 20;
 let allCommits = [];
+let _evidenceShaFilter = null;
 let patternsData = null;
+let detailLoaded = false;
+let _ingestPoll = null;
 
 /* =========================================================
    Chart registry
@@ -451,32 +665,28 @@ function riskTipKey(level) {
    Utilities
    ========================================================= */
 function fmtDate(iso) { if (!iso) return '—'; try { return iso.slice(0, 10); } catch { return iso; } }
+function fmtMonthDay(iso) { if (!iso) return '—'; try { return iso.slice(5, 10).replace('-', '/'); } catch { return iso; } }
 function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function truncate(str, n) { if (!str) return ''; return str.length > n ? str.slice(0, n) + '…' : str; }
 function repoShortName(url) {
-  try { const p = url.replace(/\.git$/, '').split('/'); return p.slice(-2).join('/'); }
+  try { const p = (url || '').replace(/\.git$/, '').split('/'); return p.slice(-2).join('/'); }
   catch { return url; }
 }
 function spinner() {
-  return '<div class="loading-spinner" role="status" aria-label="Loading repository data"><div class="spinner" aria-hidden="true"></div><p>Loading repository data…</p></div>';
+  return '<div class="loading-spinner" role="status" aria-label="Loading…"><div class="spinner" aria-hidden="true"></div><p>Loading…</p></div>';
 }
 async function apiFetch(url) {
   const res = await fetch(url);
   if (!res.ok) throw { status: res.status, body: await res.text() };
   return res.json();
 }
-
-/* =========================================================
-   Best granularity for activity chart
-   ========================================================= */
 function bestGranularity(commits) {
-  const dates = commits.map(c => (c.committed_at || '').slice(0, 10)).filter(Boolean);
-  const unique = new Set(dates);
-  if (unique.size <= 1) return 'hour';
   const months = new Set(commits.map(c => (c.committed_at || '').slice(0, 7)).filter(Boolean));
+  const unique = new Set(commits.map(c => (c.committed_at || '').slice(0, 10)).filter(Boolean));
+  if (unique.size <= 1) return 'hour';
   if (months.size <= 2) return 'day';
   return 'month';
 }
@@ -496,23 +706,20 @@ function buildActivityData(commits) {
 }
 
 /* =========================================================
-   Sidebar and selector
+   Repo loading & sidebar
    ========================================================= */
 let reposCache = [];
 async function loadRepos() {
   let data;
   try { data = await apiFetch('/api/repos'); }
   catch {
-    document.getElementById('sidebar-list').innerHTML = '<div class="empty-state" role="alert">Could not load repositories.</div>';
+    document.getElementById('sidebar-list').innerHTML =
+      '<div class="empty-state" role="alert">Could not load repositories.</div>';
     return;
   }
   reposCache = data.repos || [];
-  const select = document.getElementById('repo-select');
   const sidebar = document.getElementById('sidebar-list');
-  if (reposCache.length === 0) {
-    sidebar.innerHTML = '<div class="empty-state">No repositories found.</div>';
-    return;
-  }
+  sidebar.innerHTML = '';
   reposCache.forEach(repo => {
     const short = repoShortName(repo.canonical_url);
     const item = document.createElement('div');
@@ -522,73 +729,456 @@ async function loadRepos() {
     item.setAttribute('tabindex', '0');
     item.setAttribute('aria-label', `${short} — ${repo.commit_count} commits, ${repo.status}`);
     item.innerHTML = `<div class="repo-name">${esc(short)}</div><div class="repo-meta">${repo.commit_count} commits · ${repo.status}</div>`;
-    const activate = () => selectRepo(repo.repository_id, item);
+    const activate = () => selectRepo(repo.repository_id);
     item.addEventListener('click', activate);
     item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
     sidebar.appendChild(item);
-    const opt = document.createElement('option');
-    opt.value = repo.repository_id;
-    opt.textContent = short;
-    select.appendChild(opt);
   });
 }
 
 /* =========================================================
-   Repo selection
+   Home screen
    ========================================================= */
-function selectRepo(repoId, sidebarItem) {
-  if (currentRepo === repoId) return;
+async function renderRepoCards() {
+  const grid = document.getElementById('repo-cards-grid');
+  const countEl = document.getElementById('repos-count');
+  if (reposCache.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No repositories yet. Add one above to get started.</div>';
+    countEl.textContent = '';
+    return;
+  }
+  countEl.textContent = reposCache.length;
+  grid.innerHTML = '<div class="loading-spinner" style="padding:2rem;grid-column:1/-1"><div class="spinner"></div></div>';
+
+  const patternResults = await Promise.allSettled(
+    reposCache.map(r => apiFetch(`/api/repos/${encodeURIComponent(r.repository_id)}/patterns`))
+  );
+
+  grid.innerHTML = '';
+  reposCache.forEach((repo, i) => {
+    const patterns = patternResults[i].status === 'fulfilled' ? patternResults[i].value : null;
+    grid.appendChild(_buildRepoCard(repo, patterns));
+  });
+}
+
+function _buildRepoCard(repo, patterns) {
+  const short = repoShortName(repo.canonical_url);
+  const card = document.createElement('div');
+  card.className = 'repo-card';
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `Open ${short}`);
+
+  const signals = [];
+  if (patterns?.refactor_wave)
+    signals.push(`<span class="dna-pill orange" style="font-size:11px;padding:.2rem .55rem">⚡ Refactor Wave</span>`);
+  if ((patterns?.revert_signal?.commit_count || 0) > 0)
+    signals.push(`<span class="dna-pill red" style="font-size:11px;padding:.2rem .55rem">↩️ Reverts</span>`);
+  if (patterns?.test_growth_signal)
+    signals.push(`<span class="dna-pill green" style="font-size:11px;padding:.2rem .55rem">🧪 Test Growth</span>`);
+  const hotCount = (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).length;
+  if (hotCount > 0)
+    signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
+
+  const statusCls = (repo.status || '').toLowerCase() === 'completed' ? 'completed' : 'ingesting';
+  card.innerHTML = `
+    <div class="rc-accent" aria-hidden="true"></div>
+    <div class="rc-name">${esc(short)}</div>
+    <div class="rc-url">${esc(repo.canonical_url)}</div>
+    <div class="rc-stats">
+      <span class="rc-stat"><strong>${repo.commit_count}</strong> commits</span>
+      <span class="rc-stat"><strong>${repo.analysis_count}</strong> analyzed</span>
+      ${repo.has_case_study ? '<span style="color:var(--green);font-size:12px">✓ Case study</span>' : ''}
+    </div>
+    <div class="rc-patterns">${signals.join('')}</div>
+    <div class="rc-footer">
+      <span class="rc-status ${statusCls}">${esc(repo.status)}</span>
+      <button class="rc-open-btn" tabindex="-1" aria-hidden="true">Open timeline →</button>
+    </div>`;
+
+  const open = () => selectRepo(repo.repository_id);
+  card.addEventListener('click', open);
+  card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return card;
+}
+
+/* =========================================================
+   Add repo / ingest
+   ========================================================= */
+function handleAddRepo() {
+  const input = document.getElementById('home-repo-input');
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  const statusEl = document.getElementById('ingest-status');
+  const resultsEl = document.getElementById('search-results');
+  resultsEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+
+  let url = raw;
+  if (!url.startsWith('http')) {
+    if (/^[\w.\-]+\/[\w.\-]+$/.test(raw)) {
+      url = `https://github.com/${raw}`;
+    } else {
+      const matches = reposCache.filter(r =>
+        r.canonical_url.toLowerCase().includes(raw.toLowerCase()) ||
+        repoShortName(r.canonical_url).toLowerCase().includes(raw.toLowerCase())
+      );
+      if (matches.length === 1) {
+        selectRepo(matches[0].repository_id);
+        return;
+      } else if (matches.length > 1) {
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = matches.map(r =>
+          `<div class="sr-item" role="option" tabindex="0"
+            onclick="selectRepo('${esc(r.repository_id)}')"
+            onkeydown="if(event.key==='Enter')selectRepo('${esc(r.repository_id)}')">
+            <span>${esc(repoShortName(r.canonical_url))}</span>
+            <span style="font-size:11px;color:var(--muted)">${r.commit_count} commits</span>
+          </div>`
+        ).join('');
+        statusEl.textContent = `${matches.length} matches — pick one:`;
+        statusEl.style.color = 'var(--muted)';
+        return;
+      } else {
+        statusEl.textContent = 'Not found locally. Try the full GitHub URL or "owner/repo" format.';
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
+    }
+  }
+  startIngest(url);
+}
+
+async function startIngest(url) {
+  const statusEl = document.getElementById('ingest-status');
+  statusEl.textContent = 'Starting ingestion…';
+  statusEl.style.color = 'var(--yellow)';
+  try {
+    const res = await fetch('/api/repos/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      let msg = 'Invalid repository URL.';
+      try { const e = await res.json(); msg = e.detail || msg; } catch {}
+      statusEl.textContent = msg;
+      statusEl.style.color = 'var(--red)';
+      return;
+    }
+    const data = await res.json();
+    statusEl.textContent = `Ingesting ${data.canonical_url} — this may take a few minutes…`;
+    statusEl.style.color = 'var(--yellow)';
+    _pollForRepo(data.canonical_url);
+  } catch {
+    statusEl.textContent = 'Failed to connect to server.';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+function _pollForRepo(canonicalUrl) {
+  if (_ingestPoll) clearInterval(_ingestPoll);
+  _ingestPoll = setInterval(async () => {
+    try {
+      const data = await apiFetch('/api/repos');
+      const found = (data.repos || []).find(r => r.canonical_url === canonicalUrl);
+      if (found) {
+        clearInterval(_ingestPoll);
+        _ingestPoll = null;
+        reposCache = data.repos;
+        await loadRepos();
+        const statusEl = document.getElementById('ingest-status');
+        statusEl.textContent = `✓ ${repoShortName(canonicalUrl)} ingested!`;
+        statusEl.style.color = 'var(--green)';
+        renderRepoCards();
+        setTimeout(() => selectRepo(found.repository_id), 1500);
+      }
+    } catch { clearInterval(_ingestPoll); _ingestPoll = null; }
+  }, 3000);
+}
+
+/* =========================================================
+   Navigation
+   ========================================================= */
+function goHome() {
+  currentRepo = null;
+  currentRepoMeta = null;
+  document.getElementById('repo-view').classList.remove('visible');
+  document.getElementById('home-view').style.display = '';
+  document.getElementById('hdr-repo-info').style.display = 'none';
+  document.getElementById('btn-tips').style.display = 'none';
+  document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
+  renderRepoCards();
+}
+
+function selectRepo(repoId) {
+  if (currentRepo === repoId && document.getElementById('repo-view').classList.contains('visible')) return;
   currentRepo = repoId;
   commitsLimit = 20;
   allCommits = [];
   patternsData = null;
+  detailLoaded = false;
   currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || null;
 
-  document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
-  if (sidebarItem) sidebarItem.classList.add('active');
-  document.getElementById('repo-select').value = repoId;
+  document.querySelectorAll('.repo-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === repoId)
+  );
+  document.getElementById('home-view').style.display = 'none';
+  document.getElementById('repo-view').classList.add('visible');
+  document.getElementById('btn-tips').style.display = '';
 
-  const sh = document.getElementById('repo-subheader');
-  sh.style.display = 'flex';
+  const info = document.getElementById('hdr-repo-info');
+  info.style.display = 'flex';
   if (currentRepoMeta) {
-    const urlEl = document.getElementById('sh-url');
-    urlEl.href = currentRepoMeta.canonical_url;
-    document.getElementById('sh-url-text').textContent = repoShortName(currentRepoMeta.canonical_url);
+    document.getElementById('hdr-repo-name').textContent = repoShortName(currentRepoMeta.canonical_url);
+    document.getElementById('hdr-gh-link').href = currentRepoMeta.canonical_url;
+    document.getElementById('hdr-gh-text').textContent = repoShortName(currentRepoMeta.canonical_url);
     document.getElementById('sh-commits').textContent = currentRepoMeta.commit_count + ' commits';
     document.getElementById('sh-status').textContent = currentRepoMeta.status;
     const analyzed = document.getElementById('sh-analyzed');
     analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
-    analyzed.dataset.tip = 'shAnalyzed';
+    _loadAnalyzeEstimate(currentRepo, currentRepoMeta);
   }
 
-  document.getElementById('empty-banner').style.display = 'none';
-  const content = document.getElementById('repo-content');
-  content.style.display = 'flex';
-  switchTab('overview');
-
-  loadOverview(repoId);
-  loadCaseStudy(repoId);
-  loadPatterns(repoId);
-  loadCommits(repoId, false);
+async function _loadAnalyzeEstimate(repoId, meta) {
+  try {
+    const est = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=20`);
+    const unanalyzed = est.unanalyzed_commits;
+    const btn = document.getElementById('sh-analyze-btn');
+    if (unanalyzed > 0 && btn) {
+      const cost = est.estimated_cost_usd > 0 ? ` (~$${est.estimated_cost_usd.toFixed(4)})` : '';
+      btn.title = `${unanalyzed} of ${est.total_commits} commits not yet analyzed. Clicking will analyze up to 20 more. Estimated cost: ${est.estimated_llm_calls} LLM calls${cost}`;
+      btn.setAttribute('data-tip-override', `${unanalyzed} unanalyzed commits. Click to analyze 20 more${cost}.`);
+    }
+  } catch { /* non-critical */ }
 }
 
-document.getElementById('repo-select').addEventListener('change', function() {
-  if (!this.value) return;
-  const item = document.querySelector(`.repo-item[data-id="${this.value}"]`);
-  selectRepo(this.value, item);
-});
+  switchView('timeline');
+  loadTimeline(repoId);
+}
 
 /* =========================================================
-   Tabs
+   View switching
+   ========================================================= */
+function switchView(view) {
+  const isTimeline = view === 'timeline';
+  document.getElementById('panel-timeline').style.display = isTimeline ? 'block' : 'none';
+  document.getElementById('panel-detail').style.display = isTimeline ? 'none' : 'flex';
+  document.getElementById('view-btn-timeline').classList.toggle('active', isTimeline);
+  document.getElementById('view-btn-detail').classList.toggle('active', !isTimeline);
+  document.getElementById('view-btn-timeline').setAttribute('aria-selected', isTimeline ? 'true' : 'false');
+  document.getElementById('view-btn-detail').setAttribute('aria-selected', isTimeline ? 'false' : 'true');
+
+  if (!isTimeline && !detailLoaded && currentRepo) {
+    detailLoaded = true;
+    switchTab('overview');
+    loadOverview(currentRepo);
+    loadCaseStudy(currentRepo);
+    loadPatterns(currentRepo);
+    loadCommits(currentRepo, false);
+    loadContributors(currentRepo);
+  }
+}
+
+document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
+document.getElementById('view-btn-detail').addEventListener('click', () => switchView('detail'));
+
+/* =========================================================
+   Timeline
+   ========================================================= */
+let _tlAllCommits = [];
+let _tlPatterns = null;
+
+async function _applyTimelineFilters() {
+  if (!currentRepo) return;
+  const limit = document.getElementById('tl-limit-select')?.value || '200';
+  const keyword = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
+  let commits = _tlAllCommits;
+  if (parseInt(limit) < _tlAllCommits.length && parseInt(limit) < 1000) {
+    await loadTimeline(currentRepo);
+    return;
+  }
+  if (keyword) {
+    commits = _tlAllCommits.filter(c =>
+      (c.message||'').toLowerCase().includes(keyword) ||
+      (c.author_name||'').toLowerCase().includes(keyword) ||
+      (c.sha||'').toLowerCase().startsWith(keyword) ||
+      (c.category||'').toLowerCase().includes(keyword) ||
+      (c.summary||'').toLowerCase().includes(keyword)
+    );
+  }
+  renderTimeline(commits, _tlPatterns);
+}
+
+async function loadTimeline(repoId) {
+  const el = document.getElementById('timeline-content');
+  el.innerHTML = spinner();
+  const limit = document.getElementById('tl-limit-select')?.value || '200';
+  try {
+    const [commitsData, patterns] = await Promise.all([
+      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?order=oldest&limit=${limit}`),
+      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`),
+    ]);
+    _tlAllCommits = commitsData.commits || [];
+    _tlPatterns = patterns;
+    // Build limit selector options based on actual count
+    const sel = document.getElementById('tl-limit-select');
+    if (sel) {
+      const n = _tlAllCommits.length;
+      const steps = [10, 20, 50, 100, 200, 500].filter(s => s <= n);
+      if (!steps.includes(n)) steps.push(n);
+      sel.innerHTML = steps.map(s => `<option value="${s}"${s === n ? ' selected' : ''}>${s === n ? `All (${n})` : s + ' commits'}</option>`).join('');
+    }
+    renderTimeline(_tlAllCommits, patterns);
+  } catch {
+    el.innerHTML = '<div class="tl-empty">Error loading timeline data.</div>';
+  }
+}
+
+function buildSignalIndex(patterns) {
+  const idx = {};
+  function add(isoDate, sig) {
+    if (!isoDate) return;
+    const m = isoDate.slice(0, 7);
+    if (!idx[m]) idx[m] = [];
+    idx[m].push(sig);
+  }
+  if (patterns?.refactor_wave?.time_range?.[0])
+    add(patterns.refactor_wave.time_range[0], { icon: '🔁', label: 'Refactor Wave', desc: `${patterns.refactor_wave.commit_count || 0} refactor commits · ${((patterns.refactor_wave.ratio || 0) * 100).toFixed(0)}% of analyzed` });
+  const revertCount = patterns?.revert_signal?.commit_count || 0;
+  if (revertCount > 0 && patterns.revert_signal.time_range?.[0])
+    add(patterns.revert_signal.time_range[0], { icon: '↩️', label: 'Revert Signal', desc: `${revertCount} reverts detected` });
+  if (patterns?.test_growth_signal?.time_range?.[0])
+    add(patterns.test_growth_signal.time_range[0], { icon: '🧪', label: 'Test Growth', desc: `test:bug ratio ${(patterns.test_growth_signal.ratio || 0).toFixed(2)}` });
+  (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).slice(0, 3).forEach(h => {
+    if (h.time_range?.[0]) {
+      const file = (h.file_path || '').split('/').pop();
+      add(h.time_range[0], { icon: '🔥', label: `Hotspot: ${file}`, desc: `${h.commit_count} commits · ${((h.confidence || 0) * 100).toFixed(0)}% confidence` });
+    }
+  });
+  return idx;
+}
+
+function renderTimeline(commits, patterns) {
+  const el = document.getElementById('timeline-content');
+  if (!commits.length) {
+    el.innerHTML = `<div class="tl-empty">
+      <p>No analyzed commits yet.</p>
+      <p style="margin-top:.5rem">Run <code>git-it analyze-commits &lt;url&gt;</code> to generate the timeline.</p>
+    </div>`;
+    return;
+  }
+
+  const allDates = commits.map(c => c.committed_at).filter(Boolean).sort();
+  const firstDate = allDates[0] ? allDates[0].slice(0, 10) : null;
+  const lastDate = allDates[allDates.length - 1] ? allDates[allDates.length - 1].slice(0, 10) : null;
+
+  const summarySignals = [];
+  if (patterns?.refactor_wave)
+    summarySignals.push(`<span class="tl-sig-chip" tabindex="0" data-tip="tlRefactorWave">🔁 Refactor Wave · ${patterns.refactor_wave.commit_count || 0} commits</span>`);
+  const revertCount = patterns?.revert_signal?.commit_count || 0;
+  if (patterns?.revert_signal && revertCount === 0)
+    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--green)" tabindex="0" data-tip="tlRevert">↩️ 0 reverts · Stable</span>`);
+  else if (revertCount > 0)
+    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--red)" tabindex="0" data-tip="tlRevert">↩️ ${revertCount} reverts</span>`);
+  if (patterns?.test_growth_signal)
+    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--green)" tabindex="0" data-tip="tlTestGrowth">🧪 Test Growth</span>`);
+  const hotCount = (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).length;
+  if (hotCount > 0)
+    summarySignals.push(`<span class="tl-sig-chip" tabindex="0" data-tip="tlHotspot">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
+
+  const signalsByMonth = buildSignalIndex(patterns);
+
+  const monthMap = {};
+  commits.forEach(c => {
+    const m = (c.committed_at || '').slice(0, 7);
+    if (!monthMap[m]) monthMap[m] = [];
+    monthMap[m].push(c);
+  });
+
+  let html = '';
+  if (firstDate && lastDate) {
+    const mergeCommits = commits.filter(c => { try { return JSON.parse(c.parent_shas || '[]').length > 1; } catch { return false; } }).length;
+    html += `<div class="tl-timeframe" aria-label="Analysis time range">
+      Commits from <strong>${firstDate}</strong> to <strong>${lastDate}</strong>
+      <span style="color:var(--border)">·</span> <strong>${commits.length}</strong> shown
+      ${mergeCommits > 0 ? `<span style="color:var(--border)">·</span> <span data-tip="tlMerge" tabindex="0" style="color:var(--muted)">↔ ${mergeCommits} merge${mergeCommits !== 1 ? 's' : ''}</span>` : ''}
+    </div>`;
+  }
+  if (summarySignals.length)
+    html += `<div class="tl-signals-bar" role="note" aria-label="Pattern signals">${summarySignals.join('')}</div>`;
+  html += '<div class="timeline">';
+
+  Object.keys(monthMap).sort().forEach(month => {
+    const monthCommits = monthMap[month];
+    const [yr, mo] = month.split('-');
+    const label = new Date(parseInt(yr), parseInt(mo) - 1, 1)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    html += `<div class="tl-month" data-month="${month}" id="tl-month-${month.replace('-','')}">
+      <div class="tl-month-hdr"><span>${esc(label)}</span><div class="tl-month-line"></div></div>`;
+
+    (signalsByMonth[month] || []).forEach(sig => {
+      html += `<div class="tl-signal-row">
+        <span class="tl-sig-icon">${sig.icon}</span>
+        <span class="tl-sig-label">${esc(sig.label)}</span>
+        <span class="tl-sig-desc">— ${esc(sig.desc)}</span>
+      </div>`;
+    });
+
+    html += '<div class="tl-commits-group">';
+    monthCommits.forEach((c, i) => {
+      const xid = `tlx-${month.replace('-', '')}-${i}`;
+      const cat = (c.category || '').toUpperCase();
+      const hasAnalysis = !!(c.category || c.summary);
+      const isHigh = (c.importance || '').toLowerCase() === 'high';
+      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}${isHigh ? ' risk-high' : ''}"
+               id="tlr-${xid}" onclick="tlToggle('${xid}')"
+               role="button" tabindex="0" aria-expanded="false"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}">
+        <span class="tl-date">${esc(fmtMonthDay(c.committed_at || ''))}</span>
+        <span class="tl-msg">${esc(truncate(c.message || '', isHigh ? 60 : 70))}</span>
+        <div class="tl-badges">
+          ${cat ? `<span class="badge ${badgeClass(c.category || '')}" data-tip="${catTipKey(c.category || '')}">${esc(cat)}</span>` : ''}
+          ${isHigh ? '<span class="badge badge-risk-high" aria-label="High risk">HIGH RISK</span>' : ''}
+        </div>
+      </div>`;
+      if (c.summary && c.summary !== c.message) {
+        html += `<div class="tl-detail" id="${xid}">
+          ${esc(c.summary)}
+          <span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc((c.sha || '').slice(0, 7))}</span>
+        </div>`;
+      }
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function tlToggle(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
+  const row = document.getElementById('tlr-' + id);
+  if (row) row.setAttribute('aria-expanded', el.classList.contains('open') ? 'true' : 'false');
+}
+
+/* =========================================================
+   Deep Analysis tabs
    ========================================================= */
 function switchTab(tabName) {
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    const active = btn.dataset.tab === tabName;
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    btn.setAttribute('aria-selected', btn.dataset.tab === tabName ? 'true' : 'false');
   });
-  document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'tab-' + tabName));
+  document.querySelectorAll('.tab-panel').forEach(panel =>
+    panel.classList.toggle('active', panel.id === 'tab-' + tabName)
+  );
 }
-document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+document.querySelectorAll('.tab-btn').forEach(btn =>
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+);
 
 /* =========================================================
    Overview
@@ -613,22 +1203,17 @@ async function loadOverview(repoId) {
   const totalCommits = commits.total || (commits.commits || []).length;
   const hotspots = (patterns.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
   const hotspotCount = hotspots.length;
-  const patternCount = [
-    patterns.refactor_wave, patterns.revert_signal, patterns.test_growth_signal,
-    ...(patterns.dependency_migrations || []), ...(patterns.architectural_shifts || []),
-  ].filter(Boolean).length;
+  const patternCount = [patterns.refactor_wave, patterns.revert_signal, patterns.test_growth_signal, ...(patterns.dependency_migrations || [])].filter(Boolean).length;
   const catCounts = patterns.category_counts || [];
   const totalCat = catCounts.reduce((s, c) => s + c.count, 0);
   const bugfixCount = (catCounts.find(c => c.category.toLowerCase() === 'bugfix') || {}).count || 0;
   const featureCount = (catCounts.find(c => c.category.toLowerCase() === 'feature') || {}).count || 0;
 
-  // DNA pills
   const pills = [];
   pills.push(`<span class="dna-pill blue" data-tip="dnaCommits">⚡ ${totalCommits} commits</span>`);
   if (totalCat > 0 && bugfixCount / totalCat > 0.30) pills.push(`<span class="dna-pill red" data-tip="dnaBugfix">🐛 High bug-fix rate</span>`);
   if (totalCat > 0 && featureCount / totalCat > 0.40) pills.push(`<span class="dna-pill blue" data-tip="dnaFeature">🚀 Feature-heavy</span>`);
-  if (hotspotCount > 200) pills.push(`<span class="dna-pill orange" data-tip="dnaChurn">🔥 High churn</span>`);
-  else if (hotspotCount > 0) pills.push(`<span class="dna-pill orange" data-tip="dnaChurn">🔥 ${hotspotCount} hotspot files</span>`);
+  if (hotspotCount > 0) pills.push(`<span class="dna-pill orange" data-tip="dnaChurn">🔥 ${hotspotCount} hotspot files</span>`);
   if (currentRepoMeta && currentRepoMeta.analysis_count > 0) pills.push(`<span class="dna-pill purple" data-tip="dnaAnalyzed">📦 ${currentRepoMeta.analysis_count} analyzed</span>`);
   if (caseStudy) pills.push(`<span class="dna-pill green" data-tip="dnaCaseStudy">✅ Case study ready</span>`);
 
@@ -655,43 +1240,45 @@ async function loadOverview(repoId) {
       </div>
     </div>
     <div class="chart-box" style="margin-bottom:1rem">
-      <h3>Top Hotspot Files</h3>
+      <h3>Top Hotspot Files <span style="font-size:10px;font-weight:400;color:var(--muted);text-transform:none">(click to filter commits)</span></h3>
       <div class="chart-container" style="height:${Math.max(120, Math.min(hotspots.slice(0,5).length, 5) * 36)}px">
         <canvas id="chart-hotspots" aria-label="Horizontal bar chart showing top hotspot files by commit count"></canvas>
       </div>
-    </div>
-    <div class="dna-card">
-      <h3>Repository DNA</h3>
-      <div class="dna-pills">${pills.join('')}</div>
-    </div>
-  `;
+    </div>`;
 
-  // Donut chart
+  const _tc = () => document.documentElement.dataset.theme === 'light' ? '#475569' : '#94a3b8';
+  const _tcy = () => document.documentElement.dataset.theme === 'light' ? '#0f172a' : '#e2e8f0';
+  const _gc = () => document.documentElement.dataset.theme === 'light' ? '#e2e8f0' : '#2d3148';
+
   if (catCounts.length > 0) {
     destroyChart('donut');
     _charts['donut'] = new Chart(document.getElementById('chart-donut'), {
       type: 'doughnut',
-      data: {
-        labels: catCounts.map(c => c.category),
-        datasets: [{ data: catCounts.map(c => c.count), backgroundColor: catCounts.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }],
+      data: { labels: catCounts.map(c => c.category), datasets: [{ data: catCounts.map(c => c.count), backgroundColor: catCounts.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        onClick(evt, els) {
+          if (!els.length) return;
+          const cat = catCounts[els[0].index]?.category;
+          if (!cat) return;
+          switchView('detail'); switchTab('commits');
+          const sel = document.getElementById('cat-filter');
+          if (sel) { sel.value = cat.toUpperCase(); _applyCommitFilter(`Category: ${cat}`); }
+        },
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
-    // Custom HTML legend with tooltips
     const legendEl = document.getElementById('donut-legend-custom');
-    if (legendEl) {
-      legendEl.innerHTML = catCounts.map(c =>
-        `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem">
-          <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
-          ${esc(c.category.toLowerCase())}
-        </span>`
-      ).join('');
-    }
+    if (legendEl) legendEl.innerHTML = catCounts.map(c =>
+      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem">
+        <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
+        ${esc(c.category.toLowerCase())}
+      </span>`
+    ).join('');
   } else {
     document.getElementById('chart-donut').parentElement.innerHTML = '<div class="empty-state" style="padding:1rem">No category data</div>';
   }
 
-  // Activity chart
   const commitList = commits.commits || [];
   const { labels: actLabels, data: actData } = buildActivityData(commitList);
   if (actLabels.length > 0) {
@@ -701,31 +1288,38 @@ async function loadOverview(repoId) {
       data: { labels: actLabels, datasets: [{ label: 'Commits', data: actData, backgroundColor: '#6366f1', borderRadius: 3 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2d3148' } },
-          y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view in Timeline' } } },
+        scales: { x: { ticks: { color: _tc(), font: { size: 10 }, maxRotation: 45 }, grid: { color: _gc() } }, y: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } } },
+        onClick(evt, els) {
+          if (!els.length) return;
+          const period = actLabels[els[0].index];
+          if (!period) return;
+          switchView('timeline');
+          setTimeout(() => {
+            const key = period.slice(0, 7).replace('-', '');
+            const target = document.getElementById(`tl-month-${key}`) || document.querySelector(`[data-month="${period.slice(0,7)}"]`);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 300);
         },
       },
     });
   }
 
-  // Hotspot chart
   const top5 = hotspots.slice(0, 5);
   if (top5.length > 0) {
     destroyChart('hotspots');
     _charts['hotspots'] = new Chart(document.getElementById('chart-hotspots'), {
       type: 'bar',
-      data: {
-        labels: top5.map(h => h.file_path.split('/').pop()),
-        datasets: [{ label: 'Commits', data: top5.map(h => h.commit_count), backgroundColor: top5.map(h => { const c = h.confidence||0; return c>=0.7?'#ef4444':c>=0.4?'#eab308':'#22c55e'; }), borderRadius: 3 }],
-      },
+      data: { labels: top5.map(h => h.file_path.split('/').pop()), datasets: [{ label: 'Commits', data: top5.map(h => h.commit_count), backgroundColor: top5.map(h => { const c=h.confidence||0; return c>=0.7?'#ef4444':c>=0.4?'#eab308':'#22c55e'; }), borderRadius: 3 }] },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
-          y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view commits for this file' } } },
+        scales: { x: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } }, y: { ticks: { color: _tcy(), font: { size: 11 } }, grid: { display: false } } },
+        onClick(evt, els) {
+          if (!els.length) return;
+          const filePath = top5[els[0].index]?.file_path;
+          if (!filePath) return;
+          _searchCommitsByFile(filePath);
         },
       },
     });
@@ -737,6 +1331,267 @@ async function loadOverview(repoId) {
 /* =========================================================
    Case Study
    ========================================================= */
+const _HEADING_ICONS = [
+  [/security|auth|credential|permission|vulnerab|cve/i, '🔒'],
+  [/performance|speed|latency|slow|optim|cache/i, '⚡'],
+  [/test|spec|coverage|mock|assertion/i, '🧪'],
+  [/bug|fix|error|exception|crash|defect|fail/i, '🐛'],
+  [/revert|rollback|undo/i, '↩️'],
+  [/feature|new|launch|release|introduce/i, '🚀'],
+  [/refactor|cleanup|restructur|reorganiz/i, '🔁'],
+  [/depend|package|librar|import|migrat|upgrade/i, '📦'],
+  [/api|endpoint|route|rest|graphql|webhook/i, '🔌'],
+  [/database|sql|migrat|schema|store|persist/i, '🗄️'],
+  [/docker|container|kubernetes|k8s|image/i, '🐳'],
+  [/ci|cd|pipeline|deploy|build|workflow/i, '🤖'],
+  [/frontend|ui|css|html|style|component|design/i, '🎨'],
+  [/architect|struct|pattern|design|domain/i, '🏗️'],
+  [/doc|readme|comment|changelog/i, '📚'],
+  [/config|env|setting|variable|secret/i, '⚙️'],
+  [/mistake|wrong|correction|error|lesson|learn/i, '🎓'],
+  [/transition|shift|evolv|replac/i, '🔄'],
+  [/evidence|index|reference|source|commit/i, '🔍'],
+  [/limitation|caveat|constraint|unknown|uncertain/i, '⚠️'],
+  [/component|module|service|layer|class/i, '🧩'],
+  [/timeline|histor|chronolog|period/i, '📅'],
+  [/contributor|author|team|developer|collabor/i, '👥'],
+  [/overview|summary|introduction|background/i, '📋'],
+];
+
+function _iconForHeading(title) {
+  for (const [re, icon] of _HEADING_ICONS) {
+    if (re.test(title)) return icon;
+  }
+  return '📄';
+}
+
+function _renderSectionCards(content) {
+  const lines = (content || '').split('\n');
+  const cards = [];
+  let current = null;
+  lines.forEach(line => {
+    const m = line.match(/^###\s+(.+)$/);
+    if (m) {
+      if (current) cards.push(current);
+      current = { title: m[1].trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  });
+  if (current) cards.push(current);
+
+  if (cards.length === 0) {
+    const html = typeof marked !== 'undefined' ? marked.parse(content) : '<pre>' + esc(content) + '</pre>';
+    return `<div class="markdown-body">${html}</div>`;
+  }
+
+  return cards.map((card, i) => {
+    const cleanTitle = card.title.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
+    const icon = _iconForHeading(cleanTitle);
+    const body = card.lines.join('\n').trim();
+    const html = typeof marked !== 'undefined' ? marked.parse(body) : '<pre>' + esc(body) + '</pre>';
+    return `<div class="cs-subcard" id="csc-${i}">
+      <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
+        <span class="cs-subcard-icon" aria-hidden="true">${icon}</span>
+        <span class="cs-subcard-title">${esc(cleanTitle)}</span>
+        <span class="cs-subcard-chevron" aria-hidden="true">▶</span>
+      </div>
+      <div class="cs-subcard-body">
+        <div class="markdown-body">${html}</div>
+        <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border)">
+          <button class="analyze-btn" style="font-size:11px" data-kw="${esc(cleanTitle)}" onclick="event.stopPropagation();_searchCommitsByKeyword(this.dataset.kw)">
+            🔍 Commits mentioning "${esc(cleanTitle.slice(0,30))}"
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const _COLLAPSIBLE_TABS = new Set(['Main Components Through Time','Key Mistakes and Corrections','Architectural Transitions','Engineering Lessons','Evidence Index']);
+
+function _renderCsTimeline(content) {
+  const lines = (content || '').split('\n');
+  const phases = [];
+  let current = null;
+  lines.forEach(line => {
+    const m = line.match(/^###\s+(.+)$/);
+    if (m) {
+      if (current) phases.push(current);
+      current = { title: m[1].replace(/\*\*/g, '').trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  });
+  if (current) phases.push(current);
+
+  if (!phases.length) {
+    return typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(content)}</div>` : `<pre>${esc(content)}</pre>`;
+  }
+
+  // Distribute commits equally across phases (approximation without explicit date boundaries)
+  const sorted = (allCommits || []).slice().sort((a,b) => (a.committed_at||'') < (b.committed_at||'') ? -1 : 1);
+  const total = sorted.length;
+  const perPhase = phases.length ? Math.ceil(total / phases.length) : 0;
+  const buckets = phases.map((p, idx) => {
+    const slice = sorted.slice(idx * perPhase, (idx + 1) * perPhase);
+    return {
+      dateRange: slice.length ? `${slice[0].committed_at.slice(0,10)} → ${slice[slice.length-1].committed_at.slice(0,10)}` : '',
+      count: slice.length,
+    };
+  });
+
+  // Horizontal timeline rail
+  let html = `<div class="cs-tl-rail" role="list" aria-label="Chronological timeline phases">`;
+  phases.forEach((p, idx) => {
+    const b = buckets[idx];
+    const icon = _iconForHeading(p.title);
+    const isLast = idx === phases.length - 1;
+    html += `<div class="cs-tl-node" role="listitem" onclick="_csTlOpen(${idx})" tabindex="0"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_csTlOpen(${idx})}"
+      title="Click to read: ${esc(p.title)}">
+      <div class="cs-tl-dot">${icon}</div>
+      ${!isLast ? '<div class="cs-tl-line" aria-hidden="true"></div>' : ''}
+      <div class="cs-tl-label">
+        <div class="cs-tl-label-title">${esc(p.title)}</div>
+        ${b.dateRange ? `<div class="cs-tl-label-range">${esc(b.dateRange)}</div>` : ''}
+        ${b.count ? `<div class="cs-tl-label-cnt">${b.count} commits</div>` : ''}
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Detail cards (hidden by default, opened on click)
+  html += `<div id="cs-tl-cards" style="margin-top:1rem">`;
+  phases.forEach((p, idx) => {
+    const bodyRaw = p.lines.join('\n').trim();
+    // Detect sub-sections: #### headings OR standalone bold lines (**Title** or **Title:**)
+    const subSections = [];
+    let currentSub = null;
+    bodyRaw.split('\n').forEach(line => {
+      const h4 = line.match(/^####\s+(.+)$/);
+      const bold = !h4 && line.match(/^\s*\*\*([^*]{4,60})\*\*:?\s*$/);
+      const m = h4 || bold;
+      if (m) {
+        if (currentSub) subSections.push(currentSub);
+        currentSub = { title: m[1].replace(/\*\*/g,'').trim(), lines: [] };
+      } else if (currentSub) {
+        currentSub.lines.push(line);
+      }
+    });
+    if (currentSub) subSections.push(currentSub);
+    const md = typeof marked !== 'undefined' ? marked.parse(bodyRaw) : `<pre>${esc(bodyRaw)}</pre>`;
+    const subRail = subSections.length > 1
+      ? `<div class="cs-tl-sub-rail" aria-label="Sub-phases" style="margin:0.75rem 0 0.5rem">` +
+        subSections.map((s, si) => {
+          const isLast = si === subSections.length - 1;
+          return `<div class="cs-tl-sub-node" title="${esc(s.title)}">
+            <div class="cs-tl-sub-dot">${_iconForHeading(s.title)}</div>
+            ${!isLast ? '<div class="cs-tl-sub-line" aria-hidden="true"></div>' : ''}
+            <div class="cs-tl-sub-label">${esc(s.title.slice(0, 30))}</div>
+          </div>`;
+        }).join('') + `</div>`
+      : '';
+    html += `<div class="cs-subcard" id="cs-tl-card-${idx}">
+      <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
+        <span class="cs-subcard-icon" aria-hidden="true">${_iconForHeading(p.title)}</span>
+        <span class="cs-subcard-title">${esc(p.title)}</span>
+        <span class="cs-subcard-chevron" aria-hidden="true">▶</span>
+      </div>
+      <div class="cs-subcard-body">${subRail}<div class="markdown-body">${md}</div></div>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function _csTlOpen(idx) {
+  const card = document.getElementById(`cs-tl-card-${idx}`);
+  if (!card) return;
+  card.classList.add('open');
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function _renderArchTransition(content) {
+  const cards = [];
+  const lines = (content || '').split('\n');
+  let current = null;
+  lines.forEach(line => {
+    const m = line.match(/^###\s+(.+)$/);
+    if (m) {
+      if (current) cards.push(current);
+      current = { title: m[1].replace(/\*\*/g, '').trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  });
+  if (current) cards.push(current);
+  if (!cards.length) {
+    return typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(content)}</div>` : `<pre>${esc(content)}</pre>`;
+  }
+  return cards.map((card, i) => {
+    const body = card.lines.join('\n');
+    // Try to find before/after in body text (multiple patterns)
+    const bMatch = body.match(/(?:^|\n)\s*(?:\*{0,2})(?:Before|From|Old|Previous)[:\*\s]+([^\n*]+)/im);
+    const aMatch = body.match(/(?:^|\n)\s*(?:\*{0,2})(?:After|To|New|Current|Replaced with)[:\*\s]+([^\n*]+)/im);
+    // Fall back: use title split on " to " or " → "
+    const cleanCardTitle = card.title.replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
+    let beforeText = bMatch ? bMatch[1].trim().replace(/\*\*/g,'') : null;
+    let afterText  = aMatch ? aMatch[1].trim().replace(/\*\*/g,'') : null;
+    if (!beforeText || !afterText) {
+      const titleSplit = cleanCardTitle.match(/(.+?)\s+(?:to|→|replaced by)\s+(.+)/i);
+      if (titleSplit) { beforeText = beforeText || titleSplit[1].trim(); afterText = afterText || titleSplit[2].trim(); }
+    }
+    if (!beforeText) beforeText = (cleanCardTitle.split(/\s*[→:]\s*/)[0] || cleanCardTitle).replace(/\*\*/g,'');
+    if (!afterText) {
+      const bodyFirstLines = body.split('\n').filter(l => l.trim()).slice(0, 4).join(' ').replace(/\*\*/g,'');
+      const afterBodyMatch = bodyFirstLines.match(/(?:replaced (?:with|by)|migrated to|moved to|adopted|switched to|now uses?)[:\s]+([^.;,\n]{5,80})/i);
+      if (afterBodyMatch) { afterText = afterBodyMatch[1].trim(); }
+      else { afterText = (cleanCardTitle.split(/\s*[→:]\s*/)[1] || body.split(/[.;]/)[0].replace(/\*\*/g,'').slice(0,80).trim()); }
+    }
+    const rest = typeof marked !== 'undefined' ? marked.parse(body) : `<pre>${esc(body)}</pre>`;
+    const diagram = `
+      <div class="arch-transition-diagram" aria-label="Architectural transition">
+        <div class="arch-box arch-before"><span class="arch-lbl">Before</span>${esc(beforeText)}</div>
+        <div class="arch-arrow" aria-hidden="true">→</div>
+        <div class="arch-box arch-after"><span class="arch-lbl">After</span>${esc(afterText)}</div>
+      </div>`;
+    return `<div class="cs-subcard" id="arch-${i}">
+      <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
+        <span class="cs-subcard-icon" aria-hidden="true">🔄</span>
+        <span class="cs-subcard-title">${esc(card.title)}</span>
+        <span class="cs-subcard-chevron" aria-hidden="true">▶</span>
+      </div>
+      <div class="cs-subcard-body">${diagram}<div class="markdown-body">${rest}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function _splitNarrative(text) {
+  const sections = [];
+  const lines = (text || '').split('\n');
+  let current = null;
+  lines.forEach(line => {
+    const m = line.match(/^##\s+(.+)$/);
+    if (m) {
+      if (current) sections.push(current);
+      current = { title: m[1].trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  });
+  if (current) sections.push(current);
+  return sections.map(s => ({ title: s.title, content: s.lines.join('\n').trim() }));
+}
+
+function _csSwitchTab(idx) {
+  document.querySelectorAll('.cs-tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.querySelectorAll('.cs-section').forEach((s, i) => s.classList.toggle('active', i === idx));
+}
+
 async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
@@ -748,32 +1603,42 @@ async function loadCaseStudy(repoId) {
       : '<div class="empty-state" role="alert">Error loading case study.</div>';
     return;
   }
-
   const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : data.repository_id;
+  const sections = _splitNarrative(data.narrative || '');
   const words = (data.narrative || '').trim().split(/\s+/).length;
-  const readMin = Math.ceil(words / 200);
-
   const chips = `<div class="meta-chips">
     <span class="chip" data-tip="statCommits" tabindex="0">${data.commit_count} commits</span>
     <span class="chip" data-tip="secHotspots" tabindex="0">${data.hotspot_count} hotspots</span>
-    <span class="chip gray">~${readMin} min read · ${words} words</span>
+    <span class="chip gray">${words} words</span>
     ${data.generated_at ? `<span class="chip gray">Generated ${fmtDate(data.generated_at)}</span>` : ''}
   </div>`;
 
-  const narrative = typeof marked !== 'undefined'
-    ? marked.parse(data.narrative || '')
-    : '<pre>' + esc(data.narrative || '') + '</pre>';
+  let tabBtns = '';
+  let tabPanels = '';
+  if (sections.length > 0) {
+    sections.forEach((s, i) => {
+      const useCards = _COLLAPSIBLE_TABS.has(s.title);
+      const isArch = s.title === 'Architectural Transitions';
+      const isTl = s.title === 'Timeline';
+      const body = isArch ? _renderArchTransition(s.content)
+        : isTl ? _renderCsTimeline(s.content)
+        : (useCards ? _renderSectionCards(s.content) : (typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(s.content)}</div>` : `<pre>${esc(s.content)}</pre>`));
+      tabBtns += `<button class="cs-tab-btn${i === 0 ? ' active' : ''}" onclick="_csSwitchTab(${i})" role="tab" aria-selected="${i === 0}" aria-controls="cs-sec-${i}" id="cs-btn-${i}">${esc(s.title)}</button>`;
+      tabPanels += `<div class="cs-section${i === 0 ? ' active' : ''}" id="cs-sec-${i}" role="tabpanel" aria-labelledby="cs-btn-${i}" tabindex="0">${body}</div>`;
+    });
+  } else {
+    const html = typeof marked !== 'undefined' ? marked.parse(data.narrative || '') : '<pre>' + esc(data.narrative || '') + '</pre>';
+    tabPanels = `<div class="cs-section active"><div class="markdown-body">${html}</div></div>`;
+  }
 
   el.innerHTML = `
     <div class="case-study-header">
       <div class="case-study-title">${esc(repoShortName(canonicalUrl))}</div>
-      <div class="case-study-meta">
-        <a href="${esc(canonicalUrl)}" target="_blank" rel="noopener">${esc(canonicalUrl)} ↗</a>
-      </div>
+      <div class="case-study-meta"><a href="${esc(canonicalUrl)}" target="_blank" rel="noopener">${esc(canonicalUrl)} ↗</a></div>
       ${chips}
     </div>
-    <div class="markdown-body">${narrative}</div>
-  `;
+    ${sections.length > 0 ? `<div class="cs-tabs" role="tablist" aria-label="Case study sections">${tabBtns}</div>` : ''}
+    ${tabPanels}`;
 }
 
 /* =========================================================
@@ -785,11 +1650,9 @@ async function loadPatterns(repoId) {
   let data;
   try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`); }
   catch { el.innerHTML = '<div class="empty-state">No pattern report available yet.</div>'; return; }
-
   patternsData = data;
   let html = '';
 
-  // --- HOTSPOTS ---
   const confHotspots = (data.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
   html += `<div class="section-heading" data-tip="secHotspots" tabindex="0">Hotspots</div>`;
   if (confHotspots.length > 0) {
@@ -798,41 +1661,56 @@ async function loadPatterns(repoId) {
       <div class="chart-container" style="height:${Math.max(120, top10.length * 32)}px">
         <canvas id="chart-hotspots-patterns" aria-label="Horizontal bar chart of top hotspot files, colored by confidence level"></canvas>
       </div>
-      <div class="chart-legend" aria-label="Confidence level legend">
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#ef4444" aria-hidden="true"></span><span data-tip="thConfidence" tabindex="0">High confidence (&gt;70%)</span></span>
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#eab308" aria-hidden="true"></span><span>Medium (40–70%)</span></span>
-        <span class="chart-legend-item"><span class="legend-dot" style="background:#22c55e" aria-hidden="true"></span><span>Low (&lt;40%)</span></span>
-      </div>
     </div>`;
-    html += `<details style="margin-bottom:1rem">
-      <summary style="cursor:pointer;font-size:13px;color:var(--muted);padding:0.4rem 0">Evidence table (${confHotspots.length} files)</summary>
-      <div class="table-wrap" style="margin-top:0.5rem">
-      <table aria-label="Hotspot files evidence">
-        <thead><tr>
-          <th scope="col">File</th>
-          <th scope="col" data-tip="thCommitCount" tabindex="0">Commits</th>
-          <th scope="col" data-tip="thChurn" tabindex="0">Churn</th>
-          <th scope="col" data-tip="thConfidence" tabindex="0">Confidence</th>
-          <th scope="col" data-tip="thPeriod" tabindex="0">Period</th>
-        </tr></thead>
-        <tbody>`;
+    html += `<div id="hs-evidence-simple" style="margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:12px;color:var(--muted)">${confHotspots.length} high-confidence hotspot${confHotspots.length !== 1 ? 's' : ''}</span>
+        <button style="font-size:11px;font-weight:700;background:var(--accent);color:#fff;border:none;border-radius:5px;padding:0.25rem 0.7rem;cursor:pointer" onclick="_toggleEvidenceMode()">Full table ↓</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem">`
+    + confHotspots.map(h => {
+        const fname = h.file_path.split('/').pop();
+        const conf = h.confidence || 0;
+        const analyzed = (h.evidence_commit_shas || []).length;
+        const color = conf >= 0.85 ? '#ef4444' : conf >= 0.7 ? '#eab308' : '#22c55e';
+        const shas = h.evidence_commit_shas || [];
+        return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border-radius:6px;border-left:3px solid ${color}" title="${esc(h.file_path)}">
+          <code style="font-size:12px;flex:1;cursor:pointer" onclick="_searchCommitsByFile(${JSON.stringify(h.file_path)})">${esc(fname)}</code>
+          <span style="font-size:11px;color:var(--muted)">${h.commit_count} commits</span>
+          ${analyzed ? `<button data-shas="${esc(JSON.stringify(shas))}" data-label="Hotspot: ${esc(fname)}" onclick="_filterHotspot(this)" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0">${analyzed} analyzed →</button>` : ''}
+        </div>`;
+      }).join('')
+    + `</div></div>`;
+    // Detail mode (full table — hidden by default)
+    html += `<div id="hs-evidence-detail" style="display:none;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:12px;color:var(--muted)">${confHotspots.length} files · click a row to view analyzed commits</span>
+        <button style="font-size:11px;font-weight:700;background:var(--accent);color:#fff;border:none;border-radius:5px;padding:0.25rem 0.7rem;cursor:pointer" onclick="_toggleEvidenceMode()">Summary ↑</button>
+      </div>
+      <div class="table-wrap">
+      <table aria-label="Hotspot files">
+        <thead><tr><th scope="col">File</th><th scope="col" title="Commits touching this file (all history)">Total commits</th><th scope="col" title="Commits with AI analysis available — click to view them">Analyzed</th><th scope="col">Confidence</th></tr></thead><tbody>`;
     confHotspots.forEach(h => {
-      const period = h.time_range && h.time_range.length >= 2 ? `${fmtDate(h.time_range[0])} → ${fmtDate(h.time_range[1])}` : '—';
       const pct = h.confidence != null ? (h.confidence * 100).toFixed(0) + '%' : '—';
-      html += `<tr><td><code style="font-size:11px">${esc(h.file_path)}</code></td><td>${h.commit_count}</td><td>${h.churn}</td><td>${pct}</td><td class="date-cell">${period}</td></tr>`;
+      const conf = h.confidence || 0;
+      const analyzedCount = (h.evidence_commit_shas || []).length;
+      const fname = h.file_path.split('/').pop();
+      const analyzedLabel = analyzedCount > 0
+        ? `<button data-shas="${esc(JSON.stringify(h.evidence_commit_shas||[]))}" data-label="Hotspot: ${esc(fname)}" onclick="event.stopPropagation();_filterHotspot(this)" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0">${analyzedCount} →</button>`
+        : `<span style="color:var(--muted)">0</span>`;
+      html += `<tr title="${esc(h.file_path)} — ${h.commit_count} total commits, ${analyzedCount} analyzed">
+        <td><code style="font-size:11px">${esc(fname)}</code><div style="font-size:10px;color:var(--muted)">${esc(h.file_path)}</div></td>
+        <td>${h.commit_count}</td>
+        <td>${analyzedLabel}</td>
+        <td><span style="color:${conf>=0.85?'#ef4444':conf>=0.7?'#eab308':'#22c55e'}">${pct}</span></td>
+      </tr>`;
     });
-    html += '</tbody></table></div></details>';
+    html += `</tbody></table></div></div>`;
   } else { html += '<div class="empty-state">No hotspots detected.</div>'; }
 
-  // --- PATTERN SIGNALS ---
   const signalDefs = [];
-  if (data.refactor_wave) signalDefs.push({ icon: '🔁', name: 'Refactor Wave', tip: 'sigRefactor', obj: data.refactor_wave, color: '#f97316', desc: (d) => `${d.commit_count||0} refactor commits · ${((d.ratio||0)*100).toFixed(1)}% of analyzed` });
-  if (data.revert_signal) {
-    const revertCount = data.revert_signal.commit_count || 0;
-    signalDefs.push({ icon: '↩️', name: 'Revert Signal', tip: revertCount === 0 ? 'sigRevertNone' : 'sigRevert', obj: data.revert_signal, color: revertCount === 0 ? '#22c55e' : '#ef4444', desc: (d) => revertCount === 0 ? 'No reverts · Stable development' : `${revertCount} reverts · Indicates unstable periods` });
-  }
-  if (data.test_growth_signal) signalDefs.push({ icon: '🧪', name: 'Test Growth', tip: 'sigTest', obj: data.test_growth_signal, color: '#22c55e', desc: (d) => `test:bug ratio ${(d.ratio||0).toFixed(2)} · Growing test coverage` });
-  if (data.bugfix_recurrences && data.bugfix_recurrences.length > 0) signalDefs.push({ icon: '🐛', name: 'Bugfix Recurrences', tip: 'sigBugfixRec', obj: { count: data.bugfix_recurrences.length }, color: '#ef4444', desc: (d) => `${d.count} recurring bugs · Same areas keep breaking` });
+  if (data.refactor_wave) signalDefs.push({ icon: '🔁', name: 'Refactor Wave', tip: 'sigRefactor', obj: data.refactor_wave, color: '#f97316', desc: d => `${d.commit_count||0} refactor commits · ${((d.ratio||0)*100).toFixed(1)}% of analyzed` });
+  if (data.test_growth_signal) signalDefs.push({ icon: '🧪', name: 'Test Growth', tip: 'sigTest', obj: data.test_growth_signal, color: '#22c55e', desc: d => `test:bug ratio ${(d.ratio||0).toFixed(2)} · Growing test coverage` });
   if (signalDefs.length > 0) {
     html += `<div class="section-heading" data-tip="statPatterns" tabindex="0">Pattern Signals</div><div class="signal-cards-row">`;
     signalDefs.forEach(s => {
@@ -840,14 +1718,34 @@ async function loadPatterns(repoId) {
       html += `<div class="signal-card" style="border-left-color:${s.color}" data-tip="${s.tip}" tabindex="0">
         <div class="sc-icon" aria-hidden="true">${s.icon}</div>
         <div class="sc-name">${esc(s.name)}</div>
-        <div class="sc-count" style="color:${s.color}" aria-label="${esc(s.name)} count: ${big}">${big}</div>
+        <div class="sc-count" style="color:${s.color}" aria-label="${esc(s.name)}: ${big}">${big}</div>
         <div class="sc-desc">${esc(s.desc(s.obj))}</div>
       </div>`;
     });
     html += '</div>';
   }
 
-  // --- DEPENDENCY MIGRATIONS ---
+  const realRecurrences = (data.bugfix_recurrences || []).filter(r => (r.commit_count || r.count || r.occurrences || 0) > 1);
+  if (realRecurrences.length > 0) {
+    html += `<div class="section-heading" data-tip="sigBugfixRec" tabindex="0">🐛 Recurring Bug Areas</div>`;
+    html += `<p style="font-size:12px;color:var(--muted);margin-bottom:0.75rem">Same files or components fixed multiple times — a sign of deeper instability or architectural debt.</p>`;
+    realRecurrences.forEach(r => {
+      const file = r.file_path || r.component || r.area || r.name || '?';
+      const count = r.commit_count || r.count || r.occurrences || 0;
+      const first = r.first_seen ? r.first_seen.slice(0, 10) : null;
+      const last = r.last_seen ? r.last_seen.slice(0, 10) : null;
+      const msgs = Array.isArray(r.commit_messages) ? r.commit_messages : (Array.isArray(r.messages) ? r.messages : []);
+      html += `<div class="bugfix-rec-card" style="cursor:pointer" data-kw="${esc(file)}" onclick="_searchCommitsByKeyword(this.dataset.kw)">
+        <div class="brc-top">
+          <code class="brc-file">${esc(file)}</code>
+          <span class="brc-count" style="color:#ef4444">${count}× fixed</span>
+        </div>
+        ${first ? `<div class="brc-range">${first}${last && last !== first ? ` → ${last}` : ''}</div>` : ''}
+        ${msgs.length ? `<ul class="brc-msgs">${msgs.slice(0,3).map(m => `<li>${esc((m||'').slice(0,100))}</li>`).join('')}</ul>` : ''}
+      </div>`;
+    });
+  }
+
   if (data.dependency_migrations && data.dependency_migrations.length > 0) {
     html += `<div class="section-heading" data-tip="secMigrations" tabindex="0">Dependency Migrations</div>`;
     data.dependency_migrations.forEach(m => {
@@ -856,16 +1754,13 @@ async function loadPatterns(repoId) {
       const count = m.commit_count || m.commits || 0;
       const conf = m.confidence != null ? `confidence: ${(m.confidence*100).toFixed(0)}%` : '';
       html += `<div class="migration-row">
-        <span class="from-dep">${esc(from)}</span>
-        <span class="arrow" aria-hidden="true">──→</span>
-        <span class="to-dep">${esc(to)}</span>
+        <span class="from-dep">${esc(from)}</span><span class="arrow" aria-hidden="true">──→</span><span class="to-dep">${esc(to)}</span>
         ${conf ? `<span class="m-conf" data-tip="migConf" tabindex="0">${esc(conf)}</span>` : ''}
         <span class="m-count" aria-label="${count} commits">${count}</span>
       </div>`;
     });
   }
 
-  // --- EDUCATIONAL INSIGHTS ---
   if (data.explanations && data.explanations.length > 0) {
     html += `<div class="section-heading" data-tip="secInsights" tabindex="0">💡 Educational Insights</div>`;
     data.explanations.forEach(ex => {
@@ -880,28 +1775,111 @@ async function loadPatterns(repoId) {
   if (!html) html = '<div class="empty-state">No patterns detected yet.</div>';
   el.innerHTML = html;
 
-  if (confHotspots.length > 0) {
-    const top10 = confHotspots.slice(0, 10);
-    const canvas = document.getElementById('chart-hotspots-patterns');
-    if (canvas) {
-      destroyChart('hotspots-patterns');
-      _charts['hotspots-patterns'] = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: top10.map(h => h.file_path.split('/').pop()),
-          datasets: [{ label: 'Commits', data: top10.map(h => h.commit_count), backgroundColor: top10.map(h => { const c=h.confidence||0; return c>=0.7?'#ef4444':c>=0.4?'#eab308':'#22c55e'; }), borderRadius: 3 }],
-        },
-        options: {
-          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2d3148' } },
-            y: { ticks: { color: '#e2e8f0', font: { size: 11 } }, grid: { display: false } },
-          },
-        },
-      });
-    }
-  }
+  _rebuildPatternsChart();
+}
+
+function _toggleEvidenceMode() {
+  const simple = document.getElementById('hs-evidence-simple');
+  const detail = document.getElementById('hs-evidence-detail');
+  if (!simple || !detail) return;
+  const showingSimple = detail.style.display === 'none';
+  simple.style.display = showingSimple ? 'none' : '';
+  detail.style.display = showingSimple ? '' : 'none';
+}
+
+function _applyCommitFilter(desc) {
+  const bar = document.getElementById('commits-back-bar');
+  const descEl = document.getElementById('commits-filter-desc');
+  if (bar) bar.style.display = 'flex';
+  if (descEl) descEl.textContent = desc;
+  renderCommitsTable(allCommits, allCommits.length);
+}
+
+function _clearCommitFilters() {
+  const sel = document.getElementById('cat-filter');
+  const kw = document.getElementById('keyword-filter');
+  if (sel) sel.value = '';
+  if (kw) kw.value = '';
+  _evidenceShaFilter = null;
+  const bar = document.getElementById('commits-back-bar');
+  if (bar) bar.style.display = 'none';
+  renderCommitsTable(allCommits, allCommits.length);
+}
+
+function _filterHotspot(btn) {
+  try {
+    const shas = JSON.parse(btn.dataset.shas || '[]');
+    _filterByEvidenceShas(shas, btn.dataset.label || 'Hotspot');
+  } catch {}
+}
+
+function _filterByEvidenceShas(shas, label) {
+  if (!currentRepo || !shas || !shas.length) return;
+  switchView('detail');
+  switchTab('commits');
+  setTimeout(() => {
+    _evidenceShaFilter = new Set(shas);
+    _applyCommitFilter(label);
+  }, 100);
+}
+
+function _searchCommitsByFile(filePath) {
+  if (!currentRepo) return;
+  const keyword = filePath.split('/').pop();
+  switchView('detail');
+  switchTab('commits');
+  setTimeout(() => {
+    const input = document.getElementById('keyword-filter');
+    if (input) { input.value = keyword; _applyCommitFilter(`File: ${keyword}`); }
+  }, 100);
+}
+
+function _searchCommitsByKeyword(keyword) {
+  if (!currentRepo) return;
+  // Pick the longest meaningful word from the title (most specific)
+  const stop = new Set(['through','about','those','these','their','there','where','which','would','could','should','after','before','since','until','while','other','first','second','third','using','being','having','making','during','within','after','before','between']);
+  const words = keyword.split(/[\s,\/\-:]+/).filter(w => w.length > 4 && !stop.has(w.toLowerCase()));
+  const kw = (words.sort((a,b) => b.length - a.length)[0] || keyword.split(/\s+/)[0]).replace(/[^\w]/g, '').toLowerCase();
+  switchView('detail');
+  switchTab('commits');
+  setTimeout(() => {
+    const input = document.getElementById('keyword-filter');
+    if (!input) return;
+    input.value = kw;
+    _applyCommitFilter(`Component: ${kw}`);
+  }, 200);
+}
+
+function _rebuildPatternsChart() {
+  const canvas = document.getElementById('chart-hotspots-patterns');
+  if (!canvas || !patternsData) return;
+  const confHotspots = (patternsData.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
+  const top10 = confHotspots.slice(0, 10);
+  if (!top10.length) return;
+  const _tc = () => getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#94a3b8';
+  const _tcy = () => getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e2e8f0';
+  const _gc = () => getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2d3148';
+  destroyChart('hotspots-patterns');
+  _charts['hotspots-patterns'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: top10.map(h => h.file_path.split('/').pop()),
+      datasets: [{ label: 'Commits', data: top10.map(h => h.commit_count), backgroundColor: top10.map(h => { const c=h.confidence||0; return c>=0.7?'#ef4444':c>=0.4?'#eab308':'#22c55e'; }), borderRadius: 3 }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view related commits' } } },
+      scales: {
+        x: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } },
+        y: { ticks: { color: _tcy(), font: { size: 11 } }, grid: { display: false } },
+      },
+      onClick(evt, els) {
+        if (!els.length) return;
+        const h = top10[els[0].index];
+        if (h) _searchCommitsByFile(h.file_path);
+      },
+    },
+  });
 }
 
 /* =========================================================
@@ -924,9 +1902,26 @@ function renderCommitsTable(commits, total) {
   const catFilter = document.getElementById('cat-filter').value;
   const keyword = document.getElementById('keyword-filter').value.toLowerCase();
   let filtered = commits;
+  if (_evidenceShaFilter) filtered = filtered.filter(c => _evidenceShaFilter.has(c.sha));
   if (catFilter) filtered = filtered.filter(c => (c.category || '').toUpperCase() === catFilter);
-  if (keyword) filtered = filtered.filter(c => (c.message||'').toLowerCase().includes(keyword) || (c.summary||'').toLowerCase().includes(keyword) || (c.sha||'').toLowerCase().includes(keyword));
-  if (filtered.length === 0) { el.innerHTML = '<div class="empty-state">No commits match the current filter.</div>'; btn.style.display = 'none'; return; }
+  if (keyword) filtered = filtered.filter(c =>
+    (c.message||'').toLowerCase().includes(keyword) ||
+    (c.summary||'').toLowerCase().includes(keyword) ||
+    (c.sha||'').toLowerCase().includes(keyword) ||
+    (c.affected_components||[]).some(ac => ac.toLowerCase().includes(keyword))
+  );
+  if (filtered.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <p>No commits match "<strong>${esc(keyword || catFilter)}</strong>".</p>
+      <p style="margin-top:0.5rem;font-size:12px;color:var(--muted)">Only analyzed commits are searchable. Analyze more to expand coverage.</p>
+      <div style="margin-top:0.75rem;display:flex;gap:0.5rem;justify-content:center">
+        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="_clearCommitFilters()">Clear filter</button>
+        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="switchTab('overview')">← Overview</button>
+        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="triggerAnalyze()">+ Analyze more</button>
+      </div>
+    </div>`;
+    btn.style.display = 'none'; return;
+  }
 
   let rows = '';
   filtered.forEach((c, i) => {
@@ -953,8 +1948,7 @@ function renderCommitsTable(commits, total) {
 
   el.innerHTML = `<div class="table-wrap"><table aria-label="Analyzed commits">
     <thead><tr>
-      <th scope="col">SHA</th>
-      <th scope="col">Date</th>
+      <th scope="col">SHA</th><th scope="col">Date</th>
       <th scope="col" data-tip="catUnknown" tabindex="0">Category</th>
       <th scope="col">Summary</th>
     </tr></thead>
@@ -984,9 +1978,141 @@ document.getElementById('load-more-btn').addEventListener('click', function() {
 });
 
 /* =========================================================
+   Trigger analysis
+   ========================================================= */
+function _showAnalyzePicker() {
+  const picker = document.getElementById('sh-analyze-picker');
+  const btn = document.getElementById('sh-analyze-btn');
+  if (!picker || !btn) return;
+  picker.style.display = 'flex';
+  btn.style.display = 'none';
+}
+
+function _hideAnalyzePicker() {
+  const picker = document.getElementById('sh-analyze-picker');
+  const btn = document.getElementById('sh-analyze-btn');
+  if (picker) picker.style.display = 'none';
+  if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = '+ Analyze'; }
+}
+
+async function triggerAnalyze() { _showAnalyzePicker(); }
+
+async function _doAnalyze(limit) {
+  if (!currentRepo) return;
+  _hideAnalyzePicker();
+  const btn = document.getElementById('sh-analyze-btn');
+  let est = null;
+  try { est = await apiFetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze/estimate?limit=${limit}`); } catch {}
+  if (est) {
+    const costMsg = est.estimated_cost_usd > 0 ? ` (~$${est.estimated_cost_usd.toFixed(4)})` : '';
+    if (est.unanalyzed_commits === 0) { alert('All commits are already analyzed!'); return; }
+    if (!confirm(`Analyze up to ${limit} commits?\n${est.estimated_llm_calls} LLM call(s) needed${costMsg}.\nThis runs in the background.`)) return;
+  }
+  if (btn) { btn.textContent = 'Running…'; btn.disabled = true; btn.style.color = 'var(--yellow)'; btn.style.display = ''; }
+  try {
+    const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _pollAnalyzeStatus(currentRepo);
+  } catch (e) {
+    alert(`Analysis failed: ${e.message}`);
+    if (btn) { btn.textContent = '+ Analyze'; btn.disabled = false; btn.style.color = ''; }
+  }
+}
+
+function _pollAnalyzeStatus(repoId) {
+  const btn = document.getElementById('sh-analyze-btn');
+  const intervalId = setInterval(async () => {
+    try {
+      const s = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/status`);
+      if (!btn) { clearInterval(intervalId); return; }
+      if (s.running) {
+        const label = s.total > 0 ? `Running… ${s.pct}%` : 'Running…';
+        btn.textContent = label;
+      } else {
+        clearInterval(intervalId);
+        btn.textContent = '+ Analyze';
+        btn.disabled = false;
+        btn.style.color = '';
+      }
+    } catch {
+      clearInterval(intervalId);
+      if (btn) { btn.textContent = '+ Analyze'; btn.disabled = false; btn.style.color = ''; }
+    }
+  }, 2000);
+}
+
+/* =========================================================
+   Contributors
+   ========================================================= */
+async function loadContributors(repoId) {
+  const el = document.getElementById('contributors-content');
+  el.innerHTML = spinner();
+  let data;
+  try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/contributors`); }
+  catch (e) {
+    el.innerHTML = e.status === 404
+      ? '<div class="empty-state">No contributor data available.</div>'
+      : '<div class="empty-state" role="alert">Error loading contributors.</div>';
+    return;
+  }
+
+  const all = data.contributors || [];
+  const humans = all.filter(c => !c.is_bot);
+  const bots = all.filter(c => c.is_bot);
+
+  let html = `<p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
+    <strong style="color:var(--text)">${humans.length}</strong> human contributor${humans.length !== 1 ? 's' : ''}
+    ${bots.length ? ` · <strong style="color:var(--text)">${bots.length}</strong> bot${bots.length !== 1 ? 's' : ''} (not shown)` : ''}
+    <span style="color:var(--border)">·</span> categories based on analyzed sample only
+  </p>`;
+
+  html += '<div class="contributor-grid">';
+  humans.forEach(c => {
+    const initials = c.author_name.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+    const bgColors = ['#6366f1','#22c55e','#f97316','#a855f7','#3b82f6','#ef4444','#eab308'];
+    const bg = bgColors[c.author_name.charCodeAt(0) % bgColors.length];
+    const dateRange = (c.first_commit && c.last_commit && c.first_commit !== c.last_commit)
+      ? `${c.first_commit} → ${c.last_commit}`
+      : (c.first_commit || '—');
+    const cats = Object.entries(c.category_counts || {}).sort((a,b) => b[1]-a[1]).slice(0, 5);
+    const topFiles = (c.top_files || []).slice(0, 3);
+    const isGitHub = (currentRepoMeta?.canonical_url || '').includes('github.com');
+    const ghUrl = c.github_username
+      ? `https://github.com/${encodeURIComponent(c.github_username)}`
+      : `https://github.com/search?q=${encodeURIComponent(c.author_name)}&type=users`;
+    const ghLabel = c.github_username ? `@${esc(c.github_username)} ↗` : 'Search on GitHub ↗';
+    html += `<div class="contributor-card">
+      <div class="cc-top">
+        <div class="cc-avatar" style="background:${bg}" aria-hidden="true">${esc(initials)}</div>
+        <div style="flex:1">
+          <div class="cc-name">${esc(c.author_name)}</div>
+          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:10px">${ghLabel}</a>` : ''}</div>
+        </div>
+      </div>
+      <div class="cc-stats">
+        <span><strong>${c.commit_count}</strong> commits</span>
+        <span style="font-size:10px;color:var(--muted)">${dateRange}</span>
+      </div>
+      ${cats.length ? `<div class="cc-cats">${cats.map(([cat, cnt]) => `<span class="badge ${badgeClass(cat)}" title="${cnt} commits">${esc(cat)}</span>`).join('')}</div>` : ''}
+      ${topFiles.length ? `<div class="cc-files">Top files: ${topFiles.map(f => `<code>${esc(f.split('/').pop())}</code>`).join('')}</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+/* =========================================================
    Boot
    ========================================================= */
-loadRepos();
+async function boot() {
+  await loadRepos();
+  renderRepoCards();
+}
+boot();
 </script>
 </body>
 </html>

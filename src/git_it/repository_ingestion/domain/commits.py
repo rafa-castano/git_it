@@ -17,3 +17,4 @@ class ExtractedCommit:
     committer_name: str
     parent_shas: tuple[str, ...]
     file_changes: tuple[ExtractedFileChange, ...] = field(default_factory=tuple)
+    author_email: str = ""

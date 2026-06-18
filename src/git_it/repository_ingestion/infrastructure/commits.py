@@ -22,6 +22,7 @@ class GitPythonCommitExtractor:
                     committer_name=commit.committer.name or "",
                     parent_shas=tuple(p.hexsha for p in commit.parents),
                     file_changes=self._extract_file_changes(commit),
+                    author_email=commit.author.email or "",
                 )
             )
         return result
