@@ -49,10 +49,10 @@ def _make_analysis(sha: str = "abc1234") -> CommitAnalysis:
 class FakeCommitAnalysisClient:
     def __init__(self, response: CommitAnalysis | None = None) -> None:
         self._response = response or _make_analysis()
-        self.calls: list[list[LLMMessage]] = []
+        self.calls: list[tuple[str, list[LLMMessage]]] = []
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
-        self.calls.append(list(messages))
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
+        self.calls.append((system, list(messages)))
         return self._response
 
 

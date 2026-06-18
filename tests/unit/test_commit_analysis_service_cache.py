@@ -6,6 +6,7 @@ from git_it.repository_ingestion.domain.analysis import (
     CommitCategory,
     RiskLevel,
 )
+from tests.unit.fakes import FakeCommitReader
 
 
 def _make_record(sha: str = "abc1234") -> CommitRecord:
@@ -37,27 +38,11 @@ def _make_analysis(sha: str = "abc1234") -> CommitAnalysis:
 
 class FakeClient:
     def __init__(self) -> None:
-        self.calls: list[list[LLMMessage]] = []
+        self.calls: list[tuple[str, list[LLMMessage]]] = []
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
-        self.calls.append(list(messages))
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
+        self.calls.append((system, list(messages)))
         return _make_analysis()
-
-
-class FakeCommitReader:
-    def __init__(self, records: list[CommitRecord]) -> None:
-        self._records = records
-
-    def list_commits_for_repository(
-        self,
-        repository_id: str,
-        *,
-        limit: int | None = None,
-        order: str = "newest",
-        since: str | None = None,
-        until: str | None = None,
-    ) -> list[CommitRecord]:
-        return list(self._records)
 
 
 class FakeAnalysisStore:

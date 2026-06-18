@@ -29,7 +29,7 @@ class RecordingCommitReader:
 
 
 class FakeAnalysisClient:
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         return CommitAnalysis(
             commit_sha="dummy",
             summary="stub",

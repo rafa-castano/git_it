@@ -4,7 +4,7 @@ from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
 )
 from git_it.repository_ingestion.application.ports import CommitSummaryRecord, FileChurnRecord
-from git_it.repository_ingestion.domain.patterns import Hotspot, PatternReport
+from git_it.repository_ingestion.domain.patterns import PatternReport
 
 
 def _record(
@@ -82,11 +82,18 @@ def test_detect_empty_file_facts_returns_no_hotspots() -> None:
     assert report.hotspots == []
 
 
-def test_hotspot_is_a_dataclass_with_expected_fields() -> None:
-    h = Hotspot(file_path="x.py", commit_count=7, total_insertions=20, total_deletions=10)
-    assert h.file_path == "x.py"
-    assert h.commit_count == 7
-    assert h.churn == 30
+def test_detect_returns_hotspot_with_correct_file_path_commit_count_and_churn() -> None:
+    """Service returns a Hotspot with the expected fields for a known input."""
+    records = [
+        _record(file_path="src/auth.py", commit_count=8, total_insertions=40, total_deletions=20)
+    ]
+    reader = FakeFileFactReader(records=records)
+    report = PatternDetectionService(reader=reader).detect("repo-1", hotspot_threshold=1)
+    assert len(report.hotspots) == 1
+    hotspot = report.hotspots[0]
+    assert hotspot.file_path == "src/auth.py"
+    assert hotspot.commit_count == 8
+    assert hotspot.churn == 60
 
 
 class FakeFileEvidenceReader:

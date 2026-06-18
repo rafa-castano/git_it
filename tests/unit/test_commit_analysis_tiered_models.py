@@ -8,6 +8,7 @@ from git_it.repository_ingestion.domain.analysis import (
     CommitCategory,
     RiskLevel,
 )
+from tests.unit.fakes import FakeCommitReader
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,7 +53,7 @@ class RecordingClient:
         self.name = name
         self.analyzed_shas: list[str] = []
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         sha = "unknown"
         for m in messages:
             if "[REPOSITORY DATA]" in m.content:
@@ -62,22 +63,6 @@ class RecordingClient:
                         break
         self.analyzed_shas.append(sha)
         return _make_analysis(sha)
-
-
-class FakeCommitReader:
-    def __init__(self, records: list[CommitRecord] | None = None) -> None:
-        self._records = records or []
-
-    def list_commits_for_repository(
-        self,
-        repository_id: str,
-        *,
-        limit: int | None = None,
-        order: str = "newest",
-        since: str | None = None,
-        until: str | None = None,
-    ) -> list[CommitRecord]:
-        return self._records[:limit] if limit is not None else list(self._records)
 
 
 def _make_service(

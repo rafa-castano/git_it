@@ -1,9 +1,9 @@
-from enum import Enum
+import enum
 
 from pydantic import BaseModel, Field
 
 
-class CommitCategory(str, Enum):
+class CommitCategory(enum.StrEnum):
     FEATURE = "feature"
     BUGFIX = "bugfix"
     REFACTOR = "refactor"
@@ -16,7 +16,7 @@ class CommitCategory(str, Enum):
     UNKNOWN = "unknown"
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(enum.StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

@@ -11,10 +11,10 @@ from git_it.repository_ingestion.domain.analysis import (
 from git_it.repository_ingestion.domain.patterns import (
     BugfixRecurrence,
     CategoryCount,
+    CommitTestGrowthSignal,
     Hotspot,
     PatternReport,
     RefactorWave,
-    TestGrowthSignal,
 )
 
 
@@ -56,6 +56,9 @@ class FakeTemporalReader:
 
     def list_analyses_with_dates(self, repository_id: str) -> list[TimestampedAnalysis]:
         return list(self._items)
+
+    def list_analyses_since(self, repository_id: str, *, since: str) -> list[TimestampedAnalysis]:
+        return [item for item in self._items if item.committed_at >= since]
 
 
 class FakePatternService:
@@ -239,7 +242,7 @@ def test_generate_includes_test_growth_signal_in_prompt() -> None:
     report = PatternReport(
         repository_id="repo-1",
         hotspots=[],
-        test_growth_signal=TestGrowthSignal(
+        test_growth_signal=CommitTestGrowthSignal(
             test_commit_count=3, bugfix_commit_count=4, test_to_bugfix_ratio=0.75
         ),
     )

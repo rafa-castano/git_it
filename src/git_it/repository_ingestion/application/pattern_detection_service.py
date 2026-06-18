@@ -19,13 +19,13 @@ from git_it.repository_ingestion.domain.patterns import (
     ArchitecturalShift,
     BugfixRecurrence,
     CategoryCount,
+    CommitTestGrowthSignal,
     DependencyMigration,
     Hotspot,
     OwnershipConcentration,
     PatternReport,
     RefactorWave,
     RevertSignal,
-    TestGrowthSignal,
 )
 
 _DEFAULT_HOTSPOT_THRESHOLD = 5
@@ -119,7 +119,7 @@ class PatternDetectionService:
         category_counts: list[CategoryCount] = []
         bugfix_recurrences: list[BugfixRecurrence] = []
         refactor_wave: RefactorWave | None = None
-        test_growth_signal: TestGrowthSignal | None = None
+        test_growth_signal: CommitTestGrowthSignal | None = None
 
         if self._analysis_reader is not None:
             analyses = self._analysis_reader.list_analyses(repository_id)
@@ -237,7 +237,7 @@ def _top_shas_from_analyses(
 
 def _compute_test_growth_signal(
     analyses: list[CommitAnalysis], *, date_map: dict[str, str]
-) -> TestGrowthSignal | None:
+) -> CommitTestGrowthSignal | None:
     bugfix_analyses = [a for a in analyses if a.category == CommitCategory.BUGFIX]
     test_analyses = [a for a in analyses if a.category == CommitCategory.TEST]
     bugfix_count = len(bugfix_analyses)
@@ -246,7 +246,7 @@ def _compute_test_growth_signal(
         return None
     ratio = round(test_count / bugfix_count, 2)
     evidence_shas = _top_shas_from_analyses(test_analyses + bugfix_analyses, date_map=date_map)
-    return TestGrowthSignal(
+    return CommitTestGrowthSignal(
         test_commit_count=test_count,
         bugfix_commit_count=bugfix_count,
         test_to_bugfix_ratio=ratio,

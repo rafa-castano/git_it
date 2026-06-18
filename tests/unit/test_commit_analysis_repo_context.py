@@ -9,6 +9,7 @@ from git_it.repository_ingestion.domain.analysis import (
     RiskLevel,
 )
 from git_it.repository_ingestion.infrastructure.sqlite import SqliteCaseStudyStore
+from tests.unit.fakes import FakeCommitReader
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -49,27 +50,11 @@ def _make_analysis(sha: str = "abc1234") -> CommitAnalysis:
 class FakeCommitAnalysisClient:
     def __init__(self, response: CommitAnalysis | None = None) -> None:
         self._response = response or _make_analysis()
-        self.calls: list[list[LLMMessage]] = []
+        self.calls: list[tuple[str, list[LLMMessage]]] = []
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
-        self.calls.append(list(messages))
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
+        self.calls.append((system, list(messages)))
         return self._response
-
-
-class FakeCommitReader:
-    def __init__(self, records: list[CommitRecord] | None = None) -> None:
-        self._records = records or []
-
-    def list_commits_for_repository(
-        self,
-        repository_id: str,
-        *,
-        limit: int | None = None,
-        order: str = "newest",
-        since: str | None = None,
-        until: str | None = None,
-    ) -> list[CommitRecord]:
-        return self._records[:limit] if limit is not None else list(self._records)
 
 
 class FakeRepoContextReader:
@@ -95,9 +80,10 @@ def test_no_context_when_reader_is_none() -> None:
         repo_context_reader=None,
     )
     service.analyze_commit(_make_record())
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
-    assert system_msgs
-    assert "Repository Background" not in system_msgs[0].content
+    _system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
+    assert user_msgs
+    assert "REPO CONTEXT" not in user_msgs[0].content
 
 
 def test_no_context_when_reader_returns_none() -> None:
@@ -108,12 +94,13 @@ def test_no_context_when_reader_returns_none() -> None:
         repo_context_reader=FakeRepoContextReader(context=None),
     )
     service.analyze_commit(_make_record())
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
-    assert system_msgs
-    assert "Repository Background" not in system_msgs[0].content
+    _system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
+    assert user_msgs
+    assert "REPO CONTEXT" not in user_msgs[0].content
 
 
-def test_context_injected_into_system_prompt() -> None:
+def test_context_injected_into_user_message() -> None:
     client = FakeCommitAnalysisClient()
     service = CommitAnalysisService(
         reader=FakeCommitReader(),
@@ -121,12 +108,13 @@ def test_context_injected_into_system_prompt() -> None:
         repo_context_reader=FakeRepoContextReader(context="This is a Go MCP server."),
     )
     service.analyze_commit(_make_record())
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
-    assert system_msgs
-    assert "This is a Go MCP server." in system_msgs[0].content
+    _system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
+    assert user_msgs
+    assert "This is a Go MCP server." in user_msgs[0].content
 
 
-def test_context_appears_in_system_role_not_user_role() -> None:
+def test_context_appears_in_user_role_not_system_role() -> None:
     client = FakeCommitAnalysisClient()
     service = CommitAnalysisService(
         reader=FakeCommitReader(),
@@ -134,12 +122,12 @@ def test_context_appears_in_system_role_not_user_role() -> None:
         repo_context_reader=FakeRepoContextReader(context="Go MCP server context"),
     )
     service.analyze_commit(_make_record())
-    user_msgs = [m for m in client.calls[0] if m.role == "user"]
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
+    system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
     assert user_msgs
-    assert "Go MCP server context" not in user_msgs[0].content
-    assert system_msgs
-    assert "Go MCP server context" in system_msgs[0].content
+    assert "Go MCP server context" in user_msgs[0].content
+    # repo_context must NOT be concatenated into the system prompt
+    assert "Go MCP server context" not in system
 
 
 def test_context_fetched_once_for_multiple_commits() -> None:
@@ -164,10 +152,10 @@ def test_all_commits_receive_same_context() -> None:
     )
     service.analyze_commits("repo-1")
     assert len(client.calls) == 2
-    for call_messages in client.calls:
-        system_msgs = [m for m in call_messages if m.role == "system"]
-        assert system_msgs
-        assert "Shared context text" in system_msgs[0].content
+    for _system, messages in client.calls:
+        user_msgs = [m for m in messages if m.role == "user"]
+        assert user_msgs
+        assert "Shared context text" in user_msgs[0].content
 
 
 def test_analyze_commit_without_context_is_unchanged() -> None:
@@ -177,9 +165,10 @@ def test_analyze_commit_without_context_is_unchanged() -> None:
         client=client,
     )
     service.analyze_commit(_make_record())
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
-    assert system_msgs
-    assert "Repository Background" not in system_msgs[0].content
+    _system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
+    assert user_msgs
+    assert "REPO CONTEXT" not in user_msgs[0].content
 
 
 def test_analyze_commit_with_explicit_context() -> None:
@@ -189,9 +178,10 @@ def test_analyze_commit_with_explicit_context() -> None:
         client=client,
     )
     service.analyze_commit(_make_record(), repo_context="context text")
-    system_msgs = [m for m in client.calls[0] if m.role == "system"]
-    assert system_msgs
-    assert "context text" in system_msgs[0].content
+    _system, messages = client.calls[0]
+    user_msgs = [m for m in messages if m.role == "user"]
+    assert user_msgs
+    assert "context text" in user_msgs[0].content
 
 
 def test_context_truncation_applied_by_reader(tmp_path: Path) -> None:

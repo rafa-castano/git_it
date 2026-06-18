@@ -50,7 +50,7 @@ class RefactorWave:
 
 
 @dataclass(frozen=True)
-class TestGrowthSignal:
+class CommitTestGrowthSignal:
     test_commit_count: int
     bugfix_commit_count: int
     test_to_bugfix_ratio: float
@@ -105,7 +105,7 @@ class PatternReport:
     bugfix_recurrences: list[BugfixRecurrence] = field(default_factory=list)
     refactor_wave: RefactorWave | None = None
     revert_signal: RevertSignal | None = None
-    test_growth_signal: TestGrowthSignal | None = None
+    test_growth_signal: CommitTestGrowthSignal | None = None
     ownership_concentrations: list[OwnershipConcentration] = field(default_factory=list)
     explanations: list[PatternExplanation] = field(default_factory=list)  # LLM synthesis
     dependency_migrations: list[DependencyMigration] = field(default_factory=list)  # NEW

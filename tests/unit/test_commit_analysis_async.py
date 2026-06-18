@@ -82,7 +82,7 @@ class FakeAnalysisClient:
         self.call_count = 0
         self.called_shas: list[str] = []
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         self.call_count += 1
         # Extract sha from the user message content (format: "sha: {sha[:12]}")
         user_content = next(m.content for m in messages if m.role == "user")
@@ -131,7 +131,7 @@ class ConcurrencyTrackingClient:
         self.max_concurrent = 0
         self.call_count = 0
 
-    def analyze_commit(self, messages: list[LLMMessage]) -> CommitAnalysis:
+    def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         with self._lock:
             self._current += 1
             self.max_concurrent = max(self.max_concurrent, self._current)

@@ -4,11 +4,11 @@ import pytest
 
 from git_it.repository_ingestion.domain.patterns import (
     BugfixRecurrence,
+    CommitTestGrowthSignal,
     Hotspot,
     OwnershipConcentration,
     RefactorWave,
     RevertSignal,
-    TestGrowthSignal,
 )
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ def test_refactor_wave_time_range_defaults_to_none() -> None:
 
 
 def test_test_growth_signal_confidence_from_ratio() -> None:
-    tg = TestGrowthSignal(
+    tg = CommitTestGrowthSignal(
         test_commit_count=4,
         bugfix_commit_count=2,
         test_to_bugfix_ratio=2.0,
@@ -178,17 +178,23 @@ def test_test_growth_signal_confidence_from_ratio() -> None:
 
 
 def test_test_growth_signal_confidence_defaults_to_zero() -> None:
-    tg = TestGrowthSignal(test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0)
+    tg = CommitTestGrowthSignal(
+        test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0
+    )
     assert tg.confidence == 0.0
 
 
 def test_test_growth_signal_evidence_commit_shas_defaults_to_empty() -> None:
-    tg = TestGrowthSignal(test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0)
+    tg = CommitTestGrowthSignal(
+        test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0
+    )
     assert tg.evidence_commit_shas == ()
 
 
 def test_test_growth_signal_time_range_defaults_to_none() -> None:
-    tg = TestGrowthSignal(test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0)
+    tg = CommitTestGrowthSignal(
+        test_commit_count=4, bugfix_commit_count=2, test_to_bugfix_ratio=2.0
+    )
     assert tg.time_range is None
 
 
