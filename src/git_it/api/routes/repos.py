@@ -50,6 +50,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitCountReader,
     SqliteCommitWithAnalysisReader,
     SqliteContributorReader,
+    SqliteIngestionRunStore,
     SqliteRepositoryListReader,
 )
 from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
@@ -399,6 +400,18 @@ def get_commits(
 # ---------------------------------------------------------------------------
 
 
+def _resolve_canonical_url(repository_id: str, project_root: Path) -> str | None:
+    """Look up the canonical_url for a repository from the most recent ingestion run."""
+    db_path = _get_db_path(project_root)
+    if not db_path.exists():
+        return None
+    store = SqliteIngestionRunStore(db_path)
+    runs = store.list_ingestion_runs_for_repository(repository_id)
+    if not runs:
+        return None
+    return runs[-1].canonical_url
+
+
 def _analyze_bg(repository_id: str, limit: int, model: str, project_root: Path) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
@@ -409,11 +422,18 @@ def _analyze_bg(repository_id: str, limit: int, model: str, project_root: Path) 
             _analyze_progress[repository_id] = {"running": True, "done": done, "total": total}
 
     try:
+        canonical_url = _resolve_canonical_url(repository_id, project_root)
         svc = build_commit_analysis_service(
             project_root=project_root,
             model=model,
         )
-        svc.analyze_commits(repository_id, limit=limit, order="newest", on_progress=_on_progress)
+        svc.analyze_commits(
+            repository_id,
+            limit=limit,
+            order="newest",
+            on_progress=_on_progress,
+            canonical_url=canonical_url,
+        )
         _logger.info("analysis completed", extra={"repository_id": repository_id})
     except Exception as e:
         _logger.warning(

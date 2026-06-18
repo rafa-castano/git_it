@@ -3,6 +3,7 @@ from typing import Protocol
 
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 
 __all__ = [
@@ -31,6 +32,8 @@ __all__ = [
     "FileOwnershipRecord",
     "GitGateway",
     "GitGatewayError",
+    "GithubContext",
+    "GithubContextReader",
     "IngestionRunRecord",
     "IngestionRunWriter",
     "LLMClient",
@@ -167,6 +170,16 @@ class CaseStudyStore(Protocol):
 
 class RepoContextReader(Protocol):
     def get_repo_context(self, repository_id: str) -> str | None: ...
+
+
+class GithubContextReader(Protocol):
+    def get_github_context(
+        self,
+        *,
+        repository_id: str,
+        canonical_url: str,
+        commit_sha: str,
+    ) -> GithubContext | None: ...
 
 
 class CommitAnalysisWriter(Protocol):

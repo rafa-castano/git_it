@@ -1,6 +1,7 @@
 import json
 import re
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
@@ -18,6 +19,7 @@ from git_it.repository_ingestion.application.ports import (
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.github_context import GithubContext
 
 
 class SqliteIngestionRunStore:
@@ -788,6 +790,103 @@ class SqliteContributorReader:
             )
             for name, count, first, last, active_days, email in author_rows
         ]
+
+
+class SqliteGithubContextCache:
+    """SQLite-backed cache for GitHub context (PR + issue data) per commit SHA.
+
+    Cache contract:
+    - Row absent → never fetched (is_cached=False)
+    - Row with has_github_data=0 → fetched, no PR found (get_cached returns None)
+    - Row with has_github_data=1 → fetched, PR found (get_cached returns GithubContext)
+    """
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS github_context (
+                    repository_id TEXT NOT NULL,
+                    commit_sha    TEXT NOT NULL,
+                    pr_number     INTEGER,
+                    pr_title      TEXT,
+                    pr_body       TEXT,
+                    issue_numbers TEXT NOT NULL DEFAULT '[]',
+                    issue_bodies  TEXT NOT NULL DEFAULT '[]',
+                    has_github_data INTEGER NOT NULL DEFAULT 0,
+                    fetched_at    TEXT NOT NULL,
+                    PRIMARY KEY (repository_id, commit_sha)
+                )
+                """
+            )
+
+    def is_cached(self, repository_id: str, commit_sha: str) -> bool:
+        """Return True if a fetch attempt has already been recorded for this commit."""
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM github_context WHERE repository_id = ? AND commit_sha = ?",
+                (repository_id, commit_sha),
+            ).fetchone()
+        return row is not None
+
+    def get_cached(self, repository_id: str, commit_sha: str) -> GithubContext | None:
+        """Return cached GithubContext, or None if no PR was found (or row absent)."""
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                """
+                SELECT pr_number, pr_title, pr_body, issue_numbers, issue_bodies, has_github_data
+                FROM github_context
+                WHERE repository_id = ? AND commit_sha = ?
+                """,
+                (repository_id, commit_sha),
+            ).fetchone()
+        if row is None:
+            return None
+        has_data = bool(row[5])
+        if not has_data:
+            return None
+        return GithubContext(
+            pr_number=int(row[0]) if row[0] is not None else None,
+            pr_title=str(row[1]) if row[1] is not None else None,
+            pr_body=str(row[2]) if row[2] is not None else None,
+            issue_numbers=tuple(json.loads(str(row[3]))),
+            issue_bodies=tuple(json.loads(str(row[4]))),
+            has_pr=True,
+        )
+
+    def save(self, repository_id: str, commit_sha: str, context: GithubContext | None) -> None:
+        """Persist the fetch result. context=None means 'fetched, no PR found'."""
+        fetched_at = datetime.now(UTC).isoformat()
+        has_data = context is not None and context.has_pr
+        pr_number = context.pr_number if context is not None else None
+        pr_title = context.pr_title if context is not None else None
+        pr_body = context.pr_body if context is not None else None
+        issue_numbers = json.dumps(list(context.issue_numbers)) if context is not None else "[]"
+        issue_bodies = json.dumps(list(context.issue_bodies)) if context is not None else "[]"
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO github_context (
+                    repository_id, commit_sha, pr_number, pr_title, pr_body,
+                    issue_numbers, issue_bodies, has_github_data, fetched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    repository_id,
+                    commit_sha,
+                    pr_number,
+                    pr_title,
+                    pr_body,
+                    issue_numbers,
+                    issue_bodies,
+                    1 if has_data else 0,
+                    fetched_at,
+                ),
+            )
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from git_it.repository_ingestion.application.analysis_service import RepositoryAnalysisService
@@ -23,6 +24,7 @@ from git_it.repository_ingestion.infrastructure.git import (
     SafeGitGateway,
     SubprocessGitCommandRunner,
 )
+from git_it.repository_ingestion.infrastructure.github import GithubContextFetcher
 from git_it.repository_ingestion.infrastructure.llm import (
     InstructorCommitAnalysisAdapter,
     InstructorPatternSynthesisAdapter,
@@ -35,6 +37,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitReader,
     SqliteFileFactReader,
     SqliteFileFactStore,
+    SqliteGithubContextCache,
     SqliteIngestionRunStore,
 )
 from git_it.repository_ingestion.infrastructure.workspace import (
@@ -119,6 +122,12 @@ def build_commit_analysis_service(
         if sample_model is not None and sample_model != model
         else None
     )
+    github_reader = None
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if github_token:
+        github_cache = SqliteGithubContextCache(db_path)
+        github_cache.initialize()
+        github_reader = GithubContextFetcher(cache=github_cache, token=github_token)
     return CommitAnalysisService(
         reader=SqliteCommitReader(db_path),
         client=analysis_client,
@@ -126,6 +135,7 @@ def build_commit_analysis_service(
         analysis_writer=analysis_store,
         analysis_reader=analysis_store,
         repo_context_reader=case_study_store,
+        github_context_reader=github_reader,
     )
 
 

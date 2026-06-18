@@ -69,6 +69,7 @@ One file per batch, organized by feature area.
 - [Batch 55 — Hexagonal architecture refactor of API routes](api/batch-55-hexagonal-architecture-refactor.md)
 - [Batch 56 — Explicit model allowlist and MCP git permissions fix](api/batch-56-model-allowlist-mcp-permissions.md)
 - [Batch 57 — Open model selection (any LiteLLM provider)](api/batch-57-open-model-selection.md)
+- [Batch 58 — GitHub context enrichment (PR and issue injection)](api/batch-58-github-context-enrichment.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
