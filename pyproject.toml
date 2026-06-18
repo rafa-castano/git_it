@@ -27,6 +27,7 @@ dependencies = [
 git-it = "git_it.cli:main"
 
 [dependency-groups]
+docs = ["mkdocs-material>=9.5", "mkdocs-autorefs>=1.0"]
 dev = [
     "coverage>=7.14.1",
     "hypothesis>=6.155.2",

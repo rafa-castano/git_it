@@ -1,0 +1,32 @@
+site_name: Git It
+site_description: Transform git history into engineering case studies
+repo_url: https://github.com/your-repo/git-it
+docs_dir: docs
+exclude_docs: |
+  progress/README.md
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: deep purple
+    accent: amber
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - API Reference: api-reference.md
+  - Specs: specs/index.md
+  - Progress: progress/index.md
+  - ADRs: adr/index.md
