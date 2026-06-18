@@ -158,6 +158,24 @@ def _insert_analysis(
         )
 
 
+def _insert_file_fact(
+    db: Path,
+    *,
+    repository_id: str = "repo-abc",
+    commit_sha: str = "aaa111",
+    file_path: str = "src/main.py",
+    insertions: int = 10,
+    deletions: int = 5,
+) -> None:
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO file_facts"
+            " (repository_id, commit_sha, file_path, insertions, deletions)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (repository_id, commit_sha, file_path, insertions, deletions),
+        )
+
+
 def _insert_case_study(
     db: Path,
     *,
@@ -421,3 +439,41 @@ def test_get_patterns_returns_report(tmp_path: Path) -> None:
     assert body["repository_id"] == "repo-abc"
     assert "hotspots" in body
     assert isinstance(body["hotspots"], list)
+
+
+def test_get_patterns_returns_hotspot_when_file_exceeds_threshold(tmp_path: Path) -> None:
+    """Pattern detection returns a hotspot with correct fields when file_facts are seeded."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+
+    # Insert 10 commits each touching the same file to ensure it exceeds the default threshold (5)
+    for i in range(10):
+        sha = f"sha{i:04d}"
+        _insert_commit(
+            db, repository_id="repo-abc", sha=sha, committed_at=f"2024-01-{i + 1:02d}T10:00:00"
+        )
+        _insert_file_fact(
+            db,
+            repository_id="repo-abc",
+            commit_sha=sha,
+            file_path="src/hotfile.py",
+            insertions=5,
+            deletions=3,
+        )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/patterns?hotspot_threshold=5")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["repository_id"] == "repo-abc"
+    hotspots = body["hotspots"]
+    assert len(hotspots) >= 1
+    top = hotspots[0]
+    assert top["file_path"] == "src/hotfile.py"
+    assert top["commit_count"] == 10
+    assert top["churn"] == 80  # 10 commits × (5 insertions + 3 deletions)
