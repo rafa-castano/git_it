@@ -67,6 +67,7 @@ One file per batch, organized by feature area.
 - [Batch 53 — Quality fixes, observability, and ruff compliance](api/batch-53-quality-observability-ruff.md)
 - [Batch 54 — TDD endpoint tests for API routes](api/batch-54-tdd-endpoint-tests.md)
 - [Batch 55 — Hexagonal architecture refactor of API routes](api/batch-55-hexagonal-architecture-refactor.md)
+- [Batch 56 — Explicit model allowlist and MCP git permissions fix](api/batch-56-model-allowlist-mcp-permissions.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

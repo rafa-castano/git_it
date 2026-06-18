@@ -2,11 +2,10 @@
   "enableAllProjectMcpServers": true,
   "permissions": {
     "deny": [
-      "mcp__git__git_add",
-      "mcp__git__git_commit",
       "mcp__git__git_create_branch",
       "mcp__git__git_checkout",
-      "mcp__git__git_reset"
+      "mcp__git__git_reset",
+      "mcp__git__git_push"
     ]
   }
 }
