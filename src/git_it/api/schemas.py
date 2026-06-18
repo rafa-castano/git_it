@@ -1,4 +1,8 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+# ---------------------------------------------------------------------------
+# Pattern sub-type schemas
+# ---------------------------------------------------------------------------
 
 
 class RepoSummary(BaseModel):
@@ -32,6 +36,7 @@ class CommitSummaryItem(BaseModel):
     category: str | None
     importance: str | None
     summary: str | None
+    affected_components: list[str] = []
 
 
 class CommitsResponse(BaseModel):
@@ -54,15 +59,142 @@ class CategoryCountItem(BaseModel):
     count: int
 
 
+class RefactorWaveSchema(BaseModel):
+    commit_count: int
+    refactor_ratio: float
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class RevertSignalSchema(BaseModel):
+    revert_count: int
+    revert_ratio: float
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class CommitTestGrowthSignalSchema(BaseModel):
+    test_commit_count: int
+    bugfix_commit_count: int
+    test_to_bugfix_ratio: float
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class BugfixRecurrenceSchema(BaseModel):
+    component: str
+    bugfix_commit_count: int
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class OwnershipConcentrationSchema(BaseModel):
+    file_path: str
+    author_count: int
+    commit_count: int
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class DependencyMigrationSchema(BaseModel):
+    from_dependency: str
+    to_dependency: str
+    commit_count: int
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class ArchitecturalShiftSchema(BaseModel):
+    shift_type: str
+    description: str
+    evidence_commit_shas: list[str] = []
+    time_range: list[str] | None = None
+    confidence: float = 0.0
+
+
+class PatternExplanationSchema(BaseModel):
+    pattern_type: str
+    pattern_key: str
+    why_it_matters: str
+    engineer_takeaway: str
+    confidence_note: str = ""
+
+
 class PatternReportResponse(BaseModel):
     repository_id: str
     hotspots: list[HotspotItem]
-    refactor_wave: dict | None
-    revert_signal: dict | None
-    test_growth_signal: dict | None
-    bugfix_recurrences: list[dict]
-    ownership_concentrations: list[dict]
-    dependency_migrations: list[dict]
-    architectural_shifts: list[dict]
-    explanations: list[dict]
+    refactor_wave: RefactorWaveSchema | None
+    revert_signal: RevertSignalSchema | None
+    test_growth_signal: CommitTestGrowthSignalSchema | None
+    bugfix_recurrences: list[BugfixRecurrenceSchema]
+    ownership_concentrations: list[OwnershipConcentrationSchema]
+    dependency_migrations: list[DependencyMigrationSchema]
+    architectural_shifts: list[ArchitecturalShiftSchema]
+    explanations: list[PatternExplanationSchema]
     category_counts: list[CategoryCountItem] = []
+
+
+class IngestRequest(BaseModel):
+    url: str
+
+
+class IngestResponse(BaseModel):
+    repository_id: str
+    canonical_url: str
+    status: str
+
+
+class AnalyzeRequest(BaseModel):
+    limit: int = 10
+    model: str = "anthropic/claude-haiku-4-5-20251001"
+
+    @field_validator("model")
+    @classmethod
+    def model_must_be_anthropic(cls, v: str) -> str:
+        if not v.startswith("anthropic/claude-"):
+            raise ValueError("Only anthropic/claude-* models are permitted")
+        return v
+
+
+class AnalyzeResponse(BaseModel):
+    status: str
+    limit: int
+
+
+class AnalyzeEstimateResponse(BaseModel):
+    total_commits: int
+    analyzed_commits: int
+    unanalyzed_commits: int
+    estimated_llm_calls: int
+    estimated_cost_usd: float
+
+
+class AnalyzeStatusResponse(BaseModel):
+    running: bool
+    done: int
+    total: int
+    pct: int
+
+
+class ContributorItem(BaseModel):
+    author_name: str
+    commit_count: int
+    first_commit: str | None
+    last_commit: str | None
+    is_bot: bool
+    category_counts: dict[str, int]
+    top_files: list[str]
+    active_days: int
+    github_username: str | None = None
+
+
+class ContributorsResponse(BaseModel):
+    repository_id: str
+    contributors: list[ContributorItem]
+    total: int

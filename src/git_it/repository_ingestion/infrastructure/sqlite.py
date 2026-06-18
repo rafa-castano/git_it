@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -7,9 +8,12 @@ from git_it.repository_ingestion.application.ports import (
     CaseStudyRecord,
     CommitPersistenceResult,
     CommitSummaryRecord,
+    CommitWithAnalysisRecord,
+    ContributorRecord,
     FileChurnRecord,
     FileOwnershipRecord,
     IngestionRunRecord,
+    RepositoryRecord,
     TimestampedAnalysis,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
@@ -145,10 +149,22 @@ class SqliteCommitFactStore:
                     author_name TEXT NOT NULL,
                     committer_name TEXT NOT NULL,
                     parent_shas TEXT NOT NULL,
+                    author_email TEXT NOT NULL DEFAULT '',
                     UNIQUE(repository_id, sha)
                 )
                 """
             )
+            # Migrate existing DBs that pre-date author_email column
+            try:
+                connection.execute(
+                    "ALTER TABLE commit_facts ADD COLUMN author_email TEXT NOT NULL DEFAULT ''"
+                )
+            except sqlite3.OperationalError as e:
+                if (
+                    "duplicate column name" not in str(e).lower()
+                    and "already exists" not in str(e).lower()
+                ):
+                    raise
 
     def save_commit_facts(
         self,
@@ -169,8 +185,9 @@ class SqliteCommitFactStore:
                         message,
                         author_name,
                         committer_name,
-                        parent_shas
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        parent_shas,
+                        author_email
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         repository_id,
@@ -180,6 +197,7 @@ class SqliteCommitFactStore:
                         commit.author_name,
                         commit.committer_name,
                         json.dumps(list(commit.parent_shas)),
+                        commit.author_email,
                     ),
                 )
                 if cursor.rowcount == 1:
@@ -281,6 +299,8 @@ class SqliteCommitReader:
         since: str | None = None,
         until: str | None = None,
     ) -> list[CommitRecord]:
+        if order not in ("newest", "oldest"):
+            raise ValueError(f"Invalid order value: {order!r}")
         order_dir = "ASC" if order == "oldest" else "DESC"
         conditions = ["repository_id = ?"]
         params: list[object] = [repository_id]
@@ -561,6 +581,213 @@ class SqliteCaseStudyStore:
         if record is None:
             return None
         return record.narrative[:_REPO_CONTEXT_MAX_CHARS]
+
+
+class SqliteRepositoryListReader:
+    """Read-side adapter: returns summary rows for all ingested repositories."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def list_repositories(self) -> list[RepositoryRecord]:
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    ir.repository_id,
+                    ir.canonical_url,
+                    ir.status,
+                    COUNT(DISTINCT cf.sha)  AS commit_count,
+                    COUNT(DISTINCT ca.id)   AS analysis_count,
+                    MAX(CASE WHEN cs.repository_id IS NOT NULL THEN 1 ELSE 0 END) AS has_case_study
+                FROM ingestion_runs ir
+                LEFT JOIN commit_facts cf ON cf.repository_id = ir.repository_id
+                LEFT JOIN commit_analyses ca ON ca.repository_id = ir.repository_id
+                LEFT JOIN case_studies cs ON cs.repository_id = ir.repository_id
+                GROUP BY ir.repository_id, ir.canonical_url, ir.status
+                ORDER BY ir.repository_id
+                """
+            ).fetchall()
+        return [
+            RepositoryRecord(
+                repository_id=str(row[0]),
+                canonical_url=str(row[1]),
+                status=str(row[2]),
+                commit_count=int(row[3]),
+                analysis_count=int(row[4]),
+                has_case_study=bool(row[5]),
+            )
+            for row in rows
+        ]
+
+
+class SqliteCommitCountReader:
+    """Read-side adapter: returns commit and analysis counts for a repository."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def count_commits(self, repository_id: str) -> int:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM commit_facts WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def count_analyses(self, repository_id: str) -> int:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM commit_analyses WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+
+class SqliteCommitWithAnalysisReader:
+    """Read-side adapter: returns commits joined with their analysis data."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def list_commits_with_analyses(
+        self,
+        repository_id: str,
+        *,
+        limit: int,
+        order: str = "newest",
+    ) -> list[CommitWithAnalysisRecord]:
+        if order not in ("newest", "oldest"):
+            raise ValueError(f"Invalid order value: {order!r}")
+        order_dir = "ASC" if order == "oldest" else "DESC"
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT cf.sha, cf.message, cf.committed_at, ca.data
+                FROM commit_analyses ca
+                JOIN commit_facts cf
+                  ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                WHERE ca.repository_id = ?
+                ORDER BY cf.committed_at {order_dir}
+                LIMIT ?
+                """,
+                (repository_id, limit),
+            ).fetchall()
+        return [
+            CommitWithAnalysisRecord(
+                sha=str(row[0]),
+                message=str(row[1]),
+                committed_at=str(row[2]),
+                analysis_data=str(row[3]) if row[3] is not None else None,
+            )
+            for row in rows
+        ]
+
+
+_BOT_PATTERN = re.compile(r"\[bot\]|dependabot|copilot|renovate", re.IGNORECASE)
+
+
+def _extract_github_username(email: str) -> str | None:
+    """Extract a GitHub username from a noreply email address."""
+    # New noreply format: 12345678+username@users.noreply.github.com
+    m = re.match(r"^\d+\+(.+)@users\.noreply\.github\.com$", email or "")
+    if m:
+        return m.group(1)
+    # Old noreply format: username@users.noreply.github.com
+    m = re.match(r"^([^@+]+)@users\.noreply\.github\.com$", email or "")
+    if m:
+        return m.group(1)
+    return None
+
+
+class SqliteContributorReader:
+    """Read-side adapter: aggregates per-author statistics from commit_facts."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def list_contributors(self, repository_id: str) -> list[ContributorRecord]:
+        with sqlite3.connect(self._database_path) as conn:
+            cur = conn.cursor()
+
+            # Per-author commit stats
+            cur.execute(
+                """
+                SELECT author_name,
+                       COUNT(*) AS commit_count,
+                       MIN(committed_at) AS first_commit,
+                       MAX(committed_at) AS last_commit,
+                       COUNT(DISTINCT SUBSTR(committed_at, 1, 10)) AS active_days,
+                       MAX(author_email) AS author_email
+                FROM commit_facts
+                WHERE repository_id = ?
+                GROUP BY author_name
+                ORDER BY commit_count DESC
+                """,
+                (repository_id,),
+            )
+            author_rows = cur.fetchall()
+
+            if not author_rows:
+                return []
+
+            # Category breakdown per author
+            cur.execute(
+                """
+                SELECT cf.author_name,
+                       json_extract(ca.data, '$.category') AS category,
+                       COUNT(*) AS cnt
+                FROM commit_facts cf
+                JOIN commit_analyses ca ON ca.repository_id = cf.repository_id
+                                        AND ca.commit_sha = cf.sha
+                WHERE cf.repository_id = ?
+                GROUP BY cf.author_name, category
+                """,
+                (repository_id,),
+            )
+            cat_rows = cur.fetchall()
+            cat_by_author: dict[str, dict[str, int]] = {}
+            for author, cat, cnt in cat_rows:
+                if author not in cat_by_author:
+                    cat_by_author[author] = {}
+                if cat:
+                    cat_by_author[author][cat.upper()] = cnt
+
+            # Top files per author
+            cur.execute(
+                """
+                SELECT cf.author_name, ff.file_path, COUNT(*) AS touches
+                FROM commit_facts cf
+                JOIN file_facts ff ON ff.repository_id = cf.repository_id
+                                   AND ff.commit_sha = cf.sha
+                WHERE cf.repository_id = ?
+                GROUP BY cf.author_name, ff.file_path
+                ORDER BY cf.author_name, touches DESC
+                """,
+                (repository_id,),
+            )
+            file_rows = cur.fetchall()
+            files_by_author: dict[str, list[str]] = {}
+            for author, fpath, _ in file_rows:
+                if author not in files_by_author:
+                    files_by_author[author] = []
+                if len(files_by_author[author]) < 5:
+                    files_by_author[author].append(fpath)
+
+        return [
+            ContributorRecord(
+                author_name=name,
+                commit_count=count,
+                first_commit=(first[:10] if first else None),
+                last_commit=(last[:10] if last else None),
+                is_bot=bool(_BOT_PATTERN.search(name or "")),
+                active_days=active_days,
+                github_username=_extract_github_username(email or ""),
+                category_counts=cat_by_author.get(name, {}),
+                top_files=files_by_author.get(name, []),
+            )
+            for name, count, first, last, active_days, email in author_rows
+        ]
 
 
 def _record_from_row(row: tuple[object, ...]) -> IngestionRunRecord:
