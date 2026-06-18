@@ -9,9 +9,9 @@ import logging
 import re
 import urllib.error
 import urllib.request
+from typing import Protocol
 
 from git_it.repository_ingestion.domain.github_context import GithubContext
-from git_it.repository_ingestion.infrastructure.sqlite import SqliteGithubContextCache
 
 _logger = logging.getLogger(__name__)
 
@@ -20,6 +20,16 @@ _MAX_PR_BODY_CHARS = 1000
 _MAX_ISSUE_BODY_CHARS = 500
 _MAX_ISSUES = 3
 _TIMEOUT = 10
+
+
+class GithubContextCache(Protocol):
+    """Structural interface for GitHub context cache implementations."""
+
+    def is_cached(self, repository_id: str, commit_sha: str) -> bool: ...
+
+    def get_cached(self, repository_id: str, commit_sha: str) -> GithubContext | None: ...
+
+    def save(self, repository_id: str, commit_sha: str, context: GithubContext | None) -> None: ...
 
 
 class GithubContextFetcher:
@@ -32,7 +42,7 @@ class GithubContextFetcher:
     def __init__(
         self,
         *,
-        cache: SqliteGithubContextCache,
+        cache: GithubContextCache,
         token: str | None = None,
     ) -> None:
         self._cache = cache

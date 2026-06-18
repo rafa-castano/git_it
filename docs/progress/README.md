@@ -81,3 +81,6 @@ One file per batch, organized by feature area.
 
 ## Documentation
 - [Batch 62 — MkDocs Material documentation site with CI build check](docs/batch-62-documentation-engine.md)
+
+## Infrastructure
+- [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
