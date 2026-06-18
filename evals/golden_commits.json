@@ -1,0 +1,224 @@
+[
+  {
+    "sha": "a1b2c3d4e5f6",
+    "message": "feat: add OAuth2 login with GitHub provider",
+    "author_name": "Alice Chen",
+    "committed_at": "2024-01-10T09:15:00",
+    "files_changed": ["src/auth/oauth.py", "src/auth/providers/github.py", "tests/test_oauth.py"],
+    "expected_category": "feature",
+    "expected_risk_level": "high",
+    "rationale": "Adds a new authentication mechanism — clearly a feature. High risk because auth changes affect all users and involve external provider integration."
+  },
+  {
+    "sha": "b2c3d4e5f6a1",
+    "message": "feat(cart): implement persistent shopping cart with Redis",
+    "author_name": "Bob Martinez",
+    "committed_at": "2024-01-15T14:20:00",
+    "files_changed": ["src/cart/service.py", "src/cart/redis_store.py", "src/cart/models.py"],
+    "expected_category": "feature",
+    "expected_risk_level": "medium",
+    "rationale": "Introduces a new capability (persistent cart) using Redis. Medium risk — new infrastructure dependency but contained to the cart domain."
+  },
+  {
+    "sha": "c3d4e5f6a1b2",
+    "message": "fix: resolve null pointer in UserService.getById()",
+    "author_name": "Carol Wang",
+    "committed_at": "2024-02-03T11:45:00",
+    "files_changed": ["src/UserService.java", "tests/UserServiceTest.java"],
+    "expected_category": "bugfix",
+    "expected_risk_level": "medium",
+    "rationale": "Fixes a null pointer exception — unambiguous bugfix. Medium risk because it touches production service logic that handles user retrieval."
+  },
+  {
+    "sha": "d4e5f6a1b2c3",
+    "message": "fix(payments): prevent double charge on retry after network timeout",
+    "author_name": "David Kim",
+    "committed_at": "2024-02-10T16:30:00",
+    "files_changed": ["src/payments/processor.py", "src/payments/idempotency.py"],
+    "expected_category": "bugfix",
+    "expected_risk_level": "high",
+    "rationale": "Fixes a race condition causing duplicate payment charges. High risk because payment processing directly affects money and involves distributed system concerns."
+  },
+  {
+    "sha": "e5f6a1b2c3d4",
+    "message": "refactor: extract validation logic into dedicated Validator class",
+    "author_name": "Emma Rodriguez",
+    "committed_at": "2024-03-05T10:00:00",
+    "files_changed": ["src/core/validator.py", "src/api/handlers.py", "src/models/user.py"],
+    "expected_category": "refactor",
+    "expected_risk_level": "low",
+    "rationale": "Pure structural reorganization without behavior change. Low risk because validation logic is moved not modified, and tests should catch regressions."
+  },
+  {
+    "sha": "f6a1b2c3d4e5",
+    "message": "refactor(db): replace raw SQL queries with repository pattern",
+    "author_name": "Frank Liu",
+    "committed_at": "2024-03-12T13:45:00",
+    "files_changed": [
+      "src/db/user_repository.py",
+      "src/db/order_repository.py",
+      "src/services/user_service.py",
+      "src/services/order_service.py"
+    ],
+    "expected_category": "refactor",
+    "expected_risk_level": "medium",
+    "rationale": "Architectural refactor applying repository pattern across the data layer. Medium risk because touching many files increases chance of missed edge cases even without logic changes."
+  },
+  {
+    "sha": "a2b3c4d5e6f7",
+    "message": "test: add unit tests for OrderCalculator edge cases",
+    "author_name": "Grace Thompson",
+    "committed_at": "2024-04-02T09:30:00",
+    "files_changed": ["tests/unit/test_order_calculator.py"],
+    "expected_category": "test",
+    "expected_risk_level": "low",
+    "rationale": "Adds test coverage with no production code changes. Low risk — test-only commit cannot break production behavior."
+  },
+  {
+    "sha": "b3c4d5e6f7a2",
+    "message": "test: add integration tests for checkout flow with Stripe mock",
+    "author_name": "Henry Park",
+    "committed_at": "2024-04-08T15:15:00",
+    "files_changed": [
+      "tests/integration/test_checkout.py",
+      "tests/fixtures/stripe_mock.py"
+    ],
+    "expected_category": "test",
+    "expected_risk_level": "low",
+    "rationale": "Integration test suite addition with mock dependencies. Low risk — adds test infrastructure only."
+  },
+  {
+    "sha": "c4d5e6f7a2b3",
+    "message": "docs: add API reference for the /orders endpoint",
+    "author_name": "Isabelle Dupont",
+    "committed_at": "2024-05-01T11:00:00",
+    "files_changed": ["docs/api/orders.md", "docs/api/index.md"],
+    "expected_category": "docs",
+    "expected_risk_level": "low",
+    "rationale": "Documentation-only change. Low risk because it cannot affect runtime behavior."
+  },
+  {
+    "sha": "d5e6f7a2b3c4",
+    "message": "docs: update README with Docker setup and environment variables",
+    "author_name": "James Wilson",
+    "committed_at": "2024-05-10T14:30:00",
+    "files_changed": ["README.md", "docs/setup/docker.md"],
+    "expected_category": "docs",
+    "expected_risk_level": "low",
+    "rationale": "README and setup documentation update. Purely informational, no code changes."
+  },
+  {
+    "sha": "e6f7a2b3c4d5",
+    "message": "chore: upgrade pytest from 7.4.0 to 8.1.0",
+    "author_name": "Karen Lee",
+    "committed_at": "2024-06-03T10:00:00",
+    "files_changed": ["pyproject.toml", "requirements-dev.txt"],
+    "expected_category": "chore",
+    "expected_risk_level": "low",
+    "rationale": "Routine dependency version bump for the test framework. Low risk — dev dependency only, does not affect production."
+  },
+  {
+    "sha": "f7a2b3c4d5e6",
+    "message": "chore: rotate expired SSL certificate for staging environment",
+    "author_name": "Liam Nguyen",
+    "committed_at": "2024-06-15T08:45:00",
+    "files_changed": ["infra/certs/staging.pem", "infra/nginx/staging.conf"],
+    "expected_category": "chore",
+    "expected_risk_level": "medium",
+    "rationale": "Certificate rotation is maintenance work (chore) but carries medium risk because misconfiguration could take staging offline and affect pre-production testing."
+  },
+  {
+    "sha": "a3b4c5d6e7f8",
+    "message": "perf: cache user permissions lookup with Redis TTL of 5 minutes",
+    "author_name": "Mia Johansson",
+    "committed_at": "2024-07-08T13:20:00",
+    "files_changed": ["src/auth/permissions.py", "src/cache/redis_client.py"],
+    "expected_category": "performance",
+    "expected_risk_level": "medium",
+    "rationale": "Caching optimization to reduce DB load on hot permission checks. Medium risk because stale cache could briefly serve outdated permissions after a role change."
+  },
+  {
+    "sha": "b4c5d6e7f8a3",
+    "message": "perf(search): replace linear scan with inverted index for product search",
+    "author_name": "Nathan Brown",
+    "committed_at": "2024-07-20T16:00:00",
+    "files_changed": [
+      "src/search/engine.py",
+      "src/search/index.py",
+      "src/search/indexer.py"
+    ],
+    "expected_category": "performance",
+    "expected_risk_level": "high",
+    "rationale": "Replaces core search algorithm entirely. High risk because the inverted index must be rebuilt, search results order may change, and the new code path is less battle-tested."
+  },
+  {
+    "sha": "c5d6e7f8a3b4",
+    "message": "fix: sanitize HTML in user bio to prevent stored XSS",
+    "author_name": "Olivia Fischer",
+    "committed_at": "2024-08-05T09:45:00",
+    "files_changed": ["src/users/sanitizer.py", "src/api/profile_handler.py"],
+    "expected_category": "security",
+    "expected_risk_level": "high",
+    "rationale": "Fixes a stored XSS vulnerability — maps to the security category. High risk because unsanitized input was reaching the DOM and the fix must not strip legitimate content."
+  },
+  {
+    "sha": "d6e7f8a3b4c5",
+    "message": "build: add Dockerfile and docker-compose for local development",
+    "author_name": "Pedro Alves",
+    "committed_at": "2024-09-02T11:30:00",
+    "files_changed": ["Dockerfile", "docker-compose.yml", ".dockerignore"],
+    "expected_category": "build",
+    "expected_risk_level": "low",
+    "rationale": "Adds containerization tooling for the dev environment. Build category — affects toolchain, not application behavior. Low risk."
+  },
+  {
+    "sha": "e7f8a3b4c5d6",
+    "message": "revert: undo premature feature flag removal for dark mode",
+    "author_name": "Quinn Zhang",
+    "committed_at": "2024-09-15T14:00:00",
+    "files_changed": ["src/ui/theme.ts", "src/config/feature_flags.ts"],
+    "expected_category": "refactor",
+    "expected_risk_level": "low",
+    "rationale": "Borderline case: the word 'revert' appears but there is no formal revert category in the domain — the actual change is restoring removed code paths, which maps to refactor. Low risk because it restores a previously working state."
+  },
+  {
+    "sha": "f8a3b4c5d6e7",
+    "message": "feat: support bulk CSV import for product catalog",
+    "author_name": "Sofia Rossi",
+    "committed_at": "2024-10-01T10:30:00",
+    "files_changed": [
+      "src/catalog/importer.py",
+      "src/catalog/csv_parser.py",
+      "src/api/import_handler.py",
+      "tests/test_importer.py"
+    ],
+    "expected_category": "feature",
+    "expected_risk_level": "medium",
+    "rationale": "New end-to-end capability for bulk import. The test file ships with the feature. Medium risk because CSV parsing is error-prone and the new endpoint is a new attack surface."
+  },
+  {
+    "sha": "a4b5c6d7e8f9",
+    "message": "refactor: split monolithic OrderService into OrderCreator and OrderFulfiller",
+    "author_name": "Thomas Muller",
+    "committed_at": "2024-10-18T13:00:00",
+    "files_changed": [
+      "src/orders/creator.py",
+      "src/orders/fulfiller.py",
+      "src/orders/order_service.py",
+      "src/api/order_handler.py"
+    ],
+    "expected_category": "refactor",
+    "expected_risk_level": "medium",
+    "rationale": "Splits a large service class — structural refactor. Medium risk because touching core order logic across multiple files could introduce subtle behavioral regressions."
+  },
+  {
+    "sha": "b5c6d7e8f9a4",
+    "message": "fix: correct off-by-one error in pagination cursor calculation",
+    "author_name": "Uma Patel",
+    "committed_at": "2024-11-05T09:00:00",
+    "files_changed": ["src/api/pagination.py", "tests/test_pagination.py"],
+    "expected_category": "bugfix",
+    "expected_risk_level": "low",
+    "rationale": "Off-by-one bug in cursor computation. Low risk because the fix is isolated to the pagination utility and the test file is included in the same commit."
+  }
+]
