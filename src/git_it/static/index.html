@@ -11,7 +11,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0f1117; --surface: #1a1d27; --border: #2d3148;
-      --accent: #6366f1; --text: #e2e8f0; --muted: #94a3b8;
+      --accent: #6366f1; --text: #eef2f7; --muted: #9ca3af;
       --green: #22c55e; --yellow: #eab308; --red: #ef4444;
       --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
     }
@@ -23,7 +23,7 @@
     }
     [data-theme="light"] #global-tip { background: #1e293b; color: #f1f5f9; border-color: #334155; }
     [data-theme="light"] .repo-item .repo-meta { color: #64748b; }
-    body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s, color 0.2s; }
+    body { font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s, color 0.2s; }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
     /* ── Header ── */
@@ -36,7 +36,7 @@
     .hdr-sep { color: var(--border); }
     #hdr-repo-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
     .hdr-meta { font-size: 11px; color: var(--muted); display: flex; gap: 0.5rem; flex-shrink: 0; }
-    .hdr-badge { background: var(--border); color: var(--text); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 600; font-size: 10px; }
+    .hdr-badge { background: var(--border); color: var(--text); padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 11px; }
     .hdr-status { background: #052e16; color: var(--green); padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; }
     .hdr-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
     .hdr-btn:hover { background: var(--border); color: var(--text); }
@@ -50,15 +50,16 @@
     #home-view { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
     .home-inner { padding: 2rem 1.5rem; max-width: 1100px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 2rem; }
     /* ── Hero ── */
-    .home-hero { text-align: center; padding: 1.5rem 0 0.5rem; }
-    .home-hero h1 { font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.4rem; }
-    .home-hero p { font-size: 14px; color: var(--muted); max-width: 480px; margin: 0 auto; line-height: 1.6; }
+    .home-hero { text-align: center; padding: 2.5rem 0 1rem; position: relative; }
+    .home-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.13) 0%, transparent 70%); pointer-events: none; z-index: 0; border-radius: 16px; }
+    .home-hero h1 { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.65rem; position: relative; background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .home-hero p { font-size: 1.05rem; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.6; position: relative; }
     /* ── Ingest card ── */
     .add-repo-wrap { display: flex; justify-content: center; }
     .add-repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 2rem; max-width: 600px; width: 100%; }
     .add-repo-card h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.9rem; }
     .add-repo-row { display: flex; gap: 0.5rem; }
-    .add-repo-input { flex: 1; padding: 0.65rem 1rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.15s; min-width: 0; }
+    .add-repo-input { flex: 1; padding: 0.75rem 1rem; border: 1.5px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 15px; font-family: inherit; transition: border-color 0.15s; min-width: 0; }
     .add-repo-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
     .add-repo-btn { padding: 0.65rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.4rem; }
     .add-repo-btn:hover:not([aria-busy="true"]) { background: #4f46e5; }
@@ -73,8 +74,8 @@
     .sr-item:hover { background: var(--border); }
     .repo-cards-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
     .repo-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-    .repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; position: relative; display: flex; flex-direction: column; gap: 0.4rem; }
-    .repo-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.15); }
+    .repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; position: relative; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .repo-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.2); }
     .repo-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
     .rc-accent { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--accent); border-radius: 10px 10px 0 0; }
     .rc-name { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 0.2rem; }
@@ -111,7 +112,7 @@
 
     /* ── View nav ── */
     .view-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); flex-shrink: 0; }
-    .view-nav-btn { padding: 0.45rem 1.1rem; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
+    .view-nav-btn { padding: 0.45rem 1.1rem; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
     .view-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
     .view-nav-btn:hover:not(.active) { color: var(--text); }
 
@@ -146,7 +147,7 @@
     /* ── Deep Analysis panel ── */
     #panel-detail { flex-direction: column; gap: 1rem; }
     .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); flex-shrink: 0; }
-    .tab-btn { padding: 0.55rem 1.2rem; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
+    .tab-btn { padding: 0.55rem 1.2rem; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
     .tab-btn[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
     .tab-btn:hover:not([aria-selected="true"]) { color: var(--text); }
     .tab-panel { display: none; }
@@ -159,7 +160,7 @@
 
     /* ── Stat cards ── */
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
     .stat-card .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.35rem; }
     .stat-card .stat-value { font-size: 2.5rem; font-weight: 800; color: var(--accent); line-height: 1; }
     .stat-card .stat-sub { font-size: 11px; color: var(--muted); margin-top: 0.25rem; }
@@ -178,7 +179,7 @@
 
     /* ── Charts ── */
     .charts-row { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem; }
-    .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
     .chart-box h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.75rem; }
     .chart-container { position: relative; }
     .chart-legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 11px; color: var(--muted); }
@@ -223,8 +224,8 @@
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
     thead tr { background: var(--bg); }
-    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); font-size: 14px; }
     tr:hover td { background: var(--border); }
     tr:last-child td { border-bottom: none; }
 
@@ -316,6 +317,12 @@
     .analyze-btn { font-size: 10px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.1rem 0.4rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
     .analyze-btn:hover { background: var(--accent); color: #fff; }
 
+    /* ── Fix 3: Status label classes ── */
+    .status-full { color: var(--green) !important; font-weight: 700 !important; border-color: var(--green) !important; }
+    .status-done { color: var(--muted) !important; }
+    .status-ingesting { color: var(--yellow) !important; border-color: var(--yellow) !important; }
+    .status-failed { color: var(--red) !important; border-color: var(--red) !important; }
+
     /* ── Light mode chart label fix ── */
     [data-theme="light"] .chart-box h3 { color: #475569; }
 
@@ -335,6 +342,11 @@
     .brc-range { font-size:11px; color:var(--muted); margin-bottom:0.3rem; }
     .brc-msgs { margin:0.25rem 0 0 1rem; padding:0; font-size:11px; color:var(--muted); }
     .brc-msgs li { margin-bottom:0.15rem; }
+
+    /* ── Fix 5: Key Architectural Pattern card ── */
+    .cs-arch-pattern-card { border-left: 4px solid var(--accent) !important; background: rgba(99,102,241,0.08) !important; }
+    .cs-arch-pattern-card .cs-subcard-hdr { background: rgba(99,102,241,0.06) !important; }
+    .cs-arch-pattern-card .cs-subcard-title { font-size: 1.0rem !important; font-weight: 700 !important; color: var(--accent) !important; }
 
     /* ── cs-subcard chevron rotation ── */
     .cs-subcard.open .cs-subcard-chevron { transform:rotate(90deg); }
@@ -461,10 +473,12 @@
       <!-- ── Timeline panel ── -->
       <div id="panel-timeline" role="tabpanel" aria-labelledby="view-btn-timeline" tabindex="0">
         <div class="filter-bar" style="margin-bottom:0.5rem">
-          <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load">
+          <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load" onchange="_applyTimelineFilters()">
             <option value="200" selected>All analyzed</option>
           </select>
           <input type="text" id="tl-search" placeholder="Filter timeline…" aria-label="Filter timeline by keyword, author, or SHA" onkeydown="if(event.key==='Enter')_applyTimelineFilters()">
+          <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+          <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
           <button class="hdr-btn" id="tl-apply-btn" onclick="_applyTimelineFilters()" style="font-size:11px;padding:0.25rem 0.6rem">Apply</button>
         </div>
         <div id="timeline-content"></div>
@@ -476,14 +490,12 @@
           <div class="tabs" role="tablist" aria-label="Repository views">
             <button class="tab-btn" data-tab="overview"      role="tab" aria-selected="true"  aria-controls="tab-overview"      id="tbtn-overview">Overview</button>
             <button class="tab-btn" data-tab="case-study"   role="tab" aria-selected="false" aria-controls="tab-case-study"   id="tbtn-case-study">Case Study</button>
-            <button class="tab-btn" data-tab="patterns"     role="tab" aria-selected="false" aria-controls="tab-patterns"     id="tbtn-patterns">Patterns</button>
             <button class="tab-btn" data-tab="commits"      role="tab" aria-selected="false" aria-controls="tab-commits"      id="tbtn-commits">Commits</button>
             <button class="tab-btn" data-tab="contributors" role="tab" aria-selected="false" aria-controls="tab-contributors" id="tbtn-contributors">Contributors</button>
           </div>
 
           <div class="tab-panel active" id="tab-overview"   role="tabpanel" aria-labelledby="tbtn-overview"   tabindex="0"><div id="overview-content"></div></div>
           <div class="tab-panel"        id="tab-case-study" role="tabpanel" aria-labelledby="tbtn-case-study" tabindex="0"><div id="case-study-content"></div></div>
-          <div class="tab-panel"        id="tab-patterns"   role="tabpanel" aria-labelledby="tbtn-patterns"   tabindex="0"><div id="patterns-content"></div></div>
           <div class="tab-panel"        id="tab-commits"    role="tabpanel" aria-labelledby="tbtn-commits"    tabindex="0">
             <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.25rem;margin-bottom:0.25rem;border-bottom:1px solid var(--border)">
               <button class="hdr-btn" onclick="switchTab('overview')" aria-label="Go back to Overview">← Overview</button>
@@ -630,6 +642,7 @@ let _evidenceShaFilter = null;
 let patternsData = null;
 let detailLoaded = false;
 let _ingestPoll = null;
+let _analyzePrefetch = null;
 
 /* =========================================================
    Chart registry
@@ -678,6 +691,17 @@ function riskTipKey(level) {
   if (l === 'high') return 'riskHigh';
   if (l === 'medium') return 'riskMedium';
   return 'riskLow';
+}
+
+// Fix 3: Smart status label helper
+function _repoStatusLabel(repo) {
+  if (repo.status === 'COMPLETED' && repo.analysis_count > 0 && repo.analysis_count >= repo.commit_count) {
+    return { label: 'FULLY ANALYZED', cls: 'status-full' };
+  }
+  if (repo.status === 'COMPLETED') return { label: 'INGESTED', cls: 'status-done' };
+  if (repo.status === 'INGESTING') return { label: 'INGESTING', cls: 'status-ingesting' };
+  if (repo.status === 'FAILED') return { label: 'FAILED', cls: 'status-failed' };
+  return { label: repo.status || '', cls: '' };
 }
 
 /* =========================================================
@@ -801,7 +825,7 @@ function _buildRepoCard(repo, patterns) {
   if (hotCount > 0)
     signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
 
-  const statusCls = (repo.status || '').toLowerCase() === 'completed' ? 'completed' : 'ingesting';
+  const { label: statusLabel, cls: statusCls } = _repoStatusLabel(repo);
   const ghUrl = repo.canonical_url && repo.canonical_url.includes('github.com') ? repo.canonical_url : null;
   card.innerHTML = `
     <div class="rc-accent" aria-hidden="true"></div>
@@ -814,7 +838,7 @@ function _buildRepoCard(repo, patterns) {
     </div>
     <div class="rc-patterns">${signals.join('')}</div>
     <div class="rc-footer">
-      <span class="rc-status ${statusCls}" aria-label="Status: ${esc(repo.status)}">${esc(repo.status)}</span>
+      <span class="rc-status ${statusCls}" aria-label="Status: ${esc(statusLabel)}">${esc(statusLabel)}</span>
       <div style="display:flex;align-items:center;gap:0.5rem">
         ${ghUrl ? `<a href="${esc(ghUrl)}" target="_blank" rel="noopener" class="rc-gh-link" aria-label="View ${esc(short)} on GitHub" title="View on GitHub" onclick="event.stopPropagation()">${_GH_ICON_SVG}</a>` : ''}
         <button class="rc-open-btn" tabindex="-1" aria-hidden="true">Open timeline →</button>
@@ -959,6 +983,7 @@ function selectRepo(repoId) {
   allCommits = [];
   patternsData = null;
   detailLoaded = false;
+  _analyzePrefetch = null;
   currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || null;
 
   document.querySelectorAll('.repo-item').forEach(el =>
@@ -975,7 +1000,10 @@ function selectRepo(repoId) {
     document.getElementById('hdr-gh-link').href = currentRepoMeta.canonical_url;
     document.getElementById('hdr-gh-text').textContent = repoShortName(currentRepoMeta.canonical_url);
     document.getElementById('sh-commits').textContent = currentRepoMeta.commit_count + ' commits';
-    document.getElementById('sh-status').textContent = currentRepoMeta.status;
+    const { label: shStatusLabel, cls: shStatusCls } = _repoStatusLabel(currentRepoMeta);
+    const shStatusEl = document.getElementById('sh-status');
+    shStatusEl.textContent = shStatusLabel;
+    shStatusEl.className = 'hdr-status ' + shStatusCls;
     const analyzed = document.getElementById('sh-analyzed');
     analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
     _loadAnalyzeEstimate(currentRepo, currentRepoMeta);
@@ -983,13 +1011,14 @@ function selectRepo(repoId) {
 
 async function _loadAnalyzeEstimate(repoId, meta) {
   try {
-    const est = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=20`);
+    const est = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=9999`);
+    _analyzePrefetch = est;
     const unanalyzed = est.unanalyzed_commits;
     const btn = document.getElementById('sh-analyze-btn');
     if (unanalyzed > 0 && btn) {
-      const cost = est.estimated_cost_usd > 0 ? ` (~$${est.estimated_cost_usd.toFixed(4)})` : '';
-      btn.title = `${unanalyzed} of ${est.total_commits} commits not yet analyzed. Clicking will analyze up to 20 more. Estimated cost: ${est.estimated_llm_calls} LLM calls${cost}`;
-      btn.setAttribute('data-tip-override', `${unanalyzed} unanalyzed commits. Click to analyze 20 more${cost}.`);
+      const cost = est.estimated_cost_usd > 0 ? ` (~$${est.estimated_cost_usd.toFixed(4)} total)` : '';
+      btn.title = `${unanalyzed} of ${est.total_commits} commits not yet analyzed${cost}`;
+      btn.setAttribute('data-tip-override', `${unanalyzed} unanalyzed commits. Click to analyze${cost}.`);
     }
   } catch { /* non-critical */ }
 }
@@ -1033,14 +1062,22 @@ let _tlPatterns = null;
 async function _applyTimelineFilters() {
   if (!currentRepo) return;
   const limit = document.getElementById('tl-limit-select')?.value || '200';
+  const limitN = parseInt(limit);
   const keyword = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
-  let commits = _tlAllCommits;
-  if (parseInt(limit) < _tlAllCommits.length && parseInt(limit) < 1000) {
+  const fromDate = document.getElementById('tl-date-from')?.value;
+  const toDate = document.getElementById('tl-date-to')?.value;
+  // Fix 2: Re-fetch if requesting more commits than cached, otherwise always slice to limit
+  if (limitN > _tlAllCommits.length && limitN < 1000) {
     await loadTimeline(currentRepo);
     return;
   }
+  // Always apply the limit — fixes going from large → small limit
+  let commits = _tlAllCommits.slice(0, limitN);
+  // Fix 4: Apply date range filter
+  if (fromDate) commits = commits.filter(c => (c.committed_at || '') >= fromDate);
+  if (toDate) commits = commits.filter(c => (c.committed_at || '') <= toDate + 'T23:59:59');
   if (keyword) {
-    commits = _tlAllCommits.filter(c =>
+    commits = commits.filter(c =>
       (c.message||'').toLowerCase().includes(keyword) ||
       (c.author_name||'').toLowerCase().includes(keyword) ||
       (c.sha||'').toLowerCase().startsWith(keyword) ||
@@ -1427,10 +1464,13 @@ function _renderSectionCards(content) {
 
   return cards.map((card, i) => {
     const cleanTitle = card.title.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
-    const icon = _iconForHeading(cleanTitle);
+    // Fix 5: Detect architectural pattern section for special styling
+    const isArchPattern = /architect|key pattern|design pattern|structural pattern/i.test(cleanTitle);
+    const icon = isArchPattern ? '🏛' : _iconForHeading(cleanTitle);
     const body = card.lines.join('\n').trim();
     const html = typeof marked !== 'undefined' ? marked.parse(body) : '<pre>' + esc(body) + '</pre>';
-    return `<div class="cs-subcard" id="csc-${i}">
+    const extraCls = isArchPattern ? ' cs-arch-pattern-card open' : '';
+    return `<div class="cs-subcard${extraCls}" id="csc-${i}">
       <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
         <span class="cs-subcard-icon" aria-hidden="true">${icon}</span>
@@ -1440,8 +1480,8 @@ function _renderSectionCards(content) {
       <div class="cs-subcard-body">
         <div class="markdown-body">${html}</div>
         <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border)">
-          <button class="analyze-btn" style="font-size:11px" data-kw="${esc(cleanTitle)}" onclick="event.stopPropagation();_searchCommitsByKeyword(this.dataset.kw)">
-            🔍 Commits mentioning "${esc(cleanTitle.slice(0,30))}"
+          <button class="analyze-btn" style="font-size:11px" data-kw="${esc(cleanTitle)}" data-body="${esc(body)}" onclick="event.stopPropagation();_searchCommitsBySectionBody(this.dataset.body,this.dataset.kw)">
+            🔍 Find related commits
           </button>
         </div>
       </div>
@@ -1632,6 +1672,16 @@ function _csSwitchTab(idx) {
   document.querySelectorAll('.cs-section').forEach((s, i) => s.classList.toggle('active', i === idx));
 }
 
+// Fix 6: Linkify commit SHAs in case study HTML
+function _linkifyCommitShas(html, canonicalUrl) {
+  if (!canonicalUrl || !canonicalUrl.includes('github.com')) return html;
+  // Match 7-40 char hex strings not already inside an href attribute
+  return html.replace(/(?<!href=["'][^"']{0,200})\b([0-9a-f]{7,40})\b/gi, (match, sha) => {
+    const ghUrl = `${canonicalUrl}/commit/${sha}`;
+    return `<a href="${ghUrl}" target="_blank" rel="noopener" title="View commit ${sha} on GitHub" style="font-family:monospace;color:var(--accent);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${sha}</a>`;
+  });
+}
+
 async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
@@ -1671,6 +1721,9 @@ async function loadCaseStudy(repoId) {
     tabPanels = `<div class="cs-section active"><div class="markdown-body">${html}</div></div>`;
   }
 
+  // Fix 6: Linkify commit SHAs in the rendered panels
+  const linkedTabPanels = _linkifyCommitShas(tabPanels, canonicalUrl);
+
   el.innerHTML = `
     <div class="case-study-header">
       <div class="case-study-title">${esc(repoShortName(canonicalUrl))}</div>
@@ -1678,19 +1731,22 @@ async function loadCaseStudy(repoId) {
       ${chips}
     </div>
     ${sections.length > 0 ? `<div class="cs-tabs" role="tablist" aria-label="Case study sections">${tabBtns}</div>` : ''}
-    ${tabPanels}`;
+    ${linkedTabPanels}`;
 }
 
 /* =========================================================
    Patterns
    ========================================================= */
 async function loadPatterns(repoId) {
+  // Fix 9: Patterns tab removed from Deep Analysis UI; this function still loads
+  // patternsData for _rebuildPatternsChart used by the Overview tab.
   const el = document.getElementById('patterns-content');
-  el.innerHTML = spinner();
   let data;
   try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`); }
-  catch { el.innerHTML = '<div class="empty-state">No pattern report available yet.</div>'; return; }
+  catch { return; }
   patternsData = data;
+  if (!el) { _rebuildPatternsChart(); return; } // tab removed, just update chart data
+  el.innerHTML = spinner();
   let html = '';
 
   const confHotspots = (data.hotspots || []).filter(h => (h.confidence || 0) >= 0.7);
@@ -1876,7 +1932,9 @@ function _searchCommitsByFile(filePath) {
 
 function _searchCommitsByKeyword(keyword) {
   if (!currentRepo) return;
-  // Pick the longest meaningful word from the title (most specific)
+  // Fix 7: Extract SHAs from section text if available (data-kw might be the title,
+  // but the button may also carry data-body with the actual section text)
+  // Pick the longest meaningful technical word from the title (most specific)
   const stop = new Set(['through','about','those','these','their','there','where','which','would','could','should','after','before','since','until','while','other','first','second','third','using','being','having','making','during','within','after','before','between']);
   const words = keyword.split(/[\s,\/\-:]+/).filter(w => w.length > 4 && !stop.has(w.toLowerCase()));
   const kw = (words.sort((a,b) => b.length - a.length)[0] || keyword.split(/\s+/)[0]).replace(/[^\w]/g, '').toLowerCase();
@@ -1887,6 +1945,36 @@ function _searchCommitsByKeyword(keyword) {
     if (!input) return;
     input.value = kw;
     _applyCommitFilter(`Component: ${kw}`);
+  }, 200);
+}
+
+// Fix 7: Search by SHAs extracted from section body text
+function _searchCommitsBySectionBody(bodyText, label) {
+  if (!currentRepo) return;
+  // Extract 7-40 char hex strings from the body text
+  const shaMatches = (bodyText || '').match(/\b[0-9a-f]{7,40}\b/gi) || [];
+  const uniqueShas = [...new Set(shaMatches.map(s => s.toLowerCase()))];
+  if (uniqueShas.length > 0) {
+    // Filter to SHAs that actually exist in loaded commits
+    const matchingShas = allCommits
+      .filter(c => uniqueShas.some(s => (c.sha || '').toLowerCase().startsWith(s)))
+      .map(c => c.sha);
+    if (matchingShas.length > 0) {
+      _filterByEvidenceShas(matchingShas, label);
+      return;
+    }
+  }
+  // Fallback: use keyword search on body text for technical terms
+  const stop = new Set(['through','about','those','these','their','there','where','which','would','could','should','after','before','since','until','while','other','first','second','third','using','being','having','making','during','within']);
+  const bodyWords = (bodyText || '').split(/[\s,\/\-:.\(\)]+/).filter(w => w.length > 4 && /[a-z]/i.test(w) && !stop.has(w.toLowerCase()) && !/^[0-9a-f]{7,}$/i.test(w));
+  const kw = (bodyWords.sort((a,b) => b.length - a.length)[0] || label).replace(/[^\w]/g, '').toLowerCase();
+  switchView('detail');
+  switchTab('commits');
+  setTimeout(() => {
+    const input = document.getElementById('keyword-filter');
+    if (!input) return;
+    input.value = kw;
+    _applyCommitFilter(`Section: ${label}`);
   }, 200);
 }
 
@@ -1948,7 +2036,8 @@ function renderCommitsTable(commits, total) {
     (c.message||'').toLowerCase().includes(keyword) ||
     (c.summary||'').toLowerCase().includes(keyword) ||
     (c.sha||'').toLowerCase().includes(keyword) ||
-    (c.affected_components||[]).some(ac => ac.toLowerCase().includes(keyword))
+    (c.affected_components||[]).some(ac => ac.toLowerCase().includes(keyword)) ||
+    (c.files_changed||[]).some(f => f.toLowerCase().includes(keyword))
   );
   if (filtered.length === 0) {
     el.innerHTML = `<div class="empty-state">
@@ -2041,12 +2130,23 @@ async function _doAnalyze(limit) {
   if (!currentRepo) return;
   _hideAnalyzePicker();
   const btn = document.getElementById('sh-analyze-btn');
-  let est = null;
-  try { est = await apiFetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze/estimate?limit=${limit}`); } catch {}
+
+  // Use pre-fetched estimate (available instantly); fall back to API only if not ready yet
+  let est = _analyzePrefetch;
+  if (!est) {
+    try { est = await apiFetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze/estimate?limit=9999`); _analyzePrefetch = est; } catch {}
+  }
   if (est) {
-    const costMsg = est.estimated_cost_usd > 0 ? ` (~$${est.estimated_cost_usd.toFixed(4)})` : '';
     if (est.unanalyzed_commits === 0) { alert('All commits are already analyzed!'); return; }
-    if (!confirm(`Analyze up to ${limit} commits?\n${est.estimated_llm_calls} LLM call(s) needed${costMsg}.\nThis runs in the background.`)) return;
+    // Scale calls/cost proportionally for the chosen limit
+    const effective = limit >= 9999 ? est.unanalyzed_commits : Math.min(limit, est.unanalyzed_commits);
+    const ratio = est.unanalyzed_commits > 0 ? effective / est.unanalyzed_commits : 0;
+    const scaledCalls = Math.ceil((est.estimated_llm_calls || 0) * ratio);
+    const costPerCall = est.estimated_llm_calls > 0 ? est.estimated_cost_usd / est.estimated_llm_calls : 0.0008;
+    const scaledCost = scaledCalls * costPerCall;
+    const costMsg = scaledCost > 0 ? ` (~$${scaledCost.toFixed(4)})` : '';
+    const label = limit >= 9999 ? 'all remaining' : `up to ${limit}`;
+    if (!confirm(`Analyze ${label} commits?\n${scaledCalls} LLM call(s) needed${costMsg}.\nThis runs in the background.`)) return;
   }
   if (btn) { btn.textContent = 'Running…'; btn.disabled = true; btn.style.color = 'var(--yellow)'; btn.style.display = ''; }
   try {
@@ -2077,6 +2177,15 @@ function _pollAnalyzeStatus(repoId) {
         btn.textContent = '+ Analyze';
         btn.disabled = false;
         btn.style.color = '';
+        // Fix 1: Refresh analyzed count in header after analysis completes
+        try {
+          const updated = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=9999`);
+          _analyzePrefetch = updated;
+          const analyzedEl = document.getElementById('sh-analyzed');
+          if (analyzedEl) analyzedEl.textContent = (updated.analyzed_commits || 0) + ' analyzed';
+        } catch {}
+        // Reload commits tab if it's currently active
+        if (document.getElementById('tab-commits')?.classList.contains('active')) loadCommits(repoId, false);
       }
     } catch {
       clearInterval(intervalId);
@@ -2130,7 +2239,7 @@ async function loadContributors(repoId) {
         <div class="cc-avatar" style="background:${bg}" aria-hidden="true">${esc(initials)}</div>
         <div style="flex:1">
           <div class="cc-name">${esc(c.author_name)}</div>
-          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:10px">${ghLabel}</a>` : ''}</div>
+          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;padding:0.1rem 0.3rem;border:1px solid var(--accent);border-radius:4px;white-space:nowrap">${ghLabel}</a>` : ''}</div>
         </div>
       </div>
       <div class="cc-stats">
@@ -2138,7 +2247,7 @@ async function loadContributors(repoId) {
         <span style="font-size:10px;color:var(--muted)">${dateRange}</span>
       </div>
       ${cats.length ? `<div class="cc-cats">${cats.map(([cat, cnt]) => `<span class="badge ${badgeClass(cat)}" title="${cnt} commits">${esc(cat)}</span>`).join('')}</div>` : ''}
-      ${topFiles.length ? `<div class="cc-files">Top files: ${topFiles.map(f => `<code>${esc(f.split('/').pop())}</code>`).join('')}</div>` : ''}
+      ${topFiles.length ? `<div class="cc-files" style="flex-wrap:wrap;overflow:hidden;max-width:100%">Top files: ${topFiles.map(f => `<code style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">${esc(f.split('/').pop())}</code>`).join('')}</div>` : ''}
     </div>`;
   });
   html += '</div>';
