@@ -49,16 +49,24 @@
     /* ── Home view ── */
     #home-view { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
     .home-inner { padding: 2rem 1.5rem; max-width: 1100px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 2rem; }
+    /* ── Hero ── */
+    .home-hero { text-align: center; padding: 1.5rem 0 0.5rem; }
+    .home-hero h1 { font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.4rem; }
+    .home-hero p { font-size: 14px; color: var(--muted); max-width: 480px; margin: 0 auto; line-height: 1.6; }
+    /* ── Ingest card ── */
     .add-repo-wrap { display: flex; justify-content: center; }
-    .add-repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 2rem; max-width: 560px; width: 100%; }
+    .add-repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 2rem; max-width: 600px; width: 100%; }
     .add-repo-card h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.9rem; }
     .add-repo-row { display: flex; gap: 0.5rem; }
-    .add-repo-input { flex: 1; padding: 0.6rem 0.9rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.15s; }
-    .add-repo-input:focus { outline: none; border-color: var(--accent); }
-    .add-repo-btn { padding: 0.6rem 1.1rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; }
-    .add-repo-btn:hover { background: #4f46e5; }
+    .add-repo-input { flex: 1; padding: 0.65rem 1rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.15s; min-width: 0; }
+    .add-repo-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .add-repo-btn { padding: 0.65rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .add-repo-btn:hover:not([aria-busy="true"]) { background: #4f46e5; }
+    .add-repo-btn[aria-busy="true"] { background: #4f46e5; cursor: wait; opacity: 0.85; }
+    .add-repo-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .add-repo-hint { font-size: 11px; color: var(--muted); margin-top: 0.5rem; }
-    #ingest-status { font-size: 12px; margin-top: 0.6rem; min-height: 1.2em; }
+    #ingest-status { font-size: 12px; margin-top: 0.6rem; min-height: 1.4em; display: flex; align-items: center; gap: 0.4rem; }
+    .ingest-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--yellow); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
     #search-results { margin-top: 0.6rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: none; }
     .sr-item { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--border); transition: background 0.1s; display: flex; align-items: center; justify-content: space-between; }
     .sr-item:last-child { border-bottom: none; }
@@ -80,6 +88,8 @@
     .rc-status.ingesting { color: var(--yellow); }
     .rc-open-btn { font-size: 12px; font-weight: 700; color: var(--accent); background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
     .rc-open-btn:hover { text-decoration: underline; }
+    .rc-gh-link { display: inline-flex; align-items: center; color: var(--muted); transition: color 0.15s; line-height: 1; }
+    .rc-gh-link:hover { color: var(--text); }
 
     /* ── Repo view ── */
     #repo-view { display: none; flex: 1; overflow: hidden; }
@@ -393,28 +403,37 @@
 <div id="home-view">
   <div class="home-inner">
 
+    <div class="home-hero" aria-label="Git It — Repository intelligence">
+      <h1>&#x1F50E; Understand any GitHub repository</h1>
+      <p>Git It analyzes commit history with AI to surface patterns, hotspots, and a narrative case study of how your codebase evolved.</p>
+    </div>
+
     <div class="add-repo-wrap">
       <div class="add-repo-card">
-        <h3>Add Repository</h3>
+        <h3 id="ingest-heading">Analyze a repository</h3>
         <div class="add-repo-row">
           <input id="home-repo-input" class="add-repo-input" type="text"
-            placeholder="owner/repo or full GitHub URL…"
-            aria-label="Repository URL or owner/repo shorthand"
+            placeholder="https://github.com/owner/repo or owner/repo"
+            aria-label="GitHub repository URL"
+            aria-describedby="ingest-hint"
             onkeydown="if(event.key==='Enter') handleAddRepo()">
-          <button class="add-repo-btn" onclick="handleAddRepo()" aria-label="Add repository">+ Add</button>
+          <button id="ingest-btn" class="add-repo-btn" onclick="handleAddRepo()" aria-label="Analyze repository">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Analyze
+          </button>
         </div>
-        <p class="add-repo-hint">Try: <code style="background:var(--border);padding:.1rem .35rem;border-radius:3px;font-family:monospace;font-size:11px">anthropics/anthropic-sdk-python</code> or a full GitHub URL</p>
-        <div id="ingest-status" aria-live="polite"></div>
+        <p class="add-repo-hint" id="ingest-hint">Try: <code style="background:var(--border);padding:.1rem .35rem;border-radius:3px;font-family:monospace;font-size:11px">torvalds/linux</code> or a full GitHub URL</p>
+        <div id="ingest-status" aria-live="polite" role="status"></div>
         <div id="search-results" role="listbox" aria-label="Matching repositories"></div>
       </div>
     </div>
 
     <div>
       <div class="repo-cards-label">
-        <span>Your Repositories</span>
-        <span id="repos-count" style="color:var(--accent);font-weight:800"></span>
+        <span>Previously analyzed</span>
+        <span id="repos-count" style="color:var(--accent);font-weight:800" aria-live="polite"></span>
       </div>
-      <div id="repo-cards-grid" class="repo-cards-grid" aria-live="polite"></div>
+      <div id="repo-cards-grid" class="repo-cards-grid" role="list" aria-label="Analyzed repositories" aria-live="polite"></div>
     </div>
 
   </div>
@@ -425,7 +444,7 @@
   <div class="layout">
     <aside aria-label="Repository list">
       <div class="rv-back-row">
-        <button class="rv-back-btn" onclick="goHome()" aria-label="Back to all repositories">← All repos</button>
+        <button class="rv-back-btn" onclick="goHome()" aria-label="Back to home">← All repos</button>
       </div>
       <h2 id="sidebar-heading">Repositories</h2>
       <div id="sidebar-list" role="list" aria-labelledby="sidebar-heading"></div>
@@ -743,12 +762,12 @@ async function renderRepoCards() {
   const grid = document.getElementById('repo-cards-grid');
   const countEl = document.getElementById('repos-count');
   if (reposCache.length === 0) {
-    grid.innerHTML = '<div class="empty-state">No repositories yet. Add one above to get started.</div>';
+    grid.innerHTML = '<div class="empty-state" role="status" style="grid-column:1/-1">No repositories analyzed yet. Paste a GitHub URL above to get started.</div>';
     countEl.textContent = '';
     return;
   }
   countEl.textContent = reposCache.length;
-  grid.innerHTML = '<div class="loading-spinner" style="padding:2rem;grid-column:1/-1"><div class="spinner"></div></div>';
+  grid.innerHTML = '<div class="loading-spinner" style="padding:2rem;grid-column:1/-1" role="status" aria-label="Loading repositories…"><div class="spinner" aria-hidden="true"></div></div>';
 
   const patternResults = await Promise.allSettled(
     reposCache.map(r => apiFetch(`/api/repos/${encodeURIComponent(r.repository_id)}/patterns`))
@@ -761,13 +780,15 @@ async function renderRepoCards() {
   });
 }
 
+const _GH_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
+
 function _buildRepoCard(repo, patterns) {
   const short = repoShortName(repo.canonical_url);
   const card = document.createElement('div');
   card.className = 'repo-card';
   card.setAttribute('tabindex', '0');
-  card.setAttribute('role', 'button');
-  card.setAttribute('aria-label', `Open ${short}`);
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('aria-label', `${short} — ${repo.commit_count} commits, ${repo.analysis_count} analyzed, status: ${repo.status}`);
 
   const signals = [];
   if (patterns?.refactor_wave)
@@ -781,6 +802,7 @@ function _buildRepoCard(repo, patterns) {
     signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
 
   const statusCls = (repo.status || '').toLowerCase() === 'completed' ? 'completed' : 'ingesting';
+  const ghUrl = repo.canonical_url && repo.canonical_url.includes('github.com') ? repo.canonical_url : null;
   card.innerHTML = `
     <div class="rc-accent" aria-hidden="true"></div>
     <div class="rc-name">${esc(short)}</div>
@@ -792,8 +814,11 @@ function _buildRepoCard(repo, patterns) {
     </div>
     <div class="rc-patterns">${signals.join('')}</div>
     <div class="rc-footer">
-      <span class="rc-status ${statusCls}">${esc(repo.status)}</span>
-      <button class="rc-open-btn" tabindex="-1" aria-hidden="true">Open timeline →</button>
+      <span class="rc-status ${statusCls}" aria-label="Status: ${esc(repo.status)}">${esc(repo.status)}</span>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        ${ghUrl ? `<a href="${esc(ghUrl)}" target="_blank" rel="noopener" class="rc-gh-link" aria-label="View ${esc(short)} on GitHub" title="View on GitHub" onclick="event.stopPropagation()">${_GH_ICON_SVG}</a>` : ''}
+        <button class="rc-open-btn" tabindex="-1" aria-hidden="true">Open timeline →</button>
+      </div>
     </div>`;
 
   const open = () => selectRepo(repo.repository_id);
@@ -841,6 +866,7 @@ function handleAddRepo() {
         statusEl.style.color = 'var(--muted)';
         return;
       } else {
+        statusEl.innerHTML = '';
         statusEl.textContent = 'Not found locally. Try the full GitHub URL or "owner/repo" format.';
         statusEl.style.color = 'var(--red)';
         return;
@@ -852,7 +878,10 @@ function handleAddRepo() {
 
 async function startIngest(url) {
   const statusEl = document.getElementById('ingest-status');
-  statusEl.textContent = 'Starting ingestion…';
+  const btn = document.getElementById('ingest-btn');
+  // Set loading state
+  if (btn) { btn.setAttribute('aria-busy', 'true'); btn.disabled = true; }
+  statusEl.innerHTML = '<span class="ingest-spinner" aria-hidden="true"></span><span>Starting ingestion…</span>';
   statusEl.style.color = 'var(--yellow)';
   try {
     const res = await fetch('/api/repos/ingest', {
@@ -863,17 +892,21 @@ async function startIngest(url) {
     if (!res.ok) {
       let msg = 'Invalid repository URL.';
       try { const e = await res.json(); msg = e.detail || msg; } catch {}
+      statusEl.innerHTML = '';
       statusEl.textContent = msg;
       statusEl.style.color = 'var(--red)';
+      if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
       return;
     }
     const data = await res.json();
-    statusEl.textContent = `Ingesting ${data.canonical_url} — this may take a few minutes…`;
+    statusEl.innerHTML = `<span class="ingest-spinner" aria-hidden="true"></span><span>Ingesting ${esc(data.canonical_url)} — this may take a few minutes…</span>`;
     statusEl.style.color = 'var(--yellow)';
     _pollForRepo(data.canonical_url);
   } catch {
+    statusEl.innerHTML = '';
     statusEl.textContent = 'Failed to connect to server.';
     statusEl.style.color = 'var(--red)';
+    if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
   }
 }
 
@@ -889,12 +922,19 @@ function _pollForRepo(canonicalUrl) {
         reposCache = data.repos;
         await loadRepos();
         const statusEl = document.getElementById('ingest-status');
+        const btn = document.getElementById('ingest-btn');
+        statusEl.innerHTML = '';
         statusEl.textContent = `✓ ${repoShortName(canonicalUrl)} ingested!`;
         statusEl.style.color = 'var(--green)';
+        if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
         renderRepoCards();
         setTimeout(() => selectRepo(found.repository_id), 1500);
       }
-    } catch { clearInterval(_ingestPoll); _ingestPoll = null; }
+    } catch {
+      clearInterval(_ingestPoll); _ingestPoll = null;
+      const btn = document.getElementById('ingest-btn');
+      if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
+    }
   }, 3000);
 }
 
