@@ -336,6 +336,7 @@ function _buildRepoCard(repo, patterns) {
       <span class="rc-status ${statusCls}" aria-label="Status: ${esc(statusLabel)}">${esc(statusLabel)}</span>
       <div style="display:flex;align-items:center;gap:0.5rem">
         ${ghUrl ? `<a href="${esc(ghUrl)}" target="_blank" rel="noopener" class="rc-gh-link" aria-label="View ${esc(short)} on GitHub" title="View on GitHub" onclick="event.stopPropagation()">${_GH_ICON_SVG}</a>` : ''}
+        <button class="rc-delete-btn" aria-label="Delete ${esc(short)}" title="Delete repository" onclick="event.stopPropagation(); deleteRepo('${esc(repo.repository_id)}', '${esc(repo.canonical_url)}', this.closest('.repo-card'))">&#x1F5D1;</button>
         <button class="rc-open-btn" tabindex="-1" aria-hidden="true">Open timeline →</button>
       </div>
     </div>`;
@@ -468,6 +469,8 @@ function goHome() {
   document.getElementById('home-view').style.display = '';
   document.getElementById('hdr-repo-info').style.display = 'none';
   document.getElementById('btn-tips').style.display = 'none';
+  const delBtn = document.getElementById('sh-delete-btn');
+  if (delBtn) delBtn.style.display = 'none';
   document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
   renderRepoCards();
 }
@@ -505,6 +508,8 @@ function selectRepo(repoId) {
     const analyzed = document.getElementById('sh-analyzed');
     analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
     _loadAnalyzeEstimate(currentRepo, currentRepoMeta);
+    const delBtn = document.getElementById('sh-delete-btn');
+    if (delBtn) delBtn.style.display = '';
   }
 
 async function _loadAnalyzeEstimate(repoId, meta) {
@@ -1793,6 +1798,54 @@ async function loadContributors(repoId) {
   });
   html += '</div>';
   el.innerHTML = html;
+}
+
+/* =========================================================
+   Delete repository
+   ========================================================= */
+
+/**
+ * Delete a repository by ID after user confirmation.
+ * @param {string} repoId  - repository_id (e.g. "repo-abc123")
+ * @param {string} repoUrl - canonical URL shown in the confirmation dialog
+ * @param {HTMLElement|null} cardEl - card element to remove on success (null = detail page)
+ */
+async function deleteRepo(repoId, repoUrl, cardEl) {
+  const label = repoUrl ? repoShortName(repoUrl) : repoId;
+  if (!confirm(`Delete "${label}"?\n\nThis permanently removes all commits, analyses, and the case study. There is no undo.`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/repos/${encodeURIComponent(repoId)}`, { method: 'DELETE' });
+    if (res.ok) {
+      // Remove from local cache
+      reposCache = reposCache.filter(r => r.repository_id !== repoId);
+      if (cardEl) {
+        // Home page: remove card from DOM without reloading
+        cardEl.remove();
+        const countEl = document.getElementById('repos-count');
+        if (countEl) countEl.textContent = reposCache.length || '';
+        if (reposCache.length === 0) renderRepoCards();
+      } else {
+        // Repo detail page: go back to home
+        goHome();
+      }
+    } else if (res.status === 409) {
+      alert('Cannot delete: an operation is in progress for this repository. Please wait and try again.');
+    } else {
+      const body = await res.json().catch(() => ({}));
+      alert(`Delete failed: ${body.detail || `HTTP ${res.status}`}`);
+    }
+  } catch (err) {
+    alert('Delete failed: could not reach the server.');
+  }
+}
+
+/** Called from the Delete button in the repo detail header. */
+function _confirmDeleteCurrentRepo() {
+  if (!currentRepo) return;
+  const url = currentRepoMeta?.canonical_url || '';
+  deleteRepo(currentRepo, url, null);
 }
 
 /* =========================================================

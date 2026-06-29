@@ -207,3 +207,8 @@ class ContributorsResponse(BaseModel):
     repository_id: str
     contributors: list[ContributorItem]
     total: int
+
+
+class DeleteRepoResponse(BaseModel):
+    deleted: bool
+    repository_id: str

@@ -23,6 +23,7 @@
         <span id="sh-status" class="hdr-status" tabindex="0" data-tip="shStatus"></span>
         <span id="sh-analyzed" class="hdr-badge" tabindex="0" data-tip="shAnalyzed"></span>
         <button id="sh-analyze-btn" class="analyze-btn" onclick="_showAnalyzePicker()" aria-label="Analyze more commits" title="Analyze more commits">+ Analyze</button>
+        <button id="sh-delete-btn" class="delete-btn" onclick="_confirmDeleteCurrentRepo()" aria-label="Delete this repository" title="Delete this repository" style="display:none">&#x1F5D1; Delete</button>
         <div id="sh-analyze-picker" style="display:none;align-items:center;gap:0.3rem;background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:0.2rem 0.4rem">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap">How many commits?</span>
           <button class="analyze-btn" style="font-size:10px;padding:0.1rem 0.4rem" onclick="_doAnalyze(10)">10</button>

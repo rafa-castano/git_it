@@ -1003,6 +1003,32 @@ class SqliteSynopsisStore:
         return str(row[0]) if row else None
 
 
+class SqliteRepositoryDeleter:
+    """Hard-deletes all data for a repository from every table that holds its data.
+
+    Deletes child tables first, then the parent ``ingestion_runs`` table, to respect
+    logical dependency order (SQLite does not enforce FK constraints by default, but
+    the order makes the intent explicit and safe for any future FK enforcement).
+    """
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def delete_repository(self, repository_id: str) -> None:
+        with sqlite3.connect(self._database_path) as conn:
+            # Child tables first
+            conn.execute("DELETE FROM github_context WHERE repository_id = ?", (repository_id,))
+            conn.execute("DELETE FROM file_facts WHERE repository_id = ?", (repository_id,))
+            conn.execute("DELETE FROM commit_analyses WHERE repository_id = ?", (repository_id,))
+            conn.execute("DELETE FROM commit_facts WHERE repository_id = ?", (repository_id,))
+            conn.execute("DELETE FROM case_studies WHERE repository_id = ?", (repository_id,))
+            conn.execute(
+                "DELETE FROM repository_synopsis WHERE repository_id = ?", (repository_id,)
+            )
+            # Parent table last
+            conn.execute("DELETE FROM ingestion_runs WHERE repository_id = ?", (repository_id,))
+
+
 def _bool_to_sqlite(value: bool | None) -> int | None:
     if value is None:
         return None

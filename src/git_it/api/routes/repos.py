@@ -23,6 +23,7 @@ from git_it.api.schemas import (
     CommitSummaryItem,
     ContributorItem,
     ContributorsResponse,
+    DeleteRepoResponse,
     IngestRequest,
     IngestResponse,
     PatternReportResponse,
@@ -48,6 +49,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitWithAnalysisReader,
     SqliteContributorReader,
     SqliteIngestionRunStore,
+    SqliteRepositoryDeleter,
     SqliteRepositoryListReader,
 )
 from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
@@ -478,3 +480,50 @@ def get_contributors(repository_id: str, project_root: ProjectRoot) -> Contribut
         contributors=contributors,
         total=len(contributors),
     )
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/repos/{repository_id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{repository_id}", response_model=DeleteRepoResponse)
+@limiter.limit("10/minute")
+def delete_repo(
+    request: Request,
+    repository_id: str,
+    project_root: ProjectRoot,
+    _: None = Depends(require_api_key),
+) -> DeleteRepoResponse:
+    db_path = _get_db_path(project_root)
+    if not db_path.exists():
+        raise HTTPException(status_code=404, detail="Repository not found.")
+
+    # Verify the repository exists
+    store = SqliteIngestionRunStore(db_path)
+    runs = store.list_ingestion_runs_for_repository(repository_id)
+    if not runs:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+
+    # Block deletion while an analysis is in progress
+    with _analyze_progress_lock:
+        analyze_state = _analyze_progress.get(repository_id)
+    if analyze_state and analyze_state.get("running"):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete repository while an operation is in progress.",
+        )
+
+    # Block deletion while a case-study regeneration is in progress
+    with _regen_progress_lock:
+        regen_state = _regen_progress.get(repository_id)
+    if regen_state and regen_state.get("running"):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete repository while an operation is in progress.",
+        )
+
+    deleter = SqliteRepositoryDeleter(db_path)
+    deleter.delete_repository(repository_id)
+
+    return DeleteRepoResponse(deleted=True, repository_id=repository_id)
