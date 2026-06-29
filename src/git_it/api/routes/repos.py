@@ -489,7 +489,7 @@ def _analyze_bg(
             repository_id,
             limit=None,
             max_new=limit,
-            order="newest",
+            order="oldest",
             on_progress=_on_progress,
             canonical_url=canonical_url,
         )

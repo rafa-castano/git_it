@@ -19,11 +19,37 @@ uv sync
 
 ## Running the server
 
+First, activate the project virtual environment:
+
 ```bash
-uv run uvicorn main:app --reload
+# Windows (PowerShell)
+.venv\Scripts\activate
+
+# macOS / Linux
+source .venv/bin/activate
+```
+
+Then start the server:
+
+```bash
+uvicorn git_it.api.app:app --reload
 ```
 
 The API is now available at `http://localhost:8000`.
+
+> **Note — `uv run` and global venvs**: if you have another virtual environment active in your
+> shell (e.g. a global `~/.venv`), `uv run uvicorn …` will use that environment instead of the
+> project's `.venv` and fail with `ModuleNotFoundError: No module named 'git_it'`. Activating
+> the project venv explicitly (as shown above) avoids this. Alternatively, you can invoke the
+> project venv's executables directly without activating:
+>
+> ```bash
+> # Windows
+> .venv\Scripts\uvicorn git_it.api.app:app --reload
+>
+> # macOS / Linux
+> .venv/bin/uvicorn git_it.api.app:app --reload
+> ```
 
 ## Using the dashboard
 
