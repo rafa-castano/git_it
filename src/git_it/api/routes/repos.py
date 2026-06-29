@@ -12,33 +12,24 @@ from git_it.api.auth import require_api_key
 from git_it.api.cost import LLM_COST_PER_CALL_USD, estimate_narrative_cost
 from git_it.api.deps import get_project_root
 from git_it.api.limiter import limiter
+from git_it.api.mappers import map_pattern_report
 from git_it.api.schemas import (
     AnalyzeEstimateResponse,
     AnalyzeRequest,
     AnalyzeResponse,
     AnalyzeStatusResponse,
-    ArchitecturalShiftSchema,
-    BugfixRecurrenceSchema,
     CaseStudyResponse,
-    CategoryCountItem,
     CommitsResponse,
     CommitSummaryItem,
-    CommitTestGrowthSignalSchema,
     ContributorItem,
     ContributorsResponse,
-    DependencyMigrationSchema,
-    HotspotItem,
     IngestRequest,
     IngestResponse,
-    OwnershipConcentrationSchema,
-    PatternExplanationSchema,
     PatternReportResponse,
-    RefactorWaveSchema,
     RegenerateRequest,
     RegenStatusResponse,
     RepoListResponse,
     RepoSummary,
-    RevertSignalSchema,
 )
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
@@ -264,138 +255,7 @@ def get_patterns(
 
     service = build_pattern_detection_service(project_root=project_root)
     report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
-
-    hotspots = [
-        HotspotItem(
-            file_path=h.file_path,
-            commit_count=h.commit_count,
-            churn=h.churn,
-            confidence=h.confidence,
-            evidence_commit_shas=list(h.evidence_commit_shas),
-            time_range=list(h.time_range) if h.time_range is not None else None,
-        )
-        for h in report.hotspots
-    ]
-
-    refactor_wave = (
-        RefactorWaveSchema(
-            commit_count=report.refactor_wave.commit_count,
-            refactor_ratio=report.refactor_wave.refactor_ratio,
-            evidence_commit_shas=list(report.refactor_wave.evidence_commit_shas),
-            time_range=(
-                list(report.refactor_wave.time_range) if report.refactor_wave.time_range else None
-            ),
-            confidence=report.refactor_wave.confidence,
-        )
-        if report.refactor_wave is not None
-        else None
-    )
-
-    revert_signal = (
-        RevertSignalSchema(
-            revert_count=report.revert_signal.revert_count,
-            revert_ratio=report.revert_signal.revert_ratio,
-            evidence_commit_shas=list(report.revert_signal.evidence_commit_shas),
-            time_range=(
-                list(report.revert_signal.time_range) if report.revert_signal.time_range else None
-            ),
-            confidence=report.revert_signal.confidence,
-        )
-        if report.revert_signal is not None
-        else None
-    )
-
-    test_growth_signal = (
-        CommitTestGrowthSignalSchema(
-            test_commit_count=report.test_growth_signal.test_commit_count,
-            bugfix_commit_count=report.test_growth_signal.bugfix_commit_count,
-            test_to_bugfix_ratio=report.test_growth_signal.test_to_bugfix_ratio,
-            evidence_commit_shas=list(report.test_growth_signal.evidence_commit_shas),
-            time_range=(
-                list(report.test_growth_signal.time_range)
-                if report.test_growth_signal.time_range
-                else None
-            ),
-            confidence=report.test_growth_signal.confidence,
-        )
-        if report.test_growth_signal is not None
-        else None
-    )
-
-    bugfix_recurrences = [
-        BugfixRecurrenceSchema(
-            component=r.component,
-            bugfix_commit_count=r.bugfix_commit_count,
-            evidence_commit_shas=list(r.evidence_commit_shas),
-            time_range=list(r.time_range) if r.time_range else None,
-            confidence=r.confidence,
-        )
-        for r in report.bugfix_recurrences
-    ]
-
-    ownership_concentrations = [
-        OwnershipConcentrationSchema(
-            file_path=r.file_path,
-            author_count=r.author_count,
-            commit_count=r.commit_count,
-            evidence_commit_shas=list(r.evidence_commit_shas),
-            time_range=list(r.time_range) if r.time_range else None,
-            confidence=r.confidence,
-        )
-        for r in report.ownership_concentrations
-    ]
-
-    dependency_migrations = [
-        DependencyMigrationSchema(
-            from_dependency=r.from_dependency,
-            to_dependency=r.to_dependency,
-            commit_count=r.commit_count,
-            evidence_commit_shas=list(r.evidence_commit_shas),
-            time_range=list(r.time_range) if r.time_range else None,
-            confidence=r.confidence,
-        )
-        for r in report.dependency_migrations
-    ]
-
-    architectural_shifts = [
-        ArchitecturalShiftSchema(
-            shift_type=r.shift_type,
-            description=r.description,
-            evidence_commit_shas=list(r.evidence_commit_shas),
-            time_range=list(r.time_range) if r.time_range else None,
-            confidence=r.confidence,
-        )
-        for r in report.architectural_shifts
-    ]
-
-    explanations = [
-        PatternExplanationSchema(
-            pattern_type=e.pattern_type,
-            pattern_key=e.pattern_key,
-            why_it_matters=e.why_it_matters,
-            engineer_takeaway=e.engineer_takeaway,
-            confidence_note=e.confidence_note,
-        )
-        for e in report.explanations
-    ]
-
-    category_counts = [
-        CategoryCountItem(category=cc.category, count=cc.count) for cc in report.category_counts
-    ]
-
-    return PatternReportResponse(
-        repository_id=report.repository_id,
-        hotspots=hotspots,
-        refactor_wave=refactor_wave,
-        revert_signal=revert_signal,
-        test_growth_signal=test_growth_signal,
-        bugfix_recurrences=bugfix_recurrences,
-        ownership_concentrations=ownership_concentrations,
-        dependency_migrations=dependency_migrations,
-        architectural_shifts=architectural_shifts,
-        explanations=explanations,
-        category_counts=category_counts,
-    )
+    return map_pattern_report(report)
 
 
 # ---------------------------------------------------------------------------

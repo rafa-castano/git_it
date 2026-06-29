@@ -81,6 +81,7 @@ One file per batch, organized by feature area.
 - [Bug fix — UI fixes, analyze ordering, and audience refactor](api/bugfix-session-ui-and-ordering.md)
 - [Batch 73 — Rate limit on the analyze estimate endpoint](api/batch-73-rate-limit-estimate-endpoint.md)
 - [Batch 74 — Centralize model, cost, and audience constants](api/batch-74-centralize-config-constants.md)
+- [Batch 75 — Pattern mapper extraction and routes decomposition](api/batch-75-routes-decomposition.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
