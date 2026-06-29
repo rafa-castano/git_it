@@ -76,6 +76,9 @@ One file per batch, organized by feature area.
 - [Batch 65 — UI interactive fixes: chart cross-linking, timeline filter, commit file filter, and `files_changed` API field](api/batch-65-ui-interactive-fixes.md)
 - [Batch 66 — Analysis UX improvements, hotspot tightening, and timeline cleanup](api/batch-66-analysis-ux-hotspot-cleanup.md)
 - [Batch 67 — Case Study audience levels, section pruning, and timeline reload fix](api/batch-67-case-study-audience-timeline-fixes.md)
+- [Batch 68 — Synopsis-based incremental case study context](api/batch-68-synopsis-incremental-case-study.md)
+- [Batch 69 — Sonnet case study cost in analyze estimate](api/batch-69-sonnet-case-study-cost-estimate.md)
+- [Bug fix — UI fixes, analyze ordering, and audience refactor](api/bugfix-session-ui-and-ordering.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
