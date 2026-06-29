@@ -698,7 +698,7 @@ function _repoStatusLabel(repo) {
   }
   if (repo.status === 'COMPLETED') return { label: 'INGESTED', cls: 'status-done' };
   if (repo.status === 'INGESTING') return { label: 'INGESTING', cls: 'status-ingesting' };
-  if (repo.status === 'FAILED') return { label: 'FAILED', cls: 'status-failed' };
+  if (repo.status === 'FAILED' || (repo.status || '').startsWith('FAILED_')) return { label: 'FAILED', cls: 'status-failed' };
   return { label: repo.status || '', cls: '' };
 }
 
