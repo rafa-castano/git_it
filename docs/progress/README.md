@@ -93,3 +93,4 @@ One file per batch, organized by feature area.
 
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
+- [Bug fix — PostgresSynopsisStore migrated from psycopg2 to psycopg v3](infrastructure/bugfix-postgres-synopsis-store-psycopg-v3.md)
