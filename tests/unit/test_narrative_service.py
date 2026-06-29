@@ -286,11 +286,11 @@ def test_generate_expert_audience_injects_expert_block() -> None:
     assert "senior engineers and software architects" in system_text
 
 
-def test_generate_unknown_audience_falls_back_to_intermediate() -> None:
+def test_generate_unknown_audience_falls_back_to_beginner() -> None:
     service, client = _make_service(items=[_make_item()])
     service.generate("repo-1", audience="invalid")
     system_text = next(m.content for m in client.calls[0] if m.role == "system")
-    assert "developers with practical experience" in system_text
+    assert "plain language" in system_text
 
 
 def test_generate_does_not_include_removed_sections() -> None:

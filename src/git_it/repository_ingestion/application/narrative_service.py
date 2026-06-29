@@ -30,11 +30,6 @@ intersection — every change passes through it, making it fragile").
 - Focus on the story: what problem was the team solving, what went wrong, what was learned.
 - Explain why each engineering decision matters, not just what it was.
 - Minimise raw commit SHA references; weave them into sentences naturally.""",
-    "intermediate": """\
-AUDIENCE: This case study is for developers with practical experience.
-- Use standard technical language without over-explaining basics.
-- Explain architectural decisions and their trade-offs with evidence from the commit history.
-- Reference commit patterns, risk signals, and engineering practices directly.""",
     "expert": """\
 AUDIENCE: This case study is for senior engineers and software architects.
 - Be dense and precise. Skip definitions of standard concepts (SOLID, DRY, coupling, \
@@ -85,12 +80,12 @@ commit. Do not overstate intent."""
 
 
 def _build_system_prompt(audience: str) -> str:
-    block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["intermediate"])
+    block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
     return _BASE_PROMPT.format(audience_block=block, sections=_SECTIONS)
 
 
 def _build_incremental_system_prompt(audience: str) -> str:
-    block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["intermediate"])
+    block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
     return _BASE_INCREMENTAL_PROMPT.format(audience_block=block, sections=_SECTIONS)
 
 
@@ -125,7 +120,7 @@ class NarrativeService:
         repository_id: str,
         *,
         force: bool = False,
-        audience: str = "intermediate",
+        audience: str = "beginner",
     ) -> NarrativeResult:
         existing: CaseStudyRecord | None = None
         if self._case_study_store is not None:
@@ -167,7 +162,7 @@ class NarrativeService:
         repository_id: str,
         *,
         existing_record: CaseStudyRecord | None,
-        audience: str = "intermediate",
+        audience: str = "beginner",
     ) -> NarrativeResult:
         items = self._temporal_reader.list_analyses_with_dates(repository_id)
         if not items:
@@ -208,7 +203,7 @@ class NarrativeService:
         *,
         new_items: list[TimestampedAnalysis],
         existing: CaseStudyRecord,
-        audience: str = "intermediate",
+        audience: str = "beginner",
     ) -> NarrativeResult:
         report = self._pattern_service.detect(repository_id)
         user_content = self._build_incremental_user_message(

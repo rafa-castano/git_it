@@ -540,7 +540,7 @@ class SqliteCaseStudyStore:
                     """
                     CREATE TABLE case_studies (
                         repository_id TEXT NOT NULL,
-                        audience      TEXT NOT NULL DEFAULT 'intermediate',
+                        audience      TEXT NOT NULL DEFAULT 'beginner',
                         narrative     TEXT NOT NULL,
                         commit_count  INTEGER NOT NULL,
                         hotspot_count INTEGER NOT NULL,
@@ -552,12 +552,12 @@ class SqliteCaseStudyStore:
             else:
                 cols = [r[1] for r in conn.execute("PRAGMA table_info(case_studies)").fetchall()]
                 if "audience" not in cols:
-                    # Migrate: rebuild with composite PK, preserving existing rows as 'intermediate'
+                    # Migrate: rebuild with composite PK, preserving existing rows as 'beginner'
                     conn.execute(
                         """
                         CREATE TABLE case_studies_v2 (
                             repository_id TEXT NOT NULL,
-                            audience      TEXT NOT NULL DEFAULT 'intermediate',
+                            audience      TEXT NOT NULL DEFAULT 'beginner',
                             narrative     TEXT NOT NULL,
                             commit_count  INTEGER NOT NULL,
                             hotspot_count INTEGER NOT NULL,
@@ -571,7 +571,7 @@ class SqliteCaseStudyStore:
                         INSERT INTO case_studies_v2
                             (repository_id, audience, narrative,
                              commit_count, hotspot_count, created_at)
-                        SELECT repository_id, 'intermediate', narrative,
+                        SELECT repository_id, 'beginner', narrative,
                                commit_count, hotspot_count, created_at
                         FROM case_studies
                         """
@@ -602,7 +602,7 @@ class SqliteCaseStudyStore:
             )
 
     def get_case_study(
-        self, repository_id: str, audience: str = "intermediate"
+        self, repository_id: str, audience: str = "beginner"
     ) -> CaseStudyRecord | None:
         with sqlite3.connect(self._database_path) as conn:
             row = conn.execute(
@@ -625,7 +625,7 @@ class SqliteCaseStudyStore:
         )
 
     def get_repo_context(self, repository_id: str) -> str | None:
-        record = self.get_case_study(repository_id, audience="intermediate")
+        record = self.get_case_study(repository_id, audience="beginner")
         if record is None:
             return None
         return record.narrative[:_REPO_CONTEXT_MAX_CHARS]

@@ -105,13 +105,12 @@ def test_audience_miss_returns_none(db_path: Path) -> None:
     store.save_case_study(
         CaseStudyRecord(
             repository_id="repo-1",
-            narrative="only intermediate",
+            narrative="only beginner",
             commit_count=5,
             hotspot_count=0,
-            audience="intermediate",
+            audience="beginner",
         )
     )
-    assert store.get_case_study("repo-1", audience="beginner") is None
     assert store.get_case_study("repo-1", audience="expert") is None
 
 
@@ -120,10 +119,10 @@ def test_different_audiences_stored_independently(db_path: Path) -> None:
     store.save_case_study(
         CaseStudyRecord(
             repository_id="repo-1",
-            narrative="intermediate text",
+            narrative="expert text",
             commit_count=10,
             hotspot_count=0,
-            audience="intermediate",
+            audience="expert",
         )
     )
     store.save_case_study(
@@ -135,7 +134,7 @@ def test_different_audiences_stored_independently(db_path: Path) -> None:
             audience="beginner",
         )
     )
-    assert store.get_case_study("repo-1", "intermediate").narrative == "intermediate text"  # type: ignore[union-attr]
+    assert store.get_case_study("repo-1", "expert").narrative == "expert text"  # type: ignore[union-attr]
     assert store.get_case_study("repo-1", "beginner").narrative == "beginner text"  # type: ignore[union-attr]
 
 
@@ -147,7 +146,7 @@ def test_save_overwrites_same_audience_only(db_path: Path) -> None:
             narrative="v1",
             commit_count=5,
             hotspot_count=0,
-            audience="intermediate",
+            audience="beginner",
         )
     )
     store.save_case_study(
@@ -156,10 +155,10 @@ def test_save_overwrites_same_audience_only(db_path: Path) -> None:
             narrative="v2",
             commit_count=8,
             hotspot_count=1,
-            audience="intermediate",
+            audience="beginner",
         )
     )
-    result = store.get_case_study("repo-1", "intermediate")
+    result = store.get_case_study("repo-1", "beginner")
     assert result is not None
     assert result.narrative == "v2"
 
@@ -188,7 +187,7 @@ def test_migration_from_single_pk_schema(tmp_path: Path) -> None:
     store = SqliteCaseStudyStore(db_path)
     store.initialize()
 
-    result = store.get_case_study("repo-legacy", audience="intermediate")
+    result = store.get_case_study("repo-legacy", audience="beginner")
     assert result is not None
     assert result.narrative == "old narrative"
-    assert result.audience == "intermediate"
+    assert result.audience == "beginner"

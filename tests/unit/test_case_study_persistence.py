@@ -60,7 +60,7 @@ class FakeCaseStudyStore:
         self.saved.append(record)
 
     def get_case_study(
-        self, repository_id: str, audience: str = "intermediate"
+        self, repository_id: str, audience: str = "beginner"
     ) -> CaseStudyRecord | None:
         return self._store.get((repository_id, audience))
 
@@ -147,8 +147,8 @@ def test_different_audiences_both_call_llm() -> None:
     llm = FakeLLMClient()
     store = FakeCaseStudyStore()
     svc = _service(llm, store)
-    svc.generate("repo-1", audience="intermediate")
     svc.generate("repo-1", audience="beginner")
+    svc.generate("repo-1", audience="expert")
     assert llm.call_count == 2
 
 

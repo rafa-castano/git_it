@@ -154,7 +154,7 @@ class IngestResponse(BaseModel):
 class AnalyzeRequest(BaseModel):
     limit: int = 10
     model: str = "anthropic/claude-haiku-4-5-20251001"
-    audience: str = "intermediate"
+    audience: str = "beginner"
 
 
 class AnalyzeResponse(BaseModel):
@@ -178,7 +178,7 @@ class AnalyzeStatusResponse(BaseModel):
 
 
 class RegenerateRequest(BaseModel):
-    audience: str = "intermediate"
+    audience: str = "beginner"
 
 
 class RegenStatusResponse(BaseModel):

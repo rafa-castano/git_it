@@ -1676,12 +1676,12 @@ async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
   let data;
-  const _aud = localStorage.getItem('cs-audience') || 'intermediate';
+  const _aud = localStorage.getItem('cs-audience') || 'beginner';
   try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study?audience=${encodeURIComponent(_aud)}`); }
   catch (e) {
-    if (e.status === 404 && _aud !== 'intermediate') {
-      // Requested audience not generated yet — fall back to intermediate
-      localStorage.setItem('cs-audience', 'intermediate');
+    if (e.status === 404 && _aud !== 'beginner') {
+      // Requested audience not generated yet — fall back to beginner
+      localStorage.setItem('cs-audience', 'beginner');
       loadCaseStudy(repoId);
       return;
     }
@@ -1693,7 +1693,7 @@ async function loadCaseStudy(repoId) {
   const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : data.repository_id;
   const sections = _splitNarrative(data.narrative || '');
   const words = (data.narrative || '').trim().split(/\s+/).length;
-  const currentAudience = localStorage.getItem('cs-audience') || 'intermediate';
+  const currentAudience = localStorage.getItem('cs-audience') || 'beginner';
   const chips = `<div class="meta-chips">
     <span class="chip" data-tip="statCommits" tabindex="0">${data.commit_count} commits</span>
     <span class="chip" data-tip="secHotspots" tabindex="0">${data.hotspot_count} hotspots</span>
@@ -1703,7 +1703,6 @@ async function loadCaseStudy(repoId) {
       <span class="cs-audience-label">Audience:</span>
       <select class="cs-audience-select" onchange="_setCsAudience(this.value)" aria-label="Case study audience level">
         <option value="beginner"${currentAudience === 'beginner' ? ' selected' : ''}>Beginner</option>
-        <option value="intermediate"${currentAudience === 'intermediate' ? ' selected' : ''}>Intermediate</option>
         <option value="expert"${currentAudience === 'expert' ? ' selected' : ''}>Expert</option>
       </select>
     </span>
@@ -2215,7 +2214,7 @@ async function _doAnalyze(limit) {
     const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit, audience: localStorage.getItem('cs-audience') || 'intermediate' }),
+      body: JSON.stringify({ limit, audience: localStorage.getItem('cs-audience') || 'beginner' }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     _pollAnalyzeStatus(currentRepo);

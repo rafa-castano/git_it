@@ -160,14 +160,14 @@ class CaseStudyRecord:
     commit_count: int
     hotspot_count: int
     generated_at: str | None = None
-    audience: str = "intermediate"
+    audience: str = "beginner"
 
 
 class CaseStudyStore(Protocol):
     def save_case_study(self, record: CaseStudyRecord) -> None: ...
 
     def get_case_study(
-        self, repository_id: str, audience: str = "intermediate"
+        self, repository_id: str, audience: str = "beginner"
     ) -> CaseStudyRecord | None: ...
 
 

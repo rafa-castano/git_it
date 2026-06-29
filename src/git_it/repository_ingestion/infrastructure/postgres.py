@@ -525,7 +525,7 @@ class PostgresCaseStudyStore:
             conn.commit()
 
     def get_case_study(
-        self, repository_id: str, audience: str = "intermediate"
+        self, repository_id: str, audience: str = "beginner"
     ) -> CaseStudyRecord | None:
         with psycopg.connect(self._conninfo) as conn:
             row = conn.execute(
@@ -548,7 +548,7 @@ class PostgresCaseStudyStore:
         )
 
     def get_repo_context(self, repository_id: str) -> str | None:
-        record = self.get_case_study(repository_id, audience="intermediate")
+        record = self.get_case_study(repository_id, audience="beginner")
         if record is None:
             return None
         return record.narrative[:_REPO_CONTEXT_MAX_CHARS]

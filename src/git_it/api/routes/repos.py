@@ -183,7 +183,7 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
 def get_case_study(
     repository_id: str,
     project_root: ProjectRoot,
-    audience: str = "intermediate",
+    audience: str = "beginner",
 ) -> CaseStudyResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():
@@ -245,7 +245,7 @@ def regenerate_case_study(
 @router.get("/{repository_id}/case-study/regen-status", response_model=RegenStatusResponse)
 def get_regen_status(repository_id: str) -> RegenStatusResponse:
     with _regen_progress_lock:
-        state = _regen_progress.get(repository_id, {"running": False, "audience": "intermediate"})
+        state = _regen_progress.get(repository_id, {"running": False, "audience": "beginner"})
     return RegenStatusResponse(running=bool(state["running"]), audience=str(state["audience"]))
 
 
@@ -469,7 +469,7 @@ def _resolve_canonical_url(repository_id: str, project_root: Path) -> str | None
 
 
 def _analyze_bg(
-    repository_id: str, limit: int, model: str, project_root: Path, audience: str = "intermediate"
+    repository_id: str, limit: int, model: str, project_root: Path, audience: str = "beginner"
 ) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
