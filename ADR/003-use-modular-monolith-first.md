@@ -1,6 +1,6 @@
 # ADR 003: Use Modular Monolith First
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-06-09
 Decision makers: TBD
 

@@ -1,6 +1,6 @@
 # ADR 002: Use TDD as Default
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-06-09
 Decision makers: TBD
 

@@ -1,6 +1,6 @@
 # ADR 005: Use Local-First No-Container MVP Infrastructure
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-06-09
 Decision makers: TBD
 

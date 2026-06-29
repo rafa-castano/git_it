@@ -1,6 +1,6 @@
 # Spec 003: Pattern Detection
 
-Status: Draft  
+Status: Accepted  
 Primary agent: Software Engineering Agent  
 Supporting agents: Architecture Agent, Quality Agent, AI Development Flow Agent
 

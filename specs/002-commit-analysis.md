@@ -1,6 +1,6 @@
 # Spec 002: Commit-Level Analysis
 
-Status: Draft  
+Status: Accepted  
 Primary agent: Software Engineering Agent  
 Supporting agents: AI Development Flow Agent, Quality Agent, Security Agent
 

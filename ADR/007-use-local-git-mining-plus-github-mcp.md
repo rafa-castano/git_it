@@ -1,6 +1,6 @@
 # ADR 007: Use Local Git Mining Plus GitHub MCP
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-06-09
 Decision makers: TBD
 

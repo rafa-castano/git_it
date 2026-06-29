@@ -1,6 +1,6 @@
 # Spec 001: Repository Ingestion
 
-Status: Draft  
+Status: Accepted  
 Owner: TBD  
 Primary agent: Software Engineering Agent  
 Supporting agents: Architecture Agent, Security Agent, Quality Agent

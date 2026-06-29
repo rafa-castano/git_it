@@ -1,6 +1,6 @@
 # ADR 006: Use SQLite for MVP Facts and PostgreSQL with pgvector for Future Semantic Retrieval
 
-Status: Proposed  
+Status: Accepted  
 Date: 2026-06-10
 Decision makers: TBD
 
@@ -46,6 +46,12 @@ Application code must depend on storage ports rather than directly coupling doma
 
 - SQLite is a local MVP persistence choice, not a rejection of PostgreSQL.
 - PostgreSQL with pgvector remains the preferred direction for future semantic retrieval if requirements justify it.
+- **pgvector is not yet implemented** (as of 2026-06-29). The PostgreSQL adapter for the write
+  and service paths is implemented (`src/git_it/repository_ingestion/composition.py` via
+  `_get_db_backend()` and batch-63). The `pgvector` extension and any embedding-backed retrieval
+  feature remain future work. This ADR is marked Accepted because the core decision — SQLite for
+  MVP + Postgres adapter for larger deployments — is implemented; the pgvector clause is a future
+  conditional that is explicitly deferred.
 
 ## Alternatives considered
 
