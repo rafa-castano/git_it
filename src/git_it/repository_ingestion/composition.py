@@ -41,6 +41,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
     initialize as postgres_initialize,
@@ -54,6 +55,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteFileFactStore,
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
+    SqliteSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.workspace import (
     ingestion_workspace_root,
@@ -259,11 +261,13 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
         postgres_initialize(conninfo)
         pg_store = PostgresCommitAnalysisStore(conninfo)
         pg_case_study_store = PostgresCaseStudyStore(conninfo)
+        pg_synopsis_store = PostgresSynopsisStore(conninfo)
         return NarrativeService(
             temporal_reader=pg_store,
             pattern_service=build_pattern_detection_service(project_root=project_root),
             llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
             case_study_store=pg_case_study_store,
+            synopsis_store=pg_synopsis_store,
         )
 
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -271,9 +275,12 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
     store.initialize()
     case_study_store = SqliteCaseStudyStore(db_path)
     case_study_store.initialize()
+    synopsis_store = SqliteSynopsisStore(db_path)
+    synopsis_store.initialize()
     return NarrativeService(
         temporal_reader=store,
         pattern_service=build_pattern_detection_service(project_root=project_root),
         llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
         case_study_store=case_study_store,
+        synopsis_store=synopsis_store,
     )

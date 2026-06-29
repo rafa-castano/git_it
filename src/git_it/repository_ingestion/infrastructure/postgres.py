@@ -836,3 +836,39 @@ class PostgresGithubContextCache:
                 ),
             )
             conn.commit()
+
+
+class PostgresSynopsisStore:
+    """Persists one audience-neutral synopsis per repository (PostgreSQL)."""
+
+    def __init__(self, dsn: str) -> None:
+        self._dsn = dsn
+
+    def save_synopsis(self, repository_id: str, synopsis: str) -> None:
+        import psycopg2
+
+        with psycopg2.connect(self._dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO repository_synopsis (repository_id, synopsis, updated_at)
+                    VALUES (%s, %s, NOW())
+                    ON CONFLICT (repository_id) DO UPDATE SET
+                        synopsis   = EXCLUDED.synopsis,
+                        updated_at = EXCLUDED.updated_at
+                    """,
+                    (repository_id, synopsis),
+                )
+            conn.commit()
+
+    def get_synopsis(self, repository_id: str) -> str | None:
+        import psycopg2
+
+        with psycopg2.connect(self._dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT synopsis FROM repository_synopsis WHERE repository_id = %s",
+                    (repository_id,),
+                )
+                row = cur.fetchone()
+        return str(row[0]) if row else None

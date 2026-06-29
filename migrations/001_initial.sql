@@ -57,6 +57,12 @@ CREATE TABLE IF NOT EXISTS case_studies (
     PRIMARY KEY (repository_id, audience)
 );
 
+CREATE TABLE IF NOT EXISTS repository_synopsis (
+    repository_id TEXT PRIMARY KEY,
+    synopsis      TEXT NOT NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS github_context (
     repository_id   TEXT NOT NULL,
     commit_sha      TEXT NOT NULL,

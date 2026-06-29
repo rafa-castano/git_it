@@ -961,6 +961,48 @@ def _optional_str(value: object) -> str | None:
     return str(value)
 
 
+class SqliteSynopsisStore:
+    """Persists one audience-neutral synopsis per repository."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS repository_synopsis (
+                    repository_id TEXT PRIMARY KEY,
+                    synopsis      TEXT NOT NULL,
+                    updated_at    TEXT NOT NULL
+                )
+                """
+            )
+            conn.commit()
+
+    def save_synopsis(self, repository_id: str, synopsis: str) -> None:
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO repository_synopsis (repository_id, synopsis, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(repository_id) DO UPDATE SET
+                    synopsis   = excluded.synopsis,
+                    updated_at = excluded.updated_at
+                """,
+                (repository_id, synopsis),
+            )
+            conn.commit()
+
+    def get_synopsis(self, repository_id: str) -> str | None:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT synopsis FROM repository_synopsis WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchone()
+        return str(row[0]) if row else None
+
+
 def _bool_to_sqlite(value: bool | None) -> int | None:
     if value is None:
         return None

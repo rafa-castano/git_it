@@ -6,6 +6,7 @@ from git_it.repository_ingestion.application.ports import (
     CaseStudyStore,
     LLMClient,
     LLMMessage,
+    SynopsisStore,
     TemporalAnalysisReader,
     TimestampedAnalysis,
 )
@@ -40,6 +41,12 @@ cohesion, technical debt, etc.).
 without explanation.""",
 }
 
+_SYNOPSIS_INSTRUCTION = """\
+After all sections, add a `## Synopsis` section: a compact internal summary (150–250 words) \
+covering key patterns, architectural decisions, and engineering insights extracted from this \
+case study. Write it in plain prose, audience-neutral. This section is used internally to \
+seed future updates and is NOT displayed to users."""
+
 _BASE_PROMPT = """\
 You are a senior software engineering educator. Your task is to produce an educational case \
 study from a GitHub repository's commit history and detected patterns.
@@ -56,7 +63,9 @@ Write a structured case study in Markdown using these sections:
 {sections}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent."""
+commit. Do not overstate intent.
+
+{synopsis_instruction}"""
 
 _BASE_INCREMENTAL_PROMPT = """\
 You are a senior software engineering educator. Your task is to update an existing educational \
@@ -76,17 +85,37 @@ commits. Output the full updated case study in Markdown using these sections:
 {sections}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent."""
+commit. Do not overstate intent.
+
+{synopsis_instruction}"""
+
+
+_SYNOPSIS_MARKER = "\n## Synopsis"
+
+
+def _extract_synopsis(raw_output: str) -> tuple[str, str | None]:
+    idx = raw_output.rfind(_SYNOPSIS_MARKER)
+    if idx == -1:
+        return raw_output, None
+    synopsis = raw_output[idx + len(_SYNOPSIS_MARKER) :].strip()
+    if not synopsis:
+        return raw_output, None
+    narrative = raw_output[:idx].rstrip()
+    return narrative, synopsis
 
 
 def _build_system_prompt(audience: str) -> str:
     block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
-    return _BASE_PROMPT.format(audience_block=block, sections=_SECTIONS)
+    return _BASE_PROMPT.format(
+        audience_block=block, sections=_SECTIONS, synopsis_instruction=_SYNOPSIS_INSTRUCTION
+    )
 
 
 def _build_incremental_system_prompt(audience: str) -> str:
     block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
-    return _BASE_INCREMENTAL_PROMPT.format(audience_block=block, sections=_SECTIONS)
+    return _BASE_INCREMENTAL_PROMPT.format(
+        audience_block=block, sections=_SECTIONS, synopsis_instruction=_SYNOPSIS_INSTRUCTION
+    )
 
 
 @dataclass(frozen=True)
@@ -109,11 +138,13 @@ class NarrativeService:
         pattern_service: HotspotDetector,
         llm_client: LLMClient,
         case_study_store: CaseStudyStore | None = None,
+        synopsis_store: SynopsisStore | None = None,
     ) -> None:
         self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
         self._llm_client = llm_client
         self._case_study_store = case_study_store
+        self._synopsis_store = synopsis_store
 
     def generate(
         self,
@@ -139,8 +170,16 @@ class NarrativeService:
                 narrative=existing.narrative,
             )
 
+        existing_synopsis: str | None = None
+        if self._synopsis_store is not None:
+            existing_synopsis = self._synopsis_store.get_synopsis(repository_id)
+
         return self._generate_incremental(
-            repository_id, new_items=new_items, existing=existing, audience=audience
+            repository_id,
+            new_items=new_items,
+            existing=existing,
+            audience=audience,
+            existing_synopsis=existing_synopsis,
         )
 
     def _resolve_new_analyses(
@@ -178,7 +217,10 @@ class NarrativeService:
             LLMMessage(role="system", content=_build_system_prompt(audience)),
             LLMMessage(role="user", content=user_content),
         ]
-        narrative = self._llm_client.complete(messages)
+        raw = self._llm_client.complete(messages)
+        narrative, synopsis = _extract_synopsis(raw)
+        if synopsis and self._synopsis_store is not None:
+            self._synopsis_store.save_synopsis(repository_id, synopsis)
         result = NarrativeResult(
             repository_id=repository_id,
             commit_count=len(items),
@@ -204,18 +246,25 @@ class NarrativeService:
         new_items: list[TimestampedAnalysis],
         existing: CaseStudyRecord,
         audience: str = "beginner",
+        existing_synopsis: str | None = None,
     ) -> NarrativeResult:
         report = self._pattern_service.detect(repository_id)
+        prior_context = existing_synopsis if existing_synopsis else existing.narrative
+        use_synopsis = existing_synopsis is not None
         user_content = self._build_incremental_user_message(
             new_items=new_items,
-            existing_narrative=existing.narrative,
+            prior_context=prior_context,
+            use_synopsis=use_synopsis,
             report=report,
         )
         messages = [
             LLMMessage(role="system", content=_build_incremental_system_prompt(audience)),
             LLMMessage(role="user", content=user_content),
         ]
-        narrative = self._llm_client.complete(messages)
+        raw = self._llm_client.complete(messages)
+        narrative, synopsis = _extract_synopsis(raw)
+        if synopsis and self._synopsis_store is not None:
+            self._synopsis_store.save_synopsis(repository_id, synopsis)
         all_items = self._temporal_reader.list_analyses_with_dates(repository_id)
         total_count = len(all_items)
         result = NarrativeResult(
@@ -308,16 +357,18 @@ class NarrativeService:
     @staticmethod
     def _build_incremental_user_message(
         new_items: list[TimestampedAnalysis],
-        existing_narrative: str,
+        prior_context: str,
         report: PatternReport,
+        use_synopsis: bool = False,
     ) -> str:
+        context_label = "## Prior Summary" if use_synopsis else "## Existing Case Study"
         lines = [
             f"Update the case study to incorporate {len(new_items)} new analyzed commits.\n",
             "[REPOSITORY DATA]",
             "",
-            "## Existing Case Study",
+            context_label,
             "",
-            existing_narrative,
+            prior_context,
             "",
             "## New Commits to Incorporate (chronological order)",
         ]
