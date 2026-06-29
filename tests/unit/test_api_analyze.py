@@ -458,3 +458,32 @@ def test_ingest_requires_auth_when_api_key_set(
         json={"url": "https://github.com/owner/repo"},
     )
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting — GET /api/repos/{repository_id}/analyze/estimate
+# ---------------------------------------------------------------------------
+
+
+def test_estimate_analyze_is_rate_limited_at_20_per_minute() -> None:
+    """estimate_analyze must carry @limiter.limit('20/minute') for cost control.
+
+    Strategy: introspection of slowapi's limiter registry.  ``@limiter.limit()``
+    records each decorated endpoint in ``limiter._route_limits`` keyed by the
+    function's fully-qualified name; the value is a list of ``Limit`` objects.
+    We assert the estimate endpoint is registered with a 20/minute limit.  This
+    is deterministic and isolated — it does not hammer the shared in-memory
+    limiter bucket (which would interfere with the other estimate tests).
+    """
+    import git_it.api.routes.repos  # noqa: F401 — ensure decorators are registered
+    from git_it.api.limiter import limiter
+
+    key = "git_it.api.routes.repos.estimate_analyze"
+    assert key in limiter._route_limits, (
+        "estimate_analyze must be decorated with @limiter.limit — it is not registered "
+        "in limiter._route_limits. Add @limiter.limit('20/minute') above the function."
+    )
+    limit_strs = [str(lim.limit) for lim in limiter._route_limits[key]]
+    assert any("20 per 1 minute" in s for s in limit_strs), (
+        f"estimate_analyze must be rate-limited at 20/minute; found limits: {limit_strs}"
+    )

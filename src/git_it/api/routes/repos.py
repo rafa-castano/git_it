@@ -538,7 +538,9 @@ def _analyze_bg(
 
 
 @router.get("/{repository_id}/analyze/estimate", response_model=AnalyzeEstimateResponse)
+@limiter.limit("20/minute")
 def estimate_analyze(
+    request: Request,
     repository_id: str,
     project_root: ProjectRoot,
     limit: int = 20,
