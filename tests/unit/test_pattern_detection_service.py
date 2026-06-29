@@ -10,8 +10,8 @@ from git_it.repository_ingestion.domain.patterns import PatternReport
 def _record(
     file_path: str = "src/main.py",
     commit_count: int = 3,
-    total_insertions: int = 10,
-    total_deletions: int = 5,
+    total_insertions: int = 30,
+    total_deletions: int = 25,
 ) -> FileChurnRecord:
     return FileChurnRecord(
         file_path=file_path,
@@ -64,11 +64,11 @@ def test_hotspots_sorted_by_commit_count_descending() -> None:
 
 
 def test_hotspot_churn_equals_insertions_plus_deletions() -> None:
-    record = _record(total_insertions=30, total_deletions=15, commit_count=10)
+    record = _record(total_insertions=30, total_deletions=25, commit_count=10)
     report = PatternDetectionService(reader=FakeFileFactReader(records=[record])).detect(
         "repo-1", hotspot_threshold=1
     )
-    assert report.hotspots[0].churn == 45
+    assert report.hotspots[0].churn == 55
 
 
 def test_detect_passes_repository_id_to_reader() -> None:

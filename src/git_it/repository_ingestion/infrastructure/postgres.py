@@ -503,27 +503,38 @@ class PostgresCaseStudyStore:
         with psycopg.connect(self._conninfo) as conn:
             conn.execute(
                 """
-                INSERT INTO case_studies (repository_id, narrative, commit_count, hotspot_count)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (repository_id) DO UPDATE SET
+                INSERT INTO case_studies
+                    (repository_id, audience, narrative, commit_count, hotspot_count)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (repository_id, audience) DO UPDATE SET
                     narrative     = EXCLUDED.narrative,
                     commit_count  = EXCLUDED.commit_count,
                     hotspot_count = EXCLUDED.hotspot_count,
-                    created_at    = TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                    created_at    = TO_CHAR(
+                        NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+                    )
                 """,
-                (record.repository_id, record.narrative, record.commit_count, record.hotspot_count),
+                (
+                    record.repository_id,
+                    record.audience,
+                    record.narrative,
+                    record.commit_count,
+                    record.hotspot_count,
+                ),
             )
             conn.commit()
 
-    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None:
+    def get_case_study(
+        self, repository_id: str, audience: str = "intermediate"
+    ) -> CaseStudyRecord | None:
         with psycopg.connect(self._conninfo) as conn:
             row = conn.execute(
                 """
-                SELECT repository_id, narrative, commit_count, hotspot_count, created_at
+                SELECT repository_id, narrative, commit_count, hotspot_count, created_at, audience
                 FROM case_studies
-                WHERE repository_id = %s
+                WHERE repository_id = %s AND audience = %s
                 """,
-                (repository_id,),
+                (repository_id, audience),
             ).fetchone()
         if row is None:
             return None
@@ -533,10 +544,11 @@ class PostgresCaseStudyStore:
             commit_count=int(row[2]),
             hotspot_count=int(row[3]),
             generated_at=str(row[4]),
+            audience=str(row[5]),
         )
 
     def get_repo_context(self, repository_id: str) -> str | None:
-        record = self.get_case_study(repository_id)
+        record = self.get_case_study(repository_id, audience="intermediate")
         if record is None:
             return None
         return record.narrative[:_REPO_CONTEXT_MAX_CHARS]

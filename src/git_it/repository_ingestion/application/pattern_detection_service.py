@@ -28,7 +28,77 @@ from git_it.repository_ingestion.domain.patterns import (
     RevertSignal,
 )
 
-_DEFAULT_HOTSPOT_THRESHOLD = 5
+_DEFAULT_HOTSPOT_THRESHOLD = 10
+_HOTSPOT_MIN_CHURN = 50  # total lines (insertions + deletions) across all commits
+_HOTSPOT_MAX_COUNT = 10  # cap on total hotspots returned
+
+# File patterns that should never qualify as hotspots regardless of commit count.
+_NON_CODE_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".lock",
+        ".md",
+        ".rst",
+        ".txt",
+        ".adoc",  # docs and lock files
+        ".map",
+        ".min.js",
+        ".min.css",  # generated assets
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".ico",  # images
+        ".pdf",
+        ".csv",
+        ".json",  # data / config dumps
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",  # pure config
+    }
+)
+_NON_CODE_NAMES: frozenset[str] = frozenset(
+    {
+        "package-lock.json",
+        "yarn.lock",
+        "poetry.lock",
+        "pipfile.lock",
+        "cargo.lock",
+        "composer.lock",
+        "gemfile.lock",
+        "packages.lock.json",
+        "changelog",
+        "changes",
+        "history",
+        "authors",
+        "license",
+        "notice",
+        ".gitignore",
+        ".gitattributes",
+        ".editorconfig",
+        ".prettierrc",
+        "dockerfile",
+        ".dockerignore",
+    }
+)
+
+
+def _is_code_hotspot_candidate(file_path: str) -> bool:
+    """Return False for lock files, docs, generated assets, and pure config."""
+    name = Path(file_path).name.lower()
+    if name in _NON_CODE_NAMES:
+        return False
+    suffix = Path(file_path).suffix.lower()
+    # Multi-part suffix check (e.g. ".min.js")
+    lower = file_path.lower()
+    if any(lower.endswith(s) for s in (".min.js", ".min.css")):
+        return False
+    if suffix in _NON_CODE_SUFFIXES:
+        return False
+    return True
+
 
 # Common words and short tokens to filter out of migration detection
 _MIGRATION_NOISE_WORDS: frozenset[str] = frozenset(
@@ -111,10 +181,12 @@ class PatternDetectionService:
                 )
                 for r in churn_records
                 if r.commit_count >= hotspot_threshold
+                and r.total_insertions + r.total_deletions >= _HOTSPOT_MIN_CHURN
+                and _is_code_hotspot_candidate(r.file_path)
             ),
             key=lambda h: h.commit_count,
             reverse=True,
-        )
+        )[:_HOTSPOT_MAX_COUNT]
 
         category_counts: list[CategoryCount] = []
         bugfix_recurrences: list[BugfixRecurrence] = []

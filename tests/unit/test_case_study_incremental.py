@@ -115,7 +115,9 @@ class FakeCaseStudyStore:
         self._record = record
         self.saved.append(record)
 
-    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None:
+    def get_case_study(
+        self, repository_id: str, audience: str = "intermediate"
+    ) -> CaseStudyRecord | None:
         return self._record
 
 

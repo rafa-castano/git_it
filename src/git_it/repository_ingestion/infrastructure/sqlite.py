@@ -531,42 +531,87 @@ class SqliteCaseStudyStore:
     def initialize(self) -> None:
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(self._database_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS case_studies (
-                    repository_id TEXT PRIMARY KEY,
-                    narrative     TEXT NOT NULL,
-                    commit_count  INTEGER NOT NULL,
-                    hotspot_count INTEGER NOT NULL,
-                    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            # Check existing schema and migrate if needed
+            existing = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='case_studies'"
+            ).fetchone()
+            if existing is None:
+                conn.execute(
+                    """
+                    CREATE TABLE case_studies (
+                        repository_id TEXT NOT NULL,
+                        audience      TEXT NOT NULL DEFAULT 'intermediate',
+                        narrative     TEXT NOT NULL,
+                        commit_count  INTEGER NOT NULL,
+                        hotspot_count INTEGER NOT NULL,
+                        created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                        PRIMARY KEY (repository_id, audience)
+                    )
+                    """
                 )
-                """
-            )
+            else:
+                cols = [r[1] for r in conn.execute("PRAGMA table_info(case_studies)").fetchall()]
+                if "audience" not in cols:
+                    # Migrate: rebuild with composite PK, preserving existing rows as 'intermediate'
+                    conn.execute(
+                        """
+                        CREATE TABLE case_studies_v2 (
+                            repository_id TEXT NOT NULL,
+                            audience      TEXT NOT NULL DEFAULT 'intermediate',
+                            narrative     TEXT NOT NULL,
+                            commit_count  INTEGER NOT NULL,
+                            hotspot_count INTEGER NOT NULL,
+                            created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                            PRIMARY KEY (repository_id, audience)
+                        )
+                        """
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO case_studies_v2
+                            (repository_id, audience, narrative,
+                             commit_count, hotspot_count, created_at)
+                        SELECT repository_id, 'intermediate', narrative,
+                               commit_count, hotspot_count, created_at
+                        FROM case_studies
+                        """
+                    )
+                    conn.execute("DROP TABLE case_studies")
+                    conn.execute("ALTER TABLE case_studies_v2 RENAME TO case_studies")
 
     def save_case_study(self, record: CaseStudyRecord) -> None:
         with sqlite3.connect(self._database_path) as conn:
             conn.execute(
                 """
-                INSERT INTO case_studies (repository_id, narrative, commit_count, hotspot_count)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(repository_id) DO UPDATE SET
+                INSERT INTO case_studies
+                    (repository_id, audience, narrative, commit_count, hotspot_count)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(repository_id, audience) DO UPDATE SET
                     narrative     = excluded.narrative,
                     commit_count  = excluded.commit_count,
                     hotspot_count = excluded.hotspot_count,
                     created_at    = datetime('now')
                 """,
-                (record.repository_id, record.narrative, record.commit_count, record.hotspot_count),
+                (
+                    record.repository_id,
+                    record.audience,
+                    record.narrative,
+                    record.commit_count,
+                    record.hotspot_count,
+                ),
             )
 
-    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None:
+    def get_case_study(
+        self, repository_id: str, audience: str = "intermediate"
+    ) -> CaseStudyRecord | None:
         with sqlite3.connect(self._database_path) as conn:
             row = conn.execute(
                 """
-                SELECT repository_id, narrative, commit_count, hotspot_count, created_at
+                SELECT repository_id, narrative, commit_count, hotspot_count, created_at, audience
                 FROM case_studies
-                WHERE repository_id = ?
+                WHERE repository_id = ? AND audience = ?
                 """,
-                (repository_id,),
+                (repository_id, audience),
             ).fetchone()
         if row is None:
             return None
@@ -576,10 +621,11 @@ class SqliteCaseStudyStore:
             commit_count=int(row[2]),
             hotspot_count=int(row[3]),
             generated_at=str(row[4]),
+            audience=str(row[5]),
         )
 
     def get_repo_context(self, repository_id: str) -> str | None:
-        record = self.get_case_study(repository_id)
+        record = self.get_case_study(repository_id, audience="intermediate")
         if record is None:
             return None
         return record.narrative[:_REPO_CONTEXT_MAX_CHARS]
@@ -665,11 +711,15 @@ class SqliteCommitWithAnalysisReader:
         with sqlite3.connect(self._database_path) as conn:
             rows = conn.execute(
                 f"""
-                SELECT cf.sha, cf.message, cf.committed_at, ca.data
+                SELECT cf.sha, cf.message, cf.committed_at, ca.data,
+                       GROUP_CONCAT(ff.file_path, '|||') AS files
                 FROM commit_analyses ca
                 JOIN commit_facts cf
                   ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                LEFT JOIN file_facts ff
+                  ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
                 WHERE ca.repository_id = ?
+                GROUP BY ca.commit_sha, cf.message, cf.committed_at, ca.data
                 ORDER BY cf.committed_at {order_dir}
                 LIMIT ?
                 """,
@@ -681,6 +731,7 @@ class SqliteCommitWithAnalysisReader:
                 message=str(row[1]),
                 committed_at=str(row[2]),
                 analysis_data=str(row[3]) if row[3] is not None else None,
+                files_changed=tuple(str(row[4]).split("|||")) if row[4] else (),
             )
             for row in rows
         ]

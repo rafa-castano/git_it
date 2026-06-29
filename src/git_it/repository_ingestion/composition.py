@@ -26,6 +26,8 @@ from git_it.repository_ingestion.infrastructure.git import (
 )
 from git_it.repository_ingestion.infrastructure.github import GithubContextFetcher
 from git_it.repository_ingestion.infrastructure.llm import (
+    _NARRATIVE_MAX_TOKENS,
+    _NARRATIVE_MODEL,
     InstructorCommitAnalysisAdapter,
     InstructorPatternSynthesisAdapter,
     LiteLLMLLMClient,
@@ -260,7 +262,7 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
         return NarrativeService(
             temporal_reader=pg_store,
             pattern_service=build_pattern_detection_service(project_root=project_root),
-            llm_client=LiteLLMLLMClient(model=model),
+            llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
             case_study_store=pg_case_study_store,
         )
 
@@ -272,6 +274,6 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
     return NarrativeService(
         temporal_reader=store,
         pattern_service=build_pattern_detection_service(project_root=project_root),
-        llm_client=LiteLLMLLMClient(model=model),
+        llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
         case_study_store=case_study_store,
     )

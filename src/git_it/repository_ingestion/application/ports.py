@@ -160,12 +160,15 @@ class CaseStudyRecord:
     commit_count: int
     hotspot_count: int
     generated_at: str | None = None
+    audience: str = "intermediate"
 
 
 class CaseStudyStore(Protocol):
     def save_case_study(self, record: CaseStudyRecord) -> None: ...
 
-    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None: ...
+    def get_case_study(
+        self, repository_id: str, audience: str = "intermediate"
+    ) -> CaseStudyRecord | None: ...
 
 
 class RepoContextReader(Protocol):
@@ -263,6 +266,7 @@ class CommitWithAnalysisRecord:
     message: str
     committed_at: str
     analysis_data: str | None
+    files_changed: tuple[str, ...] = ()
 
 
 class CommitWithAnalysisReader(Protocol):

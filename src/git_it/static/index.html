@@ -201,6 +201,10 @@
     .case-study-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 0.75rem; }
     .case-study-meta a { color: var(--accent); text-decoration: none; font-weight: 500; }
     .case-study-meta a:hover { text-decoration: underline; }
+    .cs-audience-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .cs-audience-label { font-size: 11px; color: var(--muted); }
+    .cs-audience-select { font-size: 11px; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; cursor: pointer; }
+    .cs-audience-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
     .cs-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.25rem; }
     .cs-tab-btn { padding: 0.4rem 0.9rem; border: none; background: none; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
     .cs-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -314,7 +318,7 @@
     .cc-files code { font-family: monospace; font-size: 10px; background: var(--border); padding: 0.1rem 0.3rem; border-radius: 2px; margin-right: 0.2rem; color: var(--text); }
 
     /* ── Analyze button ── */
-    .analyze-btn { font-size: 10px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.1rem 0.4rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
+    .analyze-btn { font-size: 13px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
     .analyze-btn:hover { background: var(--accent); color: #fff; }
 
     /* ── Fix 3: Status label classes ── */
@@ -479,7 +483,6 @@
           <input type="text" id="tl-search" placeholder="Filter timeline…" aria-label="Filter timeline by keyword, author, or SHA" onkeydown="if(event.key==='Enter')_applyTimelineFilters()">
           <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
           <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
-          <button class="hdr-btn" id="tl-apply-btn" onclick="_applyTimelineFilters()" style="font-size:11px;padding:0.25rem 0.6rem">Apply</button>
         </div>
         <div id="timeline-content"></div>
       </div>
@@ -542,7 +545,10 @@ const TIPS = {
   statPatterns:  "Recurring engineering behaviors detected across commits: refactoring waves, revert signals, dependency migrations, and architectural shifts.",
   statCaseStudy: "An AI-generated narrative summarizing this repository's engineering history, key decisions, and observable patterns.",
   shCommits:     "Total commits extracted from this repository's full history via git clone. This includes ALL commits, not just the analyzed sample.",
-  shStatus:      "Ingestion status — 'COMPLETED' means all commits have been extracted from the repository and stored locally. This does NOT mean all commits were AI-analyzed; analysis runs separately on a representative sample.",
+  shStatusFull:      "FULLY ANALYZED — all commits have been extracted from the repository and AI-analyzed.",
+  shStatusIngested:  "INGESTED — commits are extracted and stored locally. Only a sample has been AI-analyzed so far. Click + Analyze to analyze more commits.",
+  shStatusIngesting: "INGESTING — commits are currently being extracted and stored locally. Wait until ingestion completes before running analysis.",
+  shStatusFailed:    "FAILED — ingestion encountered an error. Try re-ingesting this repository.",
   shAnalyzed:    "Commits analyzed by AI so far. Only a sample is analyzed (not all commits) to keep costs manageable. Click '+ Analyze' to run more analyses on additional commits.",
   tlRevert:      "Reverts detected in this period. A revert undoes a previous commit — too many can indicate integration instability or premature merges.",
   tlHotspot:     "A file or area that was modified significantly more often than average during this period. May indicate complexity, active development, or a design bottleneck.",
@@ -816,14 +822,14 @@ function _buildRepoCard(repo, patterns) {
 
   const signals = [];
   if (patterns?.refactor_wave)
-    signals.push(`<span class="dna-pill orange" style="font-size:11px;padding:.2rem .55rem">⚡ Refactor Wave</span>`);
+    signals.push(`<span class="dna-pill orange" style="font-size:11px;padding:.2rem .55rem" data-tip="sigRefactor">⚡ Refactor Wave</span>`);
   if ((patterns?.revert_signal?.commit_count || 0) > 0)
-    signals.push(`<span class="dna-pill red" style="font-size:11px;padding:.2rem .55rem">↩️ Reverts</span>`);
+    signals.push(`<span class="dna-pill red" style="font-size:11px;padding:.2rem .55rem" data-tip="sigRevert">↩️ Reverts</span>`);
   if (patterns?.test_growth_signal)
-    signals.push(`<span class="dna-pill green" style="font-size:11px;padding:.2rem .55rem">🧪 Test Growth</span>`);
+    signals.push(`<span class="dna-pill green" style="font-size:11px;padding:.2rem .55rem" data-tip="sigTest">🧪 Test Growth</span>`);
   const hotCount = (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).length;
   if (hotCount > 0)
-    signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
+    signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem" data-tip="tlHotspot">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
 
   const { label: statusLabel, cls: statusCls } = _repoStatusLabel(repo);
   const ghUrl = repo.canonical_url && repo.canonical_url.includes('github.com') ? repo.canonical_url : null;
@@ -1004,6 +1010,8 @@ function selectRepo(repoId) {
     const shStatusEl = document.getElementById('sh-status');
     shStatusEl.textContent = shStatusLabel;
     shStatusEl.className = 'hdr-status ' + shStatusCls;
+    const _statusTipKey = { 'FULLY ANALYZED': 'shStatusFull', 'INGESTED': 'shStatusIngested', 'INGESTING': 'shStatusIngesting', 'FAILED': 'shStatusFailed' };
+    shStatusEl.dataset.tip = _statusTipKey[shStatusLabel] || 'shStatusIngested';
     const analyzed = document.getElementById('sh-analyzed');
     analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
     _loadAnalyzeEstimate(currentRepo, currentRepoMeta);
@@ -1050,7 +1058,7 @@ function switchView(view) {
   }
 }
 
-document.getElementById('view-btn-timeline').addEventListener('click', () => switchView('timeline'));
+document.getElementById('view-btn-timeline').addEventListener('click', () => { switchView('timeline'); if (currentRepo) loadTimeline(currentRepo); });
 document.getElementById('view-btn-detail').addEventListener('click', () => switchView('detail'));
 
 /* =========================================================
@@ -1066,8 +1074,7 @@ async function _applyTimelineFilters() {
   const keyword = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
   const fromDate = document.getElementById('tl-date-from')?.value;
   const toDate = document.getElementById('tl-date-to')?.value;
-  // Fix 2: Re-fetch if requesting more commits than cached, otherwise always slice to limit
-  if (limitN > _tlAllCommits.length && limitN < 1000) {
+  if (limitN > _tlAllCommits.length) {
     await loadTimeline(currentRepo);
     return;
   }
@@ -1091,10 +1098,9 @@ async function _applyTimelineFilters() {
 async function loadTimeline(repoId) {
   const el = document.getElementById('timeline-content');
   el.innerHTML = spinner();
-  const limit = document.getElementById('tl-limit-select')?.value || '200';
   try {
     const [commitsData, patterns] = await Promise.all([
-      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?order=oldest&limit=${limit}`),
+      apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?order=oldest&limit=1000`),
       apiFetch(`/api/repos/${encodeURIComponent(repoId)}/patterns`),
     ]);
     _tlAllCommits = commitsData.commits || [];
@@ -1142,7 +1148,7 @@ function renderTimeline(commits, patterns) {
   if (!commits.length) {
     el.innerHTML = `<div class="tl-empty">
       <p>No analyzed commits yet.</p>
-      <p style="margin-top:.5rem">Run <code>git-it analyze-commits &lt;url&gt;</code> to generate the timeline.</p>
+      <p style="margin-top:.5rem">Use the <strong>+ Analyze</strong> button above to start commit analysis.</p>
     </div>`;
     return;
   }
@@ -1151,21 +1157,6 @@ function renderTimeline(commits, patterns) {
   const firstDate = allDates[0] ? allDates[0].slice(0, 10) : null;
   const lastDate = allDates[allDates.length - 1] ? allDates[allDates.length - 1].slice(0, 10) : null;
 
-  const summarySignals = [];
-  if (patterns?.refactor_wave)
-    summarySignals.push(`<span class="tl-sig-chip" tabindex="0" data-tip="tlRefactorWave">🔁 Refactor Wave · ${patterns.refactor_wave.commit_count || 0} commits</span>`);
-  const revertCount = patterns?.revert_signal?.commit_count || 0;
-  if (patterns?.revert_signal && revertCount === 0)
-    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--green)" tabindex="0" data-tip="tlRevert">↩️ 0 reverts · Stable</span>`);
-  else if (revertCount > 0)
-    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--red)" tabindex="0" data-tip="tlRevert">↩️ ${revertCount} reverts</span>`);
-  if (patterns?.test_growth_signal)
-    summarySignals.push(`<span class="tl-sig-chip" style="color:var(--green)" tabindex="0" data-tip="tlTestGrowth">🧪 Test Growth</span>`);
-  const hotCount = (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).length;
-  if (hotCount > 0)
-    summarySignals.push(`<span class="tl-sig-chip" tabindex="0" data-tip="tlHotspot">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
-
-  const signalsByMonth = buildSignalIndex(patterns);
 
   const monthMap = {};
   commits.forEach(c => {
@@ -1183,8 +1174,6 @@ function renderTimeline(commits, patterns) {
       ${mergeCommits > 0 ? `<span style="color:var(--border)">·</span> <span data-tip="tlMerge" tabindex="0" style="color:var(--muted)">↔ ${mergeCommits} merge${mergeCommits !== 1 ? 's' : ''}</span>` : ''}
     </div>`;
   }
-  if (summarySignals.length)
-    html += `<div class="tl-signals-bar" role="note" aria-label="Pattern signals">${summarySignals.join('')}</div>`;
   html += '<div class="timeline">';
 
   Object.keys(monthMap).sort().forEach(month => {
@@ -1195,14 +1184,6 @@ function renderTimeline(commits, patterns) {
 
     html += `<div class="tl-month" data-month="${month}" id="tl-month-${month.replace('-','')}">
       <div class="tl-month-hdr"><span>${esc(label)}</span><div class="tl-month-line"></div></div>`;
-
-    (signalsByMonth[month] || []).forEach(sig => {
-      html += `<div class="tl-signal-row">
-        <span class="tl-sig-icon">${sig.icon}</span>
-        <span class="tl-sig-label">${esc(sig.label)}</span>
-        <span class="tl-sig-desc">— ${esc(sig.desc)}</span>
-      </div>`;
-    });
 
     html += '<div class="tl-commits-group">';
     monthCommits.forEach((c, i) => {
@@ -1254,7 +1235,10 @@ function switchTab(tabName) {
   );
 }
 document.querySelectorAll('.tab-btn').forEach(btn =>
-  btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+  btn.addEventListener('click', () => {
+    if (btn.dataset.tab === 'commits') _clearCommitFilters();
+    switchTab(btn.dataset.tab);
+  })
 );
 
 /* =========================================================
@@ -1295,16 +1279,6 @@ async function loadOverview(repoId) {
   if (caseStudy) pills.push(`<span class="dna-pill green" data-tip="dnaCaseStudy">✅ Case study ready</span>`);
 
   el.innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label" data-tip="statCommits" tabindex="0">Commits</div><div class="stat-value">${totalCommits}</div></div>
-      <div class="stat-card"><div class="stat-label" data-tip="statHotspots" tabindex="0">Hotspot Files</div><div class="stat-value">${hotspotCount}</div></div>
-      <div class="stat-card"><div class="stat-label" data-tip="statPatterns" tabindex="0">Patterns</div><div class="stat-value">${patternCount}</div></div>
-      <div class="stat-card">
-        <div class="stat-label" data-tip="statCaseStudy" tabindex="0">Case Study</div>
-        <div class="stat-value" style="font-size:1.6rem">${caseStudy ? '✓' : '✗'}</div>
-        <div class="stat-sub">${caseStudy ? 'Available' : 'Not generated'}</div>
-      </div>
-    </div>
     <div class="charts-row">
       <div class="chart-box">
         <h3>Commit Categories</h3>
@@ -1373,9 +1347,21 @@ async function loadOverview(repoId) {
           if (!period) return;
           switchView('timeline');
           setTimeout(() => {
-            const key = period.slice(0, 7).replace('-', '');
-            const target = document.getElementById(`tl-month-${key}`) || document.querySelector(`[data-month="${period.slice(0,7)}"]`);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            let fromDate, toDate;
+            if (period.length === 7) {
+              const [y, m] = period.split('-').map(Number);
+              fromDate = `${period}-01`;
+              toDate = new Date(y, m, 0).toISOString().slice(0, 10);
+            } else {
+              const day = period.slice(0, 10);
+              fromDate = day;
+              toDate = day;
+            }
+            const fromEl = document.getElementById('tl-date-from');
+            const toEl = document.getElementById('tl-date-to');
+            if (fromEl) fromEl.value = fromDate;
+            if (toEl) toEl.value = toDate;
+            _applyTimelineFilters();
           }, 300);
         },
       },
@@ -1394,9 +1380,15 @@ async function loadOverview(repoId) {
         scales: { x: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } }, y: { ticks: { color: _tcy(), font: { size: 11 } }, grid: { display: false } } },
         onClick(evt, els) {
           if (!els.length) return;
-          const filePath = top5[els[0].index]?.file_path;
-          if (!filePath) return;
-          _searchCommitsByFile(filePath);
+          const h = top5[els[0].index];
+          if (!h) return;
+          const fname = h.file_path.split('/').pop();
+          const shas = h.evidence_commit_shas || [];
+          if (shas.length) {
+            _filterByEvidenceShas(shas, `File: ${fname}`);
+          } else {
+            _searchCommitsByFile(h.file_path);
+          }
         },
       },
     });
@@ -1479,17 +1471,13 @@ function _renderSectionCards(content) {
       </div>
       <div class="cs-subcard-body">
         <div class="markdown-body">${html}</div>
-        <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border)">
-          <button class="analyze-btn" style="font-size:11px" data-kw="${esc(cleanTitle)}" data-body="${esc(body)}" onclick="event.stopPropagation();_searchCommitsBySectionBody(this.dataset.body,this.dataset.kw)">
-            🔍 Find related commits
-          </button>
-        </div>
       </div>
     </div>`;
   }).join('');
 }
 
-const _COLLAPSIBLE_TABS = new Set(['Main Components Through Time','Key Mistakes and Corrections','Architectural Transitions','Engineering Lessons','Evidence Index']);
+const _COLLAPSIBLE_TABS = new Set(['Main Components Through Time','Key Mistakes and Corrections','Architectural Transitions','Engineering Lessons']);
+const _HIDDEN_CS_SECTIONS = new Set(['Evidence Index','Limitations']);
 
 function _renderCsTimeline(content) {
   const lines = (content || '').split('\n');
@@ -1664,7 +1652,9 @@ function _splitNarrative(text) {
     }
   });
   if (current) sections.push(current);
-  return sections.map(s => ({ title: s.title, content: s.lines.join('\n').trim() }));
+  return sections
+    .map(s => ({ title: s.title, content: s.lines.join('\n').trim() }))
+    .filter(s => !_HIDDEN_CS_SECTIONS.has(s.title));
 }
 
 function _csSwitchTab(idx) {
@@ -1686,21 +1676,37 @@ async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
   let data;
-  try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study`); }
+  const _aud = localStorage.getItem('cs-audience') || 'intermediate';
+  try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study?audience=${encodeURIComponent(_aud)}`); }
   catch (e) {
+    if (e.status === 404 && _aud !== 'intermediate') {
+      // Requested audience not generated yet — fall back to intermediate
+      localStorage.setItem('cs-audience', 'intermediate');
+      loadCaseStudy(repoId);
+      return;
+    }
     el.innerHTML = e.status === 404
-      ? '<div class="empty-state">No case study generated yet for this repository.</div>'
+      ? '<div class="empty-state">No case study generated yet. Run analysis first.</div>'
       : '<div class="empty-state" role="alert">Error loading case study.</div>';
     return;
   }
   const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : data.repository_id;
   const sections = _splitNarrative(data.narrative || '');
   const words = (data.narrative || '').trim().split(/\s+/).length;
+  const currentAudience = localStorage.getItem('cs-audience') || 'intermediate';
   const chips = `<div class="meta-chips">
     <span class="chip" data-tip="statCommits" tabindex="0">${data.commit_count} commits</span>
     <span class="chip" data-tip="secHotspots" tabindex="0">${data.hotspot_count} hotspots</span>
     <span class="chip gray">${words} words</span>
     ${data.generated_at ? `<span class="chip gray">Generated ${fmtDate(data.generated_at)}</span>` : ''}
+    <span class="cs-audience-wrap" title="Switch audience — cached versions load instantly; new levels generate in background (~1 min)">
+      <span class="cs-audience-label">Audience:</span>
+      <select class="cs-audience-select" onchange="_setCsAudience(this.value)" aria-label="Case study audience level">
+        <option value="beginner"${currentAudience === 'beginner' ? ' selected' : ''}>Beginner</option>
+        <option value="intermediate"${currentAudience === 'intermediate' ? ' selected' : ''}>Intermediate</option>
+        <option value="expert"${currentAudience === 'expert' ? ' selected' : ''}>Expert</option>
+      </select>
+    </span>
   </div>`;
 
   let tabBtns = '';
@@ -1732,6 +1738,59 @@ async function loadCaseStudy(repoId) {
     </div>
     ${sections.length > 0 ? `<div class="cs-tabs" role="tablist" aria-label="Case study sections">${tabBtns}</div>` : ''}
     ${linkedTabPanels}`;
+}
+
+async function _setCsAudience(value) {
+  localStorage.setItem('cs-audience', value);
+  if (!currentRepo) return;
+  const el = document.getElementById('case-study-content');
+  el.innerHTML = spinner();
+  // Try loading cached version for this audience first
+  try {
+    await apiFetch(`/api/repos/${encodeURIComponent(currentRepo)}/case-study?audience=${encodeURIComponent(value)}`);
+    // Cached — just reload normally
+    loadCaseStudy(currentRepo);
+    return;
+  } catch (e) {
+    if (e.status !== 404) {
+      el.innerHTML = '<div class="empty-state" role="alert">Error checking case study.</div>';
+      return;
+    }
+  }
+  // Not cached — trigger background regeneration
+  el.innerHTML = `<div class="empty-state">${spinner()}<p style="color:var(--yellow);margin-top:0.5rem">Generating ${value} case study… this may take a minute.</p></div>`;
+  let regenRes;
+  try {
+    regenRes = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/case-study/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audience: value }),
+    });
+  } catch {
+    el.innerHTML = '<div class="empty-state" role="alert">Failed to start regeneration — check that the server is running.</div>';
+    return;
+  }
+  if (!regenRes.ok) {
+    el.innerHTML = `<div class="empty-state" role="alert">Regeneration failed (HTTP ${regenRes.status}). Try restarting the server.</div>`;
+    return;
+  }
+  _pollRegenStatus(currentRepo, value);
+}
+
+function _pollRegenStatus(repoId, audience) {
+  const el = document.getElementById('case-study-content');
+  const intervalId = setInterval(async () => {
+    try {
+      const s = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/case-study/regen-status`);
+      if (!s.running) {
+        clearInterval(intervalId);
+        loadCaseStudy(repoId);
+      }
+    } catch {
+      clearInterval(intervalId);
+      if (el) el.innerHTML = '<div class="empty-state" role="alert">Regeneration status unknown.</div>';
+    }
+  }, 2000);
 }
 
 /* =========================================================
@@ -1909,14 +1968,17 @@ function _filterHotspot(btn) {
   } catch {}
 }
 
-function _filterByEvidenceShas(shas, label) {
+async function _filterByEvidenceShas(shas, label) {
   if (!currentRepo || !shas || !shas.length) return;
   switchView('detail');
   switchTab('commits');
-  setTimeout(() => {
-    _evidenceShaFilter = new Set(shas);
-    _applyCommitFilter(label);
-  }, 100);
+  // Fetch all analyzed commits so SHA filter doesn't silently miss any
+  if (commitsLimit < 1000) {
+    commitsLimit = 1000;
+    await loadCommits(currentRepo, false);
+  }
+  _evidenceShaFilter = new Set(shas);
+  _applyCommitFilter(label);
 }
 
 function _searchCommitsByFile(filePath) {
@@ -2153,7 +2215,7 @@ async function _doAnalyze(limit) {
     const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit }),
+      body: JSON.stringify({ limit, audience: localStorage.getItem('cs-audience') || 'intermediate' }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     _pollAnalyzeStatus(currentRepo);
@@ -2170,22 +2232,35 @@ function _pollAnalyzeStatus(repoId) {
       const s = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/status`);
       if (!btn) { clearInterval(intervalId); return; }
       if (s.running) {
-        const label = s.total > 0 ? `Running… ${s.pct}%` : 'Running…';
-        btn.textContent = label;
+        if (s.total > 0 && s.done >= s.total) {
+          btn.textContent = 'Updating case study…';
+        } else if (s.total > 0) {
+          btn.textContent = `${s.done}/${s.total} analyzed`;
+        } else {
+          btn.textContent = 'Running…';
+        }
       } else {
         clearInterval(intervalId);
-        btn.textContent = '+ Analyze';
+        btn.textContent = '✓ Done!';
+        btn.style.color = 'var(--green)';
         btn.disabled = false;
-        btn.style.color = '';
-        // Fix 1: Refresh analyzed count in header after analysis completes
+        // Update analyzed count in header
         try {
           const updated = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=9999`);
           _analyzePrefetch = updated;
           const analyzedEl = document.getElementById('sh-analyzed');
           if (analyzedEl) analyzedEl.textContent = (updated.analyzed_commits || 0) + ' analyzed';
         } catch {}
-        // Reload commits tab if it's currently active
+        // Always reload timeline so _tlAllCommits is fresh regardless of which view is active
+        if (currentRepo === repoId) loadTimeline(repoId);
+        // Reload commits tab if active
         if (document.getElementById('tab-commits')?.classList.contains('active')) loadCommits(repoId, false);
+        // Reload case study — regenerated on backend after analysis
+        if (currentRepo === repoId) loadCaseStudy(repoId);
+        // Reset button after showing Done
+        setTimeout(() => {
+          if (btn) { btn.textContent = '+ Analyze'; btn.style.color = ''; }
+        }, 3000);
       }
     } catch {
       clearInterval(intervalId);

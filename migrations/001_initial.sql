@@ -48,11 +48,13 @@ CREATE TABLE IF NOT EXISTS commit_analyses (
 );
 
 CREATE TABLE IF NOT EXISTS case_studies (
-    repository_id TEXT PRIMARY KEY,
+    repository_id TEXT NOT NULL,
+    audience      TEXT NOT NULL DEFAULT 'intermediate',
     narrative     TEXT NOT NULL,
     commit_count  INTEGER NOT NULL,
     hotspot_count INTEGER NOT NULL,
-    created_at    TEXT NOT NULL DEFAULT (TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+    created_at    TEXT NOT NULL DEFAULT (TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
+    PRIMARY KEY (repository_id, audience)
 );
 
 CREATE TABLE IF NOT EXISTS github_context (

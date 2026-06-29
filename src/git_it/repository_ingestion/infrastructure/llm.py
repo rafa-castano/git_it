@@ -11,7 +11,9 @@ from git_it.repository_ingestion.domain.patterns import PatternExplanation, Patt
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
+_NARRATIVE_MODEL = "anthropic/claude-sonnet-4-6"
 _DEFAULT_MAX_TOKENS = 4096
+_NARRATIVE_MAX_TOKENS = 16000
 _ANALYSIS_MAX_TOKENS = 1024
 _SYNTHESIS_MAX_TOKENS = 2048
 
@@ -33,8 +35,11 @@ Rules:
 
 
 class LiteLLMLLMClient:
-    def __init__(self, *, model: str = _DEFAULT_MODEL) -> None:
+    def __init__(
+        self, *, model: str = _DEFAULT_MODEL, max_tokens: int = _DEFAULT_MAX_TOKENS
+    ) -> None:
         self._model = model
+        self._max_tokens = max_tokens
 
     def complete(self, messages: list[LLMMessage]) -> str:
         import litellm
@@ -43,7 +48,7 @@ class LiteLLMLLMClient:
         response = litellm.completion(
             model=self._model,
             messages=litellm_messages,
-            max_tokens=_DEFAULT_MAX_TOKENS,
+            max_tokens=self._max_tokens,
         )
         content = response.choices[0].message.content  # type: ignore[union-attr]
         return content or ""

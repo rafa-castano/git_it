@@ -32,6 +32,9 @@ class FakeTemporalReader:
     def list_analyses_with_dates(self, repository_id: str) -> list[TimestampedAnalysis]:
         return list(self._items)
 
+    def list_analyses_since(self, repository_id: str, *, since: str) -> list[TimestampedAnalysis]:
+        return [i for i in self._items if i.committed_at >= since]
+
 
 class FakePatternService:
     def detect(self, repository_id: str, *, hotspot_threshold: int = 5) -> PatternReport:
@@ -49,15 +52,17 @@ class FakeLLMClient:
 
 class FakeCaseStudyStore:
     def __init__(self) -> None:
-        self._store: dict[str, CaseStudyRecord] = {}
+        self._store: dict[tuple[str, str], CaseStudyRecord] = {}
         self.saved: list[CaseStudyRecord] = []
 
     def save_case_study(self, record: CaseStudyRecord) -> None:
-        self._store[record.repository_id] = record
+        self._store[(record.repository_id, record.audience)] = record
         self.saved.append(record)
 
-    def get_case_study(self, repository_id: str) -> CaseStudyRecord | None:
-        return self._store.get(repository_id)
+    def get_case_study(
+        self, repository_id: str, audience: str = "intermediate"
+    ) -> CaseStudyRecord | None:
+        return self._store.get((repository_id, audience))
 
 
 def _service(
@@ -122,4 +127,35 @@ def test_no_store_still_works() -> None:
     llm = FakeLLMClient()
     result = _service(llm, store=None).generate("repo-1")
     assert result.narrative != ""
+    assert llm.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Audience-specific caching (Batch 67)
+# ---------------------------------------------------------------------------
+
+
+def test_generate_saves_record_with_correct_audience() -> None:
+    llm = FakeLLMClient()
+    store = FakeCaseStudyStore()
+    svc = _service(llm, store)
+    svc.generate("repo-1", audience="beginner")
+    assert store.saved[-1].audience == "beginner"
+
+
+def test_different_audiences_both_call_llm() -> None:
+    llm = FakeLLMClient()
+    store = FakeCaseStudyStore()
+    svc = _service(llm, store)
+    svc.generate("repo-1", audience="intermediate")
+    svc.generate("repo-1", audience="beginner")
+    assert llm.call_count == 2
+
+
+def test_same_audience_uses_cache_on_second_call() -> None:
+    llm = FakeLLMClient()
+    store = FakeCaseStudyStore()
+    svc = _service(llm, store)
+    svc.generate("repo-1", audience="expert")
+    svc.generate("repo-1", audience="expert")
     assert llm.call_count == 1

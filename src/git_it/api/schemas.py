@@ -37,6 +37,7 @@ class CommitSummaryItem(BaseModel):
     importance: str | None
     summary: str | None
     affected_components: list[str] = []
+    files_changed: list[str] = []
 
 
 class CommitsResponse(BaseModel):
@@ -153,6 +154,7 @@ class IngestResponse(BaseModel):
 class AnalyzeRequest(BaseModel):
     limit: int = 10
     model: str = "anthropic/claude-haiku-4-5-20251001"
+    audience: str = "intermediate"
 
 
 class AnalyzeResponse(BaseModel):
@@ -173,6 +175,15 @@ class AnalyzeStatusResponse(BaseModel):
     done: int
     total: int
     pct: int
+
+
+class RegenerateRequest(BaseModel):
+    audience: str = "intermediate"
+
+
+class RegenStatusResponse(BaseModel):
+    running: bool
+    audience: str
 
 
 class ContributorItem(BaseModel):

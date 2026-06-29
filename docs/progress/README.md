@@ -73,6 +73,9 @@ One file per batch, organized by feature area.
 - [Batch 59 — GitHub Actions CI workflow and Dockerfile](api/batch-59-ci-cd-pipeline.md)
 - [Batch 60 — Frontend repository browser (home view)](api/batch-60-frontend-repository-browser.md)
 - [Batch 64 — UI/UX overhaul: 11 fixes including design polish, timeline filters, and Case Study improvements](api/batch-64-ui-ux-fixes-design-polish.md)
+- [Batch 65 — UI interactive fixes: chart cross-linking, timeline filter, commit file filter, and `files_changed` API field](api/batch-65-ui-interactive-fixes.md)
+- [Batch 66 — Analysis UX improvements, hotspot tightening, and timeline cleanup](api/batch-66-analysis-ux-hotspot-cleanup.md)
+- [Batch 67 — Case Study audience levels, section pruning, and timeline reload fix](api/batch-67-case-study-audience-timeline-fixes.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

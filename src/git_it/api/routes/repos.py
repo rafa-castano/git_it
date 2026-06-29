@@ -33,12 +33,15 @@ from git_it.api.schemas import (
     PatternExplanationSchema,
     PatternReportResponse,
     RefactorWaveSchema,
+    RegenerateRequest,
+    RegenStatusResponse,
     RepoListResponse,
     RepoSummary,
     RevertSignalSchema,
 )
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
+    build_narrative_service,
     build_repository_ingestion_service,
 )
 from git_it.repository_ingestion.domain.url_contract import (
@@ -80,6 +83,9 @@ def _extract_github_username(email: str) -> str | None:
 # In-memory progress store: repository_id → {running, done, total}
 _analyze_progress: dict[str, dict] = {}
 _analyze_progress_lock = threading.Lock()
+
+_regen_progress: dict[str, dict] = {}
+_regen_progress_lock = threading.Lock()
 
 
 def _get_db_path(project_root: Path) -> Path:
@@ -174,13 +180,18 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
 
 
 @router.get("/{repository_id}/case-study", response_model=CaseStudyResponse)
-def get_case_study(repository_id: str, project_root: ProjectRoot) -> CaseStudyResponse:
+def get_case_study(
+    repository_id: str,
+    project_root: ProjectRoot,
+    audience: str = "intermediate",
+) -> CaseStudyResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Case study not found")
 
     store = SqliteCaseStudyStore(db_path)
-    record = store.get_case_study(repository_id)
+    store.initialize()
+    record = store.get_case_study(repository_id, audience)
 
     if record is None:
         raise HTTPException(status_code=404, detail="Case study not found")
@@ -194,6 +205,50 @@ def get_case_study(repository_id: str, project_root: ProjectRoot) -> CaseStudyRe
     )
 
 
+def _regen_bg(repository_id: str, audience: str, model: str, project_root: Path) -> None:
+    with _regen_progress_lock:
+        _regen_progress[repository_id] = {"running": True, "audience": audience}
+    try:
+        narrative_svc = build_narrative_service(project_root=project_root, model=model)
+        narrative_svc.generate(repository_id, force=True, audience=audience)
+    except Exception as e:
+        _logger.warning(
+            "case study regen failed: %s", type(e).__name__, extra={"repository_id": repository_id}
+        )
+    finally:
+        with _regen_progress_lock:
+            _regen_progress[repository_id] = {"running": False, "audience": audience}
+
+
+@router.post("/{repository_id}/case-study/regenerate", response_model=RegenStatusResponse)
+@limiter.limit("5/minute")
+def regenerate_case_study(
+    request: Request,
+    repository_id: str,
+    payload: RegenerateRequest,
+    project_root: ProjectRoot,
+    _: None = Depends(require_api_key),
+) -> RegenStatusResponse:
+    db_path = _get_db_path(project_root)
+    if not db_path.exists():
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    model = "anthropic/claude-haiku-4-5-20251001"
+    t = threading.Thread(
+        target=_regen_bg,
+        args=(repository_id, payload.audience, model, project_root),
+        daemon=True,
+    )
+    t.start()
+    return RegenStatusResponse(running=True, audience=payload.audience)
+
+
+@router.get("/{repository_id}/case-study/regen-status", response_model=RegenStatusResponse)
+def get_regen_status(repository_id: str) -> RegenStatusResponse:
+    with _regen_progress_lock:
+        state = _regen_progress.get(repository_id, {"running": False, "audience": "intermediate"})
+    return RegenStatusResponse(running=bool(state["running"]), audience=str(state["audience"]))
+
+
 # ---------------------------------------------------------------------------
 # GET /api/repos/{repository_id}/patterns
 # ---------------------------------------------------------------------------
@@ -203,7 +258,7 @@ def get_case_study(repository_id: str, project_root: ProjectRoot) -> CaseStudyRe
 def get_patterns(
     repository_id: str,
     project_root: ProjectRoot,
-    hotspot_threshold: int = 5,
+    hotspot_threshold: int = 10,
 ) -> PatternReportResponse:
     from git_it.repository_ingestion.composition import build_pattern_detection_service
 
@@ -389,6 +444,7 @@ def get_commits(
                 importance=importance,
                 summary=summary,
                 affected_components=affected_components,
+                files_changed=list(record.files_changed),
             )
         )
 
@@ -412,7 +468,9 @@ def _resolve_canonical_url(repository_id: str, project_root: Path) -> str | None
     return runs[-1].canonical_url
 
 
-def _analyze_bg(repository_id: str, limit: int, model: str, project_root: Path) -> None:
+def _analyze_bg(
+    repository_id: str, limit: int, model: str, project_root: Path, audience: str = "intermediate"
+) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
         _analyze_progress[repository_id] = {"running": True, "done": 0, "total": 0}
@@ -429,12 +487,23 @@ def _analyze_bg(repository_id: str, limit: int, model: str, project_root: Path) 
         )
         svc.analyze_commits(
             repository_id,
-            limit=limit,
+            limit=None,
+            max_new=limit,
             order="newest",
             on_progress=_on_progress,
             canonical_url=canonical_url,
         )
         _logger.info("analysis completed", extra={"repository_id": repository_id})
+        try:
+            narrative_svc = build_narrative_service(project_root=project_root, model=model)
+            narrative_svc.generate(repository_id, audience=audience)
+            _logger.info("case study updated", extra={"repository_id": repository_id})
+        except Exception as ne:
+            _logger.warning(
+                "case study update failed: %s",
+                type(ne).__name__,
+                extra={"repository_id": repository_id},
+            )
     except Exception as e:
         _logger.warning(
             "analysis failed: %s", type(e).__name__, extra={"repository_id": repository_id}
@@ -487,7 +556,7 @@ def trigger_analyze(
         raise HTTPException(status_code=404, detail="Repository not found.")
     t = threading.Thread(
         target=_analyze_bg,
-        args=(repository_id, payload.limit, payload.model, project_root),
+        args=(repository_id, payload.limit, payload.model, project_root, payload.audience),
         daemon=True,
     )
     t.start()

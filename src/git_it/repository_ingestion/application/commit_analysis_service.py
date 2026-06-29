@@ -106,6 +106,7 @@ class CommitAnalysisService:
         repository_id: str,
         *,
         limit: int | None = None,
+        max_new: int | None = None,
         order: str = "newest",
         since: str | None = None,
         until: str | None = None,
@@ -121,11 +122,14 @@ class CommitAnalysisService:
         commits = self._reader.list_commits_for_repository(
             repository_id, limit=limit, order=order, since=since, until=until
         )
-        total = len(commits)
+        # When max_new is set, progress reports new analyses done / max_new target.
+        # When not set, progress reports position in the fetched commit list.
+        total = max_new if max_new is not None else len(commits)
         pre_classifier = CommitPreClassifier()
         results: list[CommitAnalysis] = []
         cached_count = 0
         skipped_count = 0
+        new_count = 0
         for i, commit in enumerate(commits):
             if self._analysis_reader is not None:
                 cached = self._analysis_reader.get_analysis(
@@ -135,14 +139,14 @@ class CommitAnalysisService:
                     _logger.debug("commit %s: cached", commit.sha[:8])
                     cached_count += 1
                     results.append(cached)
-                    if on_progress:
+                    if on_progress and max_new is None:
                         on_progress(i + 1, total)
                     continue
             classification = pre_classifier.classify(commit)
             if classification.decision == "skip":
                 _logger.debug("commit %s: skipped", commit.sha[:8])
                 skipped_count += 1
-                if on_progress:
+                if on_progress and max_new is None:
                     on_progress(i + 1, total)
                 continue
             _logger.debug(
@@ -162,8 +166,11 @@ class CommitAnalysisService:
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
             results.append(analysis)
+            new_count += 1
             if on_progress:
-                on_progress(i + 1, total)
+                on_progress(new_count if max_new is not None else i + 1, total)
+            if max_new is not None and new_count >= max_new:
+                break
         analyzed_count = len(results) - cached_count
         _logger.info(
             "batch complete: analyzed=%d cached=%d skipped=%d",

@@ -20,9 +20,9 @@ Pattern detection service, semantic patterns, refactor wave, ownership concentra
 
 Case study persistence, pipeline run command, commit pre-classifier, budget guardrail, repo profile injection, ordering/date filters, tiered model routing, incremental update, and parallel async analysis.
 
-## API (Batches 47–60)
+## API (Batches 47–67)
 
-FastAPI foundation, HTML dashboard, Chart.js visualization, accessibility/UX polish, GitHub username extraction, security hardening, observability, TDD endpoint tests, hexagonal refactor, model allowlist, open model selection, GitHub context enrichment, CI/CD pipeline, and frontend repository browser.
+FastAPI foundation, HTML dashboard, Chart.js visualization, accessibility/UX polish, GitHub username extraction, security hardening, observability, TDD endpoint tests, hexagonal refactor, model allowlist, open model selection, GitHub context enrichment, CI/CD pipeline, frontend repository browser, UI/UX overhaul, and interactive chart cross-linking fixes.
 
 ## Evals (Batch 61)
 

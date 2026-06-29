@@ -264,4 +264,38 @@ def test_system_prompt_uses_spec_004_narrative_structure() -> None:
     assert system_msgs
     text = system_msgs[0].content
     assert "Timeline" in text
-    assert "Evidence" in text
+    assert "Engineering Lessons" in text
+
+
+# ---------------------------------------------------------------------------
+# Audience-level system prompts (Batch 67)
+# ---------------------------------------------------------------------------
+
+
+def test_generate_beginner_audience_injects_beginner_block() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1", audience="beginner")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    assert "students or people new to software development" in system_text
+
+
+def test_generate_expert_audience_injects_expert_block() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1", audience="expert")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    assert "senior engineers and software architects" in system_text
+
+
+def test_generate_unknown_audience_falls_back_to_intermediate() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1", audience="invalid")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    assert "developers with practical experience" in system_text
+
+
+def test_generate_does_not_include_removed_sections() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    assert "Evidence Index" not in system_text
+    assert "## Limitations" not in system_text
