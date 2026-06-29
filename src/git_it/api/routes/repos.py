@@ -64,6 +64,25 @@ ProjectRoot = Annotated[Path, Depends(get_project_root)]
 
 _LLM_COST_PER_CALL_USD = 0.0008  # claude-haiku-4-5 approximate cost per analysis call
 
+# claude-sonnet-4-6 narrative cost model
+_SONNET_INPUT_COST_PER_TOKEN = 3.0 / 1_000_000  # $3 / MTok
+_SONNET_OUTPUT_COST_PER_TOKEN = 15.0 / 1_000_000  # $15 / MTok
+_NARRATIVE_BASE_INPUT_TOKENS = 500  # system prompt
+_NARRATIVE_TOKENS_PER_COMMIT = 45  # per-commit tokens in user message
+_NARRATIVE_OUTPUT_TOKENS = 4000  # conservative average output
+
+
+def _estimate_narrative_cost(total_commits: int) -> float:
+    if total_commits == 0:
+        return 0.0
+    input_tokens = _NARRATIVE_BASE_INPUT_TOKENS + total_commits * _NARRATIVE_TOKENS_PER_COMMIT
+    return round(
+        input_tokens * _SONNET_INPUT_COST_PER_TOKEN
+        + _NARRATIVE_OUTPUT_TOKENS * _SONNET_OUTPUT_COST_PER_TOKEN,
+        4,
+    )
+
+
 _logger = logging.getLogger(__name__)
 
 
@@ -533,12 +552,16 @@ def estimate_analyze(
     analyzed_commits = count_reader.count_analyses(repository_id)
     svc = build_commit_analysis_service(project_root=project_root, model=model)
     estimated_llm_calls = svc.estimate_llm_calls(repository_id, limit=limit, order="newest")
+    estimated_analysis_cost = round(estimated_llm_calls * _LLM_COST_PER_CALL_USD, 4)
+    estimated_narrative_cost = _estimate_narrative_cost(total_commits)
     return AnalyzeEstimateResponse(
         total_commits=total_commits,
         analyzed_commits=analyzed_commits,
         unanalyzed_commits=max(0, total_commits - analyzed_commits),
         estimated_llm_calls=estimated_llm_calls,
-        estimated_cost_usd=round(estimated_llm_calls * _LLM_COST_PER_CALL_USD, 4),
+        estimated_analysis_cost_usd=estimated_analysis_cost,
+        estimated_narrative_cost_usd=estimated_narrative_cost,
+        estimated_cost_usd=round(estimated_analysis_cost + estimated_narrative_cost, 4),
     )
 
 

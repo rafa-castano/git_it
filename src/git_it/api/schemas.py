@@ -167,6 +167,8 @@ class AnalyzeEstimateResponse(BaseModel):
     analyzed_commits: int
     unanalyzed_commits: int
     estimated_llm_calls: int
+    estimated_analysis_cost_usd: float
+    estimated_narrative_cost_usd: float
     estimated_cost_usd: float
 
 

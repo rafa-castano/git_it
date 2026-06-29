@@ -171,7 +171,43 @@ def test_estimate_cost_proportional_to_llm_calls(tmp_path: Path) -> None:
     assert response.status_code == 200
     body = response.json()
     llm_calls = body["estimated_llm_calls"]
-    assert body["estimated_cost_usd"] == round(llm_calls * 0.0008, 4)
+    assert body["estimated_analysis_cost_usd"] == round(llm_calls * 0.0008, 4)
+    assert body["estimated_narrative_cost_usd"] > 0
+    assert body["estimated_cost_usd"] == round(
+        body["estimated_analysis_cost_usd"] + body["estimated_narrative_cost_usd"], 4
+    )
+
+
+def test_estimate_narrative_cost_scales_with_commits(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+
+    db_small = _db_path(tmp_path / "small")
+    db_large = _db_path(tmp_path / "large")
+    _init_db(db_small)
+    _init_db(db_large)
+    _insert_commit(db_small, sha="sha0000", message="feat: a")
+    for i in range(20):
+        _insert_commit(db_large, sha=f"sha{i:04d}", message=f"feat: {i}")
+
+    client_small = TestClient(create_app(project_root=tmp_path / "small"))
+    client_large = TestClient(create_app(project_root=tmp_path / "large"))
+
+    small_cost = client_small.get("/api/repos/repo-abc/analyze/estimate").json()[
+        "estimated_narrative_cost_usd"
+    ]
+    large_cost = client_large.get("/api/repos/repo-abc/analyze/estimate").json()[
+        "estimated_narrative_cost_usd"
+    ]
+    assert large_cost > small_cost
+
+
+def test_estimate_narrative_cost_zero_when_no_commits(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+
+    _init_db(_db_path(tmp_path))
+    client = TestClient(create_app(project_root=tmp_path))
+    body = client.get("/api/repos/repo-abc/analyze/estimate").json()
+    assert body["estimated_narrative_cost_usd"] == 0.0
 
 
 def test_estimate_zero_calls_when_all_analyzed(tmp_path: Path) -> None:
