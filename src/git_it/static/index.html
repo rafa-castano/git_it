@@ -330,14 +330,6 @@
     /* ── Light mode chart label fix ── */
     [data-theme="light"] .chart-box h3 { color: #475569; }
 
-    /* ── Architecture transition diagram ── */
-    .arch-transition-diagram { display:flex; align-items:center; gap:1rem; margin:0.75rem 0 1rem; flex-wrap:wrap; }
-    .arch-box { flex:1; min-width:120px; padding:0.75rem 1rem; border-radius:8px; font-size:13px; font-weight:600; line-height:1.4; }
-    .arch-before { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:var(--text); }
-    .arch-after  { background:rgba(34,197,94,0.12);  border:1px solid rgba(34,197,94,0.4);  color:var(--text); }
-    .arch-lbl { display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:0.25rem; }
-    .arch-arrow { font-size:1.5rem; color:var(--accent); flex-shrink:0; }
-
     /* ── Bugfix recurrence cards ── */
     .bugfix-rec-card { background:var(--surface); border:1px solid var(--border); border-left:3px solid #ef4444; border-radius:8px; padding:0.75rem 1rem; margin-bottom:0.5rem; }
     .brc-top { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.25rem; }
@@ -1601,31 +1593,7 @@ function _renderArchTransition(content) {
   }
   return cards.map((card, i) => {
     const body = card.lines.join('\n');
-    // Try to find before/after in body text (multiple patterns)
-    const bMatch = body.match(/(?:^|\n)\s*(?:\*{0,2})(?:Before|From|Old|Previous)[:\*\s]+([^\n*]+)/im);
-    const aMatch = body.match(/(?:^|\n)\s*(?:\*{0,2})(?:After|To|New|Current|Replaced with)[:\*\s]+([^\n*]+)/im);
-    // Fall back: use title split on " to " or " → "
-    const cleanCardTitle = card.title.replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
-    let beforeText = bMatch ? bMatch[1].trim().replace(/\*\*/g,'') : null;
-    let afterText  = aMatch ? aMatch[1].trim().replace(/\*\*/g,'') : null;
-    if (!beforeText || !afterText) {
-      const titleSplit = cleanCardTitle.match(/(.+?)\s+(?:to|→|replaced by)\s+(.+)/i);
-      if (titleSplit) { beforeText = beforeText || titleSplit[1].trim(); afterText = afterText || titleSplit[2].trim(); }
-    }
-    if (!beforeText) beforeText = (cleanCardTitle.split(/\s*[→:]\s*/)[0] || cleanCardTitle).replace(/\*\*/g,'');
-    if (!afterText) {
-      const bodyFirstLines = body.split('\n').filter(l => l.trim()).slice(0, 4).join(' ').replace(/\*\*/g,'');
-      const afterBodyMatch = bodyFirstLines.match(/(?:replaced (?:with|by)|migrated to|moved to|adopted|switched to|now uses?)[:\s]+([^.;,\n]{5,80})/i);
-      if (afterBodyMatch) { afterText = afterBodyMatch[1].trim(); }
-      else { afterText = (cleanCardTitle.split(/\s*[→:]\s*/)[1] || body.split(/[.;]/)[0].replace(/\*\*/g,'').slice(0,80).trim()); }
-    }
     const rest = typeof marked !== 'undefined' ? marked.parse(body) : `<pre>${esc(body)}</pre>`;
-    const diagram = `
-      <div class="arch-transition-diagram" aria-label="Architectural transition">
-        <div class="arch-box arch-before"><span class="arch-lbl">Before</span>${esc(beforeText)}</div>
-        <div class="arch-arrow" aria-hidden="true">→</div>
-        <div class="arch-box arch-after"><span class="arch-lbl">After</span>${esc(afterText)}</div>
-      </div>`;
     return `<div class="cs-subcard" id="arch-${i}">
       <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
@@ -1633,7 +1601,7 @@ function _renderArchTransition(content) {
         <span class="cs-subcard-title">${esc(card.title)}</span>
         <span class="cs-subcard-chevron" aria-hidden="true">▶</span>
       </div>
-      <div class="cs-subcard-body">${diagram}<div class="markdown-body">${rest}</div></div>
+      <div class="cs-subcard-body"><div class="markdown-body">${rest}</div></div>
     </div>`;
   }).join('');
 }
