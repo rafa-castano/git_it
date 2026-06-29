@@ -1,5 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 
+from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
+from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
+
 # ---------------------------------------------------------------------------
 # Pattern sub-type schemas
 # ---------------------------------------------------------------------------
@@ -153,8 +156,8 @@ class IngestResponse(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     limit: int = 10
-    model: str = "anthropic/claude-haiku-4-5-20251001"
-    audience: str = "beginner"
+    model: str = DEFAULT_MODEL
+    audience: str = DEFAULT_AUDIENCE
 
 
 class AnalyzeResponse(BaseModel):
@@ -180,7 +183,7 @@ class AnalyzeStatusResponse(BaseModel):
 
 
 class RegenerateRequest(BaseModel):
-    audience: str = "beginner"
+    audience: str = DEFAULT_AUDIENCE
 
 
 class RegenStatusResponse(BaseModel):

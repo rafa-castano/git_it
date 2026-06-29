@@ -10,7 +10,8 @@ from git_it.repository_ingestion.domain.patterns import PatternExplanation, Patt
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"  # canonical public constant
+_DEFAULT_MODEL = DEFAULT_MODEL  # module-internal alias used by adapters below
 _NARRATIVE_MODEL = "anthropic/claude-sonnet-4-6"
 _DEFAULT_MAX_TOKENS = 4096
 _NARRATIVE_MAX_TOKENS = 16000

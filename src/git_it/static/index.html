@@ -2171,7 +2171,7 @@ async function _doAnalyze(limit) {
     const effective = limit >= 9999 ? est.unanalyzed_commits : Math.min(limit, est.unanalyzed_commits);
     const ratio = est.unanalyzed_commits > 0 ? effective / est.unanalyzed_commits : 0;
     const scaledCalls = Math.ceil((est.estimated_llm_calls || 0) * ratio);
-    const costPerCall = est.estimated_llm_calls > 0 ? (est.estimated_analysis_cost_usd || 0) / est.estimated_llm_calls : 0.0008;
+    const costPerCall = est.estimated_llm_calls > 0 ? (est.estimated_analysis_cost_usd || 0) / est.estimated_llm_calls : 0;
     const scaledCost = scaledCalls * costPerCall + (est.estimated_narrative_cost_usd || 0);
     const costMsg = scaledCost > 0 ? ` (~$${scaledCost.toFixed(4)})` : '';
     const label = limit >= 9999 ? 'all remaining' : `up to ${limit}`;

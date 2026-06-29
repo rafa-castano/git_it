@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from git_it.api.auth import require_api_key
+from git_it.api.cost import LLM_COST_PER_CALL_USD, estimate_narrative_cost
 from git_it.api.deps import get_project_root
 from git_it.api.limiter import limiter
 from git_it.api.schemas import (
@@ -39,6 +40,7 @@ from git_it.api.schemas import (
     RepoSummary,
     RevertSignalSchema,
 )
+from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
     build_narrative_service,
@@ -48,6 +50,7 @@ from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )
+from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCaseStudyStore,
     SqliteCommitCountReader,
@@ -61,27 +64,6 @@ from git_it.repository_ingestion.infrastructure.workspace import ingestion_works
 router = APIRouter(prefix="/api/repos", tags=["repos"])
 
 ProjectRoot = Annotated[Path, Depends(get_project_root)]
-
-_LLM_COST_PER_CALL_USD = 0.0008  # claude-haiku-4-5 approximate cost per analysis call
-
-# claude-sonnet-4-6 narrative cost model
-_SONNET_INPUT_COST_PER_TOKEN = 3.0 / 1_000_000  # $3 / MTok
-_SONNET_OUTPUT_COST_PER_TOKEN = 15.0 / 1_000_000  # $15 / MTok
-_NARRATIVE_BASE_INPUT_TOKENS = 500  # system prompt
-_NARRATIVE_TOKENS_PER_COMMIT = 45  # per-commit tokens in user message
-_NARRATIVE_OUTPUT_TOKENS = 4000  # conservative average output
-
-
-def _estimate_narrative_cost(total_commits: int) -> float:
-    if total_commits == 0:
-        return 0.0
-    input_tokens = _NARRATIVE_BASE_INPUT_TOKENS + total_commits * _NARRATIVE_TOKENS_PER_COMMIT
-    return round(
-        input_tokens * _SONNET_INPUT_COST_PER_TOKEN
-        + _NARRATIVE_OUTPUT_TOKENS * _SONNET_OUTPUT_COST_PER_TOKEN,
-        4,
-    )
-
 
 _logger = logging.getLogger(__name__)
 
@@ -202,7 +184,7 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
 def get_case_study(
     repository_id: str,
     project_root: ProjectRoot,
-    audience: str = "beginner",
+    audience: str = DEFAULT_AUDIENCE,
 ) -> CaseStudyResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():
@@ -251,10 +233,9 @@ def regenerate_case_study(
     db_path = _get_db_path(project_root)
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Repository not found.")
-    model = "anthropic/claude-haiku-4-5-20251001"
     t = threading.Thread(
         target=_regen_bg,
-        args=(repository_id, payload.audience, model, project_root),
+        args=(repository_id, payload.audience, DEFAULT_MODEL, project_root),
         daemon=True,
     )
     t.start()
@@ -264,7 +245,7 @@ def regenerate_case_study(
 @router.get("/{repository_id}/case-study/regen-status", response_model=RegenStatusResponse)
 def get_regen_status(repository_id: str) -> RegenStatusResponse:
     with _regen_progress_lock:
-        state = _regen_progress.get(repository_id, {"running": False, "audience": "beginner"})
+        state = _regen_progress.get(repository_id, {"running": False, "audience": DEFAULT_AUDIENCE})
     return RegenStatusResponse(running=bool(state["running"]), audience=str(state["audience"]))
 
 
@@ -488,7 +469,7 @@ def _resolve_canonical_url(repository_id: str, project_root: Path) -> str | None
 
 
 def _analyze_bg(
-    repository_id: str, limit: int, model: str, project_root: Path, audience: str = "beginner"
+    repository_id: str, limit: int, model: str, project_root: Path, audience: str = DEFAULT_AUDIENCE
 ) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
@@ -544,7 +525,7 @@ def estimate_analyze(
     repository_id: str,
     project_root: ProjectRoot,
     limit: int = 20,
-    model: str = "anthropic/claude-haiku-4-5-20251001",
+    model: str = DEFAULT_MODEL,
 ) -> AnalyzeEstimateResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():
@@ -554,8 +535,8 @@ def estimate_analyze(
     analyzed_commits = count_reader.count_analyses(repository_id)
     svc = build_commit_analysis_service(project_root=project_root, model=model)
     estimated_llm_calls = svc.estimate_llm_calls(repository_id, limit=limit, order="newest")
-    estimated_analysis_cost = round(estimated_llm_calls * _LLM_COST_PER_CALL_USD, 4)
-    estimated_narrative_cost = _estimate_narrative_cost(total_commits)
+    estimated_analysis_cost = round(estimated_llm_calls * LLM_COST_PER_CALL_USD, 4)
+    estimated_narrative_cost = estimate_narrative_cost(total_commits)
     return AnalyzeEstimateResponse(
         total_commits=total_commits,
         analyzed_commits=analyzed_commits,

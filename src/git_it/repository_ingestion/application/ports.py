@@ -6,6 +6,8 @@ from git_it.repository_ingestion.domain.commits import ExtractedCommit
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 
+DEFAULT_AUDIENCE = "beginner"  # canonical audience default used across all layers
+
 __all__ = [
     "CaseStudyRecord",
     "CaseStudyStore",
@@ -24,6 +26,7 @@ __all__ = [
     "CommitWithAnalysisRecord",
     "ContributorReader",
     "ContributorRecord",
+    "DEFAULT_AUDIENCE",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -160,14 +163,14 @@ class CaseStudyRecord:
     commit_count: int
     hotspot_count: int
     generated_at: str | None = None
-    audience: str = "beginner"
+    audience: str = DEFAULT_AUDIENCE
 
 
 class CaseStudyStore(Protocol):
     def save_case_study(self, record: CaseStudyRecord) -> None: ...
 
     def get_case_study(
-        self, repository_id: str, audience: str = "beginner"
+        self, repository_id: str, audience: str = DEFAULT_AUDIENCE
     ) -> CaseStudyRecord | None: ...
 
 

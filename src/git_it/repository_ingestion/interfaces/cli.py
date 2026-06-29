@@ -25,6 +25,7 @@ from git_it.repository_ingestion.composition import (
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.patterns import PatternReport
 from git_it.repository_ingestion.domain.url_contract import parse_repository_url
+from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL as _DEFAULT_MODEL
 
 
 class IngestionService(Protocol):
@@ -163,7 +164,6 @@ _DEFAULT_COMMITS_LIMIT = 20
 _DEFAULT_ANALYZE_LIMIT = 50
 _DEFAULT_COMMIT_ANALYSIS_LIMIT = 10
 _DEFAULT_HOTSPOT_THRESHOLD = 5
-_DEFAULT_MODEL = "anthropic/claude-haiku-4-5-20251001"
 
 
 def repository_id_for_url(raw_url: str) -> str:

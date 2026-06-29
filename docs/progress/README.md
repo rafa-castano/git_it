@@ -80,6 +80,7 @@ One file per batch, organized by feature area.
 - [Batch 69 — Sonnet case study cost in analyze estimate](api/batch-69-sonnet-case-study-cost-estimate.md)
 - [Bug fix — UI fixes, analyze ordering, and audience refactor](api/bugfix-session-ui-and-ordering.md)
 - [Batch 73 — Rate limit on the analyze estimate endpoint](api/batch-73-rate-limit-estimate-endpoint.md)
+- [Batch 74 — Centralize model, cost, and audience constants](api/batch-74-centralize-config-constants.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

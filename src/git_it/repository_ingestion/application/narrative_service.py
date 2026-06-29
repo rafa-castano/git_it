@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from git_it.repository_ingestion.application.ports import (
+    DEFAULT_AUDIENCE,
     CaseStudyRecord,
     CaseStudyStore,
     LLMClient,
@@ -151,7 +152,7 @@ class NarrativeService:
         repository_id: str,
         *,
         force: bool = False,
-        audience: str = "beginner",
+        audience: str = DEFAULT_AUDIENCE,
     ) -> NarrativeResult:
         existing: CaseStudyRecord | None = None
         if self._case_study_store is not None:
@@ -201,7 +202,7 @@ class NarrativeService:
         repository_id: str,
         *,
         existing_record: CaseStudyRecord | None,
-        audience: str = "beginner",
+        audience: str = DEFAULT_AUDIENCE,
     ) -> NarrativeResult:
         items = self._temporal_reader.list_analyses_with_dates(repository_id)
         if not items:
@@ -245,7 +246,7 @@ class NarrativeService:
         *,
         new_items: list[TimestampedAnalysis],
         existing: CaseStudyRecord,
-        audience: str = "beginner",
+        audience: str = DEFAULT_AUDIENCE,
         existing_synopsis: str | None = None,
     ) -> NarrativeResult:
         report = self._pattern_service.detect(repository_id)
