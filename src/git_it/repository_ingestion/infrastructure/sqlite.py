@@ -698,33 +698,86 @@ class SqliteCommitWithAnalysisReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
 
+    def count_commits_with_analyses(
+        self,
+        repository_id: str,
+        *,
+        category: str | None = None,
+    ) -> int:
+        """Return the total number of analyzed commits, optionally filtered by category."""
+        with sqlite3.connect(self._database_path) as conn:
+            if category is not None:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    WHERE ca.repository_id = ?
+                      AND json_extract(ca.data, '$.category') = ?
+                    """,
+                    (repository_id, category),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    WHERE ca.repository_id = ?
+                    """,
+                    (repository_id,),
+                ).fetchone()
+        return int(row[0]) if row else 0
+
     def list_commits_with_analyses(
         self,
         repository_id: str,
         *,
         limit: int,
         order: str = "newest",
+        category: str | None = None,
     ) -> list[CommitWithAnalysisRecord]:
         if order not in ("newest", "oldest"):
             raise ValueError(f"Invalid order value: {order!r}")
         order_dir = "ASC" if order == "oldest" else "DESC"
         with sqlite3.connect(self._database_path) as conn:
-            rows = conn.execute(
-                f"""
-                SELECT cf.sha, cf.message, cf.committed_at, ca.data,
-                       GROUP_CONCAT(ff.file_path, '|||') AS files
-                FROM commit_analyses ca
-                JOIN commit_facts cf
-                  ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
-                LEFT JOIN file_facts ff
-                  ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
-                WHERE ca.repository_id = ?
-                GROUP BY ca.commit_sha, cf.message, cf.committed_at, ca.data
-                ORDER BY cf.committed_at {order_dir}
-                LIMIT ?
-                """,
-                (repository_id, limit),
-            ).fetchall()
+            if category is not None:
+                rows = conn.execute(
+                    f"""
+                    SELECT cf.sha, cf.message, cf.committed_at, ca.data,
+                           GROUP_CONCAT(ff.file_path, '|||') AS files
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    LEFT JOIN file_facts ff
+                      ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
+                    WHERE ca.repository_id = ?
+                      AND json_extract(ca.data, '$.category') = ?
+                    GROUP BY ca.commit_sha, cf.message, cf.committed_at, ca.data
+                    ORDER BY cf.committed_at {order_dir}
+                    LIMIT ?
+                    """,
+                    (repository_id, category, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"""
+                    SELECT cf.sha, cf.message, cf.committed_at, ca.data,
+                           GROUP_CONCAT(ff.file_path, '|||') AS files
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    LEFT JOIN file_facts ff
+                      ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
+                    WHERE ca.repository_id = ?
+                    GROUP BY ca.commit_sha, cf.message, cf.committed_at, ca.data
+                    ORDER BY cf.committed_at {order_dir}
+                    LIMIT ?
+                    """,
+                    (repository_id, limit),
+                ).fetchall()
         return [
             CommitWithAnalysisRecord(
                 sha=str(row[0]),
@@ -1016,17 +1069,27 @@ class SqliteRepositoryDeleter:
 
     def delete_repository(self, repository_id: str) -> None:
         with sqlite3.connect(self._database_path) as conn:
-            # Child tables first
-            conn.execute("DELETE FROM github_context WHERE repository_id = ?", (repository_id,))
-            conn.execute("DELETE FROM file_facts WHERE repository_id = ?", (repository_id,))
-            conn.execute("DELETE FROM commit_analyses WHERE repository_id = ?", (repository_id,))
-            conn.execute("DELETE FROM commit_facts WHERE repository_id = ?", (repository_id,))
-            conn.execute("DELETE FROM case_studies WHERE repository_id = ?", (repository_id,))
-            conn.execute(
-                "DELETE FROM repository_synopsis WHERE repository_id = ?", (repository_id,)
-            )
-            # Parent table last
-            conn.execute("DELETE FROM ingestion_runs WHERE repository_id = ?", (repository_id,))
+            existing_tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            # Child tables first (optional tables are created lazily — skip if absent)
+            for table in (
+                "github_context",
+                "file_facts",
+                "commit_analyses",
+                "commit_facts",
+                "case_studies",
+                "repository_synopsis",
+                "ingestion_runs",
+            ):
+                if table in existing_tables:
+                    conn.execute(
+                        f"DELETE FROM {table} WHERE repository_id = ?",  # noqa: S608
+                        (repository_id,),
+                    )
 
 
 def _bool_to_sqlite(value: bool | None) -> int | None:

@@ -301,3 +301,56 @@ def test_delete_repo_is_rate_limited_at_10_per_minute() -> None:
     assert any("10 per 1 minute" in s for s in limit_strs), (
         f"delete_repo must be rate-limited at 10/minute; found limits: {limit_strs}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 7: DELETE succeeds when optional tables are absent (regression)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_repo_with_minimal_db_succeeds(tmp_path: Path) -> None:
+    """DELETE succeeds when only ingestion_runs exists (no optional tables).
+
+    Regression for: SqliteRepositoryDeleter crashed with OperationalError
+    'no such table: github_context' for repos that skipped GitHub enrichment,
+    analysis, or case-study generation.  All those tables are created lazily
+    and must not be assumed to exist at delete time.
+    """
+    from git_it.api.app import create_app
+
+    db_dir = tmp_path / ".data" / "git-it" / "ingestion"
+    db_dir.mkdir(parents=True)
+    db = db_dir / "git-it.sqlite3"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE ingestion_runs (
+                run_id TEXT PRIMARY KEY,
+                repository_id TEXT NOT NULL,
+                canonical_url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                error_code TEXT,
+                error_stage TEXT,
+                retryable INTEGER,
+                safe_message TEXT
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO ingestion_runs"
+            " VALUES ('r1','repo-min','https://github.com/x/y','COMPLETED','2024-01-01'"
+            ",null,null,null,null,null)"
+        )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    response = client.delete("/api/repos/repo-min")
+    assert response.status_code == 200, (
+        f"Expected 200 but got {response.status_code}: {response.text}"
+    )
+    body = response.json()
+    assert body["deleted"] is True
+    assert body["repository_id"] == "repo-min"

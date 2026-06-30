@@ -353,8 +353,8 @@ def test_get_commits_returns_paginated(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["commits"]) == 5
-    assert body["total"] == 5
+    assert len(body["commits"]) == 5  # page respects limit
+    assert body["total"] == 10  # total reflects full DB count, not page size
     assert body["repository_id"] == "repo-abc"
 
 

@@ -271,17 +271,21 @@ def get_commits(
     project_root: ProjectRoot,
     limit: int = 20,
     order: Literal["newest", "oldest"] = "newest",
+    category: str | None = None,
 ) -> CommitsResponse:
     db_path = _get_db_path(project_root)
     if not db_path.exists():
         return CommitsResponse(repository_id=repository_id, commits=[], total=0)
 
     reader = SqliteCommitWithAnalysisReader(db_path)
-    records = reader.list_commits_with_analyses(repository_id, limit=limit, order=order)
+    total = reader.count_commits_with_analyses(repository_id, category=category)
+    records = reader.list_commits_with_analyses(
+        repository_id, limit=limit, order=order, category=category
+    )
 
     commits = []
     for record in records:
-        category: str | None = None
+        cat: str | None = None
         importance: str | None = None
         summary: str | None = None
         affected_components: list[str] = []
@@ -289,7 +293,7 @@ def get_commits(
         if record.analysis_data is not None:
             try:
                 analysis_data = json.loads(record.analysis_data)
-                category = analysis_data.get("category")
+                cat = analysis_data.get("category")
                 importance = analysis_data.get("risk_level")
                 summary = analysis_data.get("summary")
                 raw_ac = analysis_data.get("affected_components") or []
@@ -302,7 +306,7 @@ def get_commits(
                 sha=record.sha,
                 message=record.message,
                 committed_at=record.committed_at,
-                category=category,
+                category=cat,
                 importance=importance,
                 summary=summary,
                 affected_components=affected_components,
@@ -310,7 +314,7 @@ def get_commits(
             )
         )
 
-    return CommitsResponse(repository_id=repository_id, commits=commits, total=len(commits))
+    return CommitsResponse(repository_id=repository_id, commits=commits, total=total)
 
 
 # ---------------------------------------------------------------------------
