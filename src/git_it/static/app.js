@@ -574,6 +574,23 @@ function _setCommitAudience(audience) {
   const sel = document.getElementById('commit-audience-select');
   if (sel) sel.value = audience;
   _applyTimelineFilters();
+  _updateAudienceBanner(audience);
+}
+
+function _updateAudienceBanner(audience) {
+  const banner = document.getElementById('tl-audience-banner');
+  if (!banner || !_tlAllCommits?.length) return;
+  const field = audience === 'beginner' ? 'summary_beginner' : 'summary_expert';
+  const hasAny = _tlAllCommits.some(c => c[field] != null && c[field] !== '');
+  if (!hasAny) {
+    const label = audience === 'beginner' ? 'Beginner' : 'Expert';
+    banner.innerHTML = `<span>${label} summaries haven't been generated yet — these commits were analyzed before dual-audience support.</span>
+      <span>Use <strong>+ Analyze</strong> to re-analyze and generate them.</span>`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+  }
 }
 
 async function _applyTimelineFilters() {
