@@ -45,3 +45,15 @@ Thumbs.db
 # Claude Code internal state
 .claude/worktrees/
 .playwright-mcp/
+
+# MCP local config (contains machine-specific paths — see .mcp.json.example)
+.mcp.json
+
+# MkDocs generated site
+site/
+
+# Crash dumps and OS noise
+*.stackdump
+
+# Root-level screenshot artifacts (batch evidence images — not project source)
+/*.png

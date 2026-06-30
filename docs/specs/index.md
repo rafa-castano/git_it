@@ -14,6 +14,8 @@ Spec source files live in `specs/` at the project root.
 | 004 | Narrative Engine | Implemented |
 | 005 | Documentation Engine | Draft |
 | 006 | MCP Strategy | Draft |
+| 007 | Cost Estimation | Implemented |
+| 008 | Repository Deletion | Implemented |
 
 ## How specs relate to the codebase
 

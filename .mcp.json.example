@@ -5,8 +5,8 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\rcastano\\OneDrive - AYESA\\Documentos\\Aprender\\Agentes\\Brais_agentes\\TFM\\git_it",
-        "C:\\Users\\rcastano\\.claude\\skills"
+        ".",
+        "${HOME}/.claude/skills"
       ]
     },
     "git": {
@@ -14,7 +14,7 @@
       "args": [
         "mcp-server-git",
         "--repository",
-        "C:\\Users\\rcastano\\OneDrive - AYESA\\Documentos\\Aprender\\Agentes\\Brais_agentes\\TFM\\git_it"
+        "."
       ]
     },
     "postgres": {

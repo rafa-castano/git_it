@@ -18,6 +18,8 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 | 006 | Use SQLite for MVP, PostgreSQL+pgvector for Future | Proposed |
 | 007 | Use Local Git Mining Plus GitHub MCP | Proposed |
 | 008 | Treat Repository Content as Untrusted | Proposed |
+| 009 | Process Not-Yet-Analyzed Commits Oldest-First | Accepted |
+| 010 | Accepted Limitations of the Local-First Single-Process MVP | Accepted |
 
 ## How to add a new ADR
 
