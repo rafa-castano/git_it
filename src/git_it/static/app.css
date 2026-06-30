@@ -266,6 +266,11 @@ tr.clickable-row { cursor: pointer; }
 #global-tip { position: fixed; display: none; z-index: 9999; max-width: 280px; background: #1e2333; color: #e2e8f0; border: 1px solid #3d4263; border-radius: 6px; padding: 7px 11px; font-size: 12px; line-height: 1.55; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.5); font-family: 'Inter', system-ui, sans-serif; }
 html.tips-enabled [data-tip] { cursor: help; }
 
+/* ── Date inputs ── */
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.7; filter: invert(0.8); }
+input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
+
 /* ── Utils ── */
 .empty-state { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 13px; }
 .sha-code { font-family: monospace; font-size: 12px; color: var(--muted); }

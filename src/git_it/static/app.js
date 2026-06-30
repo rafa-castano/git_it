@@ -115,6 +115,15 @@ document.getElementById('btn-tips').addEventListener('click', function() {
   document.documentElement.classList.toggle('tips-enabled', _tipsEnabled);
 });
 
+// showPicker() forces the native date calendar open reliably across environments
+['tl-date-from', 'tl-date-to'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', function() { this.showPicker?.(); });
+});
+// Activity chart date pickers are added dynamically by loadOverview; delegate to document
+document.addEventListener('click', e => {
+  if (e.target.matches('#activity-date-from, #activity-date-to')) e.target.showPicker?.();
+});
+
 document.getElementById('btn-theme').addEventListener('click', function() {
   const isLight = document.documentElement.dataset.theme === 'light';
   document.documentElement.dataset.theme = isLight ? '' : 'light';
@@ -788,7 +797,20 @@ async function loadOverview(repoId) {
         <div id="donut-legend-custom" class="donut-legend" role="list" aria-label="Category legend"></div>
       </div>
       <div class="chart-box">
-        <h3>Commit Activity</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">
+          <h3 style="margin:0">Commit Activity</h3>
+          <div style="display:flex;gap:0.35rem;align-items:center">
+            <input type="date" id="activity-date-from" aria-label="Activity chart from date"
+              style="padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:11px;font-family:inherit;color-scheme:dark"
+              oninput="_rebuildActivityChart()" title="From date">
+            <span style="color:var(--muted);font-size:11px">–</span>
+            <input type="date" id="activity-date-to" aria-label="Activity chart to date"
+              style="padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:11px;font-family:inherit;color-scheme:dark"
+              oninput="_rebuildActivityChart()" title="To date">
+            <button onclick="_clearActivityDateFilter()" title="Clear date range"
+              style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">×</button>
+          </div>
+        </div>
         <div class="chart-container" style="height:220px"><canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas></div>
       </div>
     </div>
@@ -836,15 +858,18 @@ async function loadOverview(repoId) {
   }
 
   const commitList = commits.commits || [];
-  const { labels: actLabels, data: actData } = buildActivityData(commitList);
-  if (actLabels.length > 0) {
+  window._activityAllCommits = commitList;
+
+  function _buildActivityChart(filteredCommits) {
+    const { labels: actLabels, data: actData } = buildActivityData(filteredCommits);
+    if (!actLabels.length) return;
     destroyChart('activity');
     _charts['activity'] = new Chart(document.getElementById('chart-activity'), {
       type: 'bar',
       data: { labels: actLabels, datasets: [{ label: 'Commits', data: actData, backgroundColor: '#6366f1', borderRadius: 3 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view in Timeline' } } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view in Commits' } } },
         scales: { x: { ticks: { color: _tc(), font: { size: 10 }, maxRotation: 45 }, grid: { color: _gc() } }, y: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } } },
         onClick(evt, els) {
           if (!els.length) return;
@@ -872,6 +897,25 @@ async function loadOverview(repoId) {
       },
     });
   }
+
+  window._rebuildActivityChart = function() {
+    const from = document.getElementById('activity-date-from')?.value;
+    const to = document.getElementById('activity-date-to')?.value;
+    let commits = window._activityAllCommits || [];
+    if (from) commits = commits.filter(c => (c.committed_at || '') >= from);
+    if (to) commits = commits.filter(c => (c.committed_at || '') <= to + 'T23:59:59');
+    _buildActivityChart(commits);
+  };
+
+  window._clearActivityDateFilter = function() {
+    const f = document.getElementById('activity-date-from');
+    const t = document.getElementById('activity-date-to');
+    if (f) f.value = '';
+    if (t) t.value = '';
+    _buildActivityChart(window._activityAllCommits || []);
+  };
+
+  _buildActivityChart(commitList);
 
   const top5 = hotspots.slice(0, 5);
   if (top5.length > 0) {
