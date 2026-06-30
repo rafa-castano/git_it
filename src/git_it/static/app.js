@@ -696,6 +696,7 @@ function renderTimeline(commits, patterns) {
       <div class="tl-month-hdr"><span>${esc(label)}</span><div class="tl-month-line"></div></div>`;
 
     html += '<div class="tl-commits-group">';
+    let prevDay = null;
     monthCommits.forEach((c, i) => {
       const xid = `tlx-${month.replace('-', '')}-${i}`;
       const cat = (c.category || '').toUpperCase();
@@ -704,16 +705,27 @@ function renderTimeline(commits, patterns) {
         ? (_commitAudience === 'beginner' ? c.summary_beginner : (c.summary_expert ?? ''))
         : (c.summary || '');
       const hasAnalysis = !!(c.category || activeSummary);
-      const hasDetail = !!(activeSummary && activeSummary !== c.message);
       const shaUrl = currentRepoMeta?.canonical_url?.includes('github.com')
         ? `${currentRepoMeta.canonical_url}/commit/${c.sha || ''}`
         : null;
+      // All commits with a GitHub link or a meaningful summary are expandable
+      const hasDetail = !!(activeSummary && activeSummary !== c.message) || !!shaUrl;
+
+      // Day separator — insert between commits of different days within the month
+      const curDay = (c.committed_at || '').slice(0, 10);
+      if (prevDay !== null && curDay !== prevDay) {
+        const [dyear, dmon, dday] = curDay.split('-');
+        const dayLabel = new Date(parseInt(dyear), parseInt(dmon) - 1, parseInt(dday))
+          .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        html += `<div class="tl-day-sep" aria-hidden="true">${esc(dayLabel)}</div>`;
+      }
+      prevDay = curDay;
+
       const interactiveAttrs = hasDetail
         ? `onclick="tlToggle('${xid}')" role="button" tabindex="0" aria-expanded="false"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}"
-               style="cursor:pointer"`
-        : '';
-      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}" id="tlr-${xid}" ${interactiveAttrs}>
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}">`
+        : '>';
+      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}" id="tlr-${xid}" ${interactiveAttrs}
         <span class="tl-date">${esc(fmtMonthDay(c.committed_at || ''))}</span>
         <span class="tl-msg">${esc(truncate(c.message || '', 70))}</span>
         <div class="tl-badges">
@@ -815,8 +827,12 @@ async function loadOverview(repoId) {
     }
     const introText = introLines.join('\n').trim();
     if (introText) {
-      const rendered = typeof marked !== 'undefined' ? marked.parse(introText) : `<p>${esc(introText)}</p>`;
-      overviewIntroHtml = `<div class="overview-intro">${rendered}</div>`;
+      // Show only the first paragraph, capped to 2 sentences — full narrative is in Case Study
+      const firstPara = (introText.split(/\n\n+/)[0] || introText).trim();
+      const sentences = firstPara.split(/(?<=[.!?])\s+/);
+      const capped = sentences.slice(0, 2).join(' ');
+      const rendered = typeof marked !== 'undefined' ? marked.parse(capped) : `<p>${esc(capped)}</p>`;
+      overviewIntroHtml = `<div class="overview-intro">${rendered}<p style="margin-top:0.5rem"><a class="overview-cs-link" onclick="switchTab('case-study')" tabindex="0" role="button" onkeydown="if(event.key==='Enter')switchTab('case-study')">Read full case study →</a></p></div>`;
     }
   }
 
@@ -1788,6 +1804,7 @@ async function loadContributors(repoId) {
   }
 
   if (top3.length) {
+    html += '<p class="contributors-top-label">Top contributors</p>';
     html += '<div class="contributor-grid">';
     top3.forEach((c, i) => { html += renderCard(c, i); });
     html += '</div>';
