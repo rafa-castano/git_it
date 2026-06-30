@@ -601,6 +601,18 @@ class SqliteCaseStudyStore:
                 ),
             )
 
+    def list_available_audiences(self, repository_id: str) -> list[str]:
+        with sqlite3.connect(self._database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT audience FROM case_studies
+                WHERE repository_id = ?
+                ORDER BY audience
+                """,
+                (repository_id,),
+            ).fetchall()
+        return [row[0] for row in rows]
+
     def get_case_study(
         self, repository_id: str, audience: str = "beginner"
     ) -> CaseStudyRecord | None:

@@ -30,6 +30,7 @@ class CaseStudyResponse(BaseModel):
     commit_count: int
     hotspot_count: int
     generated_at: str | None
+    available_audiences: list[str] = []
 
 
 class CommitSummaryItem(BaseModel):

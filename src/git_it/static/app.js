@@ -1244,8 +1244,8 @@ async function loadCaseStudy(repoId) {
     <span class="cs-audience-wrap" title="Switch audience — cached versions load instantly; new levels generate in background (~1 min)">
       <span class="cs-audience-label">Audience:</span>
       <select class="cs-audience-select" onchange="_setCsAudience(this.value)" aria-label="Case study audience level">
-        <option value="beginner"${currentAudience === 'beginner' ? ' selected' : ''}>Beginner</option>
-        <option value="expert"${currentAudience === 'expert' ? ' selected' : ''}>Expert</option>
+        <option value="beginner"${currentAudience === 'beginner' ? ' selected' : ''}>${(data.available_audiences || []).includes('beginner') ? 'Beginner' : 'Beginner — generates (~1 min)'}</option>
+        <option value="expert"${currentAudience === 'expert' ? ' selected' : ''}>${(data.available_audiences || []).includes('expert') ? 'Expert' : 'Expert — generates (~1 min)'}</option>
       </select>
     </span>
   </div>`;

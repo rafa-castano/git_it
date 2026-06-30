@@ -196,6 +196,7 @@ def get_case_study(
         commit_count=record.commit_count,
         hotspot_count=record.hotspot_count,
         generated_at=record.generated_at,
+        available_audiences=store.list_available_audiences(repository_id),
     )
 
 
