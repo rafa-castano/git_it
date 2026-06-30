@@ -16,7 +16,6 @@ args = [
   ".codex",
   ".prompts",
   "ADR",
-  "checklists",
   "docs",
   "evals",
   "skills",

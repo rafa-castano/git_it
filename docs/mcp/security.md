@@ -30,7 +30,6 @@ Instead, configure only explicit non-secret workspace subdirectories:
 - `.codex`
 - `.prompts`
 - `ADR`
-- `checklists`
 - `docs`
 - `evals`
 - `skills`
