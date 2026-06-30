@@ -92,6 +92,26 @@ def test_analyze_commit_system_prompt_marks_data_as_untrusted() -> None:
     assert "untrusted" in text or "user input" in text or "user data" in text
 
 
+def test_system_prompt_instructs_dual_audience_summaries() -> None:
+    service, _, client = _make_service()
+    service.analyze_commit(_make_record())
+    system, _messages = client.calls[0]
+    text = system.lower()
+    assert "beginner" in text, "System prompt must mention beginner audience"
+    assert "expert" in text, "System prompt must mention expert audience"
+    assert "summary_beginner" in text or "summary beginner" in text or "beginner" in text
+    assert "summary_expert" in text or "summary expert" in text or "expert" in text
+
+
+def test_system_prompt_instructs_empty_string_for_self_explanatory_commits() -> None:
+    service, _, client = _make_service()
+    service.analyze_commit(_make_record())
+    system, _messages = client.calls[0]
+    assert '""' in system or "empty" in system.lower() or "self-explanatory" in system.lower(), (
+        "System prompt must instruct LLM to return empty string when message is self-explanatory"
+    )
+
+
 def test_analyze_commit_returns_analysis_result() -> None:
     expected = _make_analysis("abc1234")
     service, _, _ = _make_service(response=expected)

@@ -32,6 +32,8 @@ class EvidenceRef(BaseModel):
 class CommitAnalysis(BaseModel):
     commit_sha: str
     summary: str
+    summary_beginner: str | None = None
+    summary_expert: str | None = None
     category: CommitCategory
     intent: str | None = None
     intent_is_inferred: bool = False

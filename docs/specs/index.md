@@ -16,6 +16,7 @@ Spec source files live in `specs/` at the project root.
 | 006 | MCP Strategy | Draft |
 | 007 | Cost Estimation | Implemented |
 | 008 | Repository Deletion | Implemented |
+| 009 | Dual-Audience Commit Summaries | In progress |
 
 ## How specs relate to the codebase
 

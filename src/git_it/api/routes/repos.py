@@ -288,6 +288,8 @@ def get_commits(
         cat: str | None = None
         importance: str | None = None
         summary: str | None = None
+        summary_beginner: str | None = None
+        summary_expert: str | None = None
         affected_components: list[str] = []
 
         if record.analysis_data is not None:
@@ -296,6 +298,8 @@ def get_commits(
                 cat = analysis_data.get("category")
                 importance = analysis_data.get("risk_level")
                 summary = analysis_data.get("summary")
+                summary_beginner = analysis_data.get("summary_beginner")
+                summary_expert = analysis_data.get("summary_expert")
                 raw_ac = analysis_data.get("affected_components") or []
                 affected_components = [str(x) for x in raw_ac] if isinstance(raw_ac, list) else []
             except (json.JSONDecodeError, AttributeError):
@@ -309,6 +313,8 @@ def get_commits(
                 category=cat,
                 importance=importance,
                 summary=summary,
+                summary_beginner=summary_beginner,
+                summary_expert=summary_expert,
                 affected_components=affected_components,
                 files_changed=list(record.files_changed),
             )

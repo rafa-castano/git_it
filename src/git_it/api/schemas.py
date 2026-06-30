@@ -39,6 +39,8 @@ class CommitSummaryItem(BaseModel):
     category: str | None
     importance: str | None
     summary: str | None
+    summary_beginner: str | None = None
+    summary_expert: str | None = None
     affected_components: list[str] = []
     files_changed: list[str] = []
 

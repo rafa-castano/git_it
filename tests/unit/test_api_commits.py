@@ -218,3 +218,104 @@ def test_commits_category_filter_total_is_filtered_count(tmp_path: Path) -> None
     body = resp.json()
     assert body["total"] == 2
     assert len(body["commits"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# AC-4: dual-audience summary fields surfaced via API
+# ---------------------------------------------------------------------------
+
+
+def _insert_commit_with_dual_analysis(
+    db: Path,
+    *,
+    sha: str,
+    summary_beginner: str,
+    summary_expert: str,
+    repository_id: str = "repo-test",
+) -> None:
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO commit_facts"
+            " (repository_id, sha, committed_at, message, author_name,"
+            "  committer_name, parent_shas, author_email)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                repository_id,
+                sha,
+                "2024-01-01T10:00:00",
+                "feat: add thing",
+                "Alice",
+                "Alice",
+                "[]",
+                "",
+            ),
+        )
+        analysis: dict[str, object] = {
+            "commit_sha": sha,
+            "category": "FEATURE",
+            "summary": summary_expert,
+            "summary_beginner": summary_beginner,
+            "summary_expert": summary_expert,
+            "risk_level": "LOW",
+            "intent": None,
+            "intent_is_inferred": False,
+            "affected_components": [],
+            "confidence": 0.9,
+            "evidence": [],
+            "limitations": [],
+        }
+        conn.execute(
+            "INSERT OR IGNORE INTO commit_analyses"
+            " (repository_id, commit_sha, data)"
+            " VALUES (?, ?, ?)",
+            (repository_id, sha, json.dumps(analysis)),
+        )
+
+
+def test_commits_endpoint_returns_dual_summary_fields(tmp_path: Path) -> None:
+    """GET /commits includes summary_beginner and summary_expert when present."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_run(db)
+    _insert_commit_with_dual_analysis(
+        db,
+        sha="dual1",
+        summary_beginner="Plain explanation",
+        summary_expert="Refactored auth flow",
+    )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    resp = client.get("/api/repos/repo-test/commits")
+    assert resp.status_code == 200
+    commits = resp.json()["commits"]
+    assert len(commits) == 1
+    c = commits[0]
+    assert c["summary_beginner"] == "Plain explanation", f"Got {c.get('summary_beginner')!r}"
+    assert c["summary_expert"] == "Refactored auth flow", f"Got {c.get('summary_expert')!r}"
+
+
+def test_commits_endpoint_returns_none_for_legacy_analysis_without_dual_fields(
+    tmp_path: Path,
+) -> None:
+    """GET /commits returns summary_beginner=null for pre-feature analyses."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_run(db)
+    _insert_commit_with_analysis(db, sha="legacy1", category="CHORE")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    resp = client.get("/api/repos/repo-test/commits")
+    assert resp.status_code == 200
+    commits = resp.json()["commits"]
+    assert len(commits) == 1
+    c = commits[0]
+    assert c["summary_beginner"] is None
+    assert c["summary_expert"] is None

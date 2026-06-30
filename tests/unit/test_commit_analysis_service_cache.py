@@ -25,6 +25,8 @@ def _make_analysis(sha: str = "abc1234") -> CommitAnalysis:
     return CommitAnalysis(
         commit_sha=sha,
         summary="Cached",
+        summary_beginner="",
+        summary_expert="",
         category=CommitCategory.CHORE,
         intent=None,
         intent_is_inferred=False,
@@ -99,3 +101,91 @@ def test_analyze_commits_does_not_save_when_cached() -> None:
     )
     service.analyze_commits("repo-1")
     assert store.saved == []
+
+
+# ── AC-3: re-analysis trigger based on summary_beginner sentinel ─────────────
+
+
+def _make_legacy_analysis(sha: str = "sha1") -> CommitAnalysis:
+    """Pre-feature analysis: summary_beginner is None (default)."""
+    return CommitAnalysis(
+        commit_sha=sha,
+        summary="Legacy summary",
+        category=CommitCategory.CHORE,
+        confidence=0.8,
+        evidence=[],
+        limitations=[],
+    )
+
+
+def _make_dual_analysis(sha: str = "sha1") -> CommitAnalysis:
+    """Post-feature analysis: summary_beginner is not None (even if empty string)."""
+    return CommitAnalysis(
+        commit_sha=sha,
+        summary="Expert summary",
+        summary_beginner="Plain explanation",
+        summary_expert="Terse technical note",
+        category=CommitCategory.CHORE,
+        confidence=0.8,
+        evidence=[],
+        limitations=[],
+    )
+
+
+def _make_self_explanatory_analysis(sha: str = "sha1") -> CommitAnalysis:
+    """Post-feature analysis where LLM deemed message self-explanatory: empty strings."""
+    return CommitAnalysis(
+        commit_sha=sha,
+        summary="Fix typo",
+        summary_beginner="",
+        summary_expert="",
+        category=CommitCategory.CHORE,
+        confidence=0.9,
+        evidence=[],
+        limitations=[],
+    )
+
+
+def test_legacy_analysis_without_dual_summary_triggers_reanalysis() -> None:
+    legacy = _make_legacy_analysis("sha1")
+    assert legacy.summary_beginner is None
+    store = FakeAnalysisStore(cached={"sha1": legacy})
+    client = FakeClient()
+    service = CommitAnalysisService(
+        reader=FakeCommitReader([_make_record("sha1")]),
+        client=client,
+        analysis_reader=store,
+        analysis_writer=store,
+    )
+    service.analyze_commits("repo-1")
+    assert len(client.calls) == 1, "Legacy analysis should trigger re-analysis"
+
+
+def test_dual_analysis_with_non_none_beginner_is_skipped() -> None:
+    dual = _make_dual_analysis("sha1")
+    assert dual.summary_beginner is not None
+    store = FakeAnalysisStore(cached={"sha1": dual})
+    client = FakeClient()
+    service = CommitAnalysisService(
+        reader=FakeCommitReader([_make_record("sha1")]),
+        client=client,
+        analysis_reader=store,
+    )
+    service.analyze_commits("repo-1")
+    assert client.calls == [], "Up-to-date dual-summary analysis should be skipped"
+
+
+def test_self_explanatory_analysis_with_empty_string_is_skipped() -> None:
+    self_exp = _make_self_explanatory_analysis("sha1")
+    assert self_exp.summary_beginner == ""
+    store = FakeAnalysisStore(cached={"sha1": self_exp})
+    client = FakeClient()
+    service = CommitAnalysisService(
+        reader=FakeCommitReader([_make_record("sha1")]),
+        client=client,
+        analysis_reader=store,
+    )
+    service.analyze_commits("repo-1")
+    assert client.calls == [], (
+        "Empty-string summary_beginner means 'analyzed, no text needed' — skip"
+    )
