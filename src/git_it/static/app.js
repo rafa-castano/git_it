@@ -661,22 +661,31 @@ function renderTimeline(commits, patterns) {
       const xid = `tlx-${month.replace('-', '')}-${i}`;
       const cat = (c.category || '').toUpperCase();
       const hasAnalysis = !!(c.category || c.summary);
-      const isHigh = (c.importance || '').toLowerCase() === 'high';
-      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}${isHigh ? ' risk-high' : ''}"
-               id="tlr-${xid}" onclick="tlToggle('${xid}')"
-               role="button" tabindex="0" aria-expanded="false"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}">
+      const hasDetail = !!(c.summary && c.summary !== c.message);
+      const shaUrl = currentRepoMeta?.canonical_url?.includes('github.com')
+        ? `${currentRepoMeta.canonical_url}/commit/${c.sha || ''}`
+        : null;
+      const interactiveAttrs = hasDetail
+        ? `onclick="tlToggle('${xid}')" role="button" tabindex="0" aria-expanded="false"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}"
+               style="cursor:pointer"`
+        : '';
+      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}" id="tlr-${xid}" ${interactiveAttrs}>
         <span class="tl-date">${esc(fmtMonthDay(c.committed_at || ''))}</span>
-        <span class="tl-msg">${esc(truncate(c.message || '', isHigh ? 60 : 70))}</span>
+        <span class="tl-msg">${esc(truncate(c.message || '', 70))}</span>
         <div class="tl-badges">
           ${cat ? `<span class="badge ${badgeClass(c.category || '')}" data-tip="${catTipKey(c.category || '')}">${esc(cat)}</span>` : ''}
-          ${isHigh ? '<span class="badge badge-risk-high" aria-label="High risk">HIGH RISK</span>' : ''}
+          ${hasDetail ? '<span class="tl-expand-arrow" aria-hidden="true">›</span>' : ''}
         </div>
       </div>`;
-      if (c.summary && c.summary !== c.message) {
+      if (hasDetail) {
+        const sha7 = (c.sha || '').slice(0, 7);
+        const shaEl = shaUrl
+          ? `<a href="${esc(shaUrl)}" target="_blank" rel="noopener" style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</a>`
+          : `<span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</span>`;
         html += `<div class="tl-detail" id="${xid}">
           ${esc(c.summary)}
-          <span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc((c.sha || '').slice(0, 7))}</span>
+          ${shaEl}
         </div>`;
       }
     });
@@ -749,7 +758,26 @@ async function loadOverview(repoId) {
   if (currentRepoMeta && currentRepoMeta.analysis_count > 0) pills.push(`<span class="dna-pill purple" data-tip="dnaAnalyzed">📦 ${currentRepoMeta.analysis_count} analyzed</span>`);
   if (caseStudy) pills.push(`<span class="dna-pill green" data-tip="dnaCaseStudy">✅ Case study ready</span>`);
 
-  el.innerHTML = `
+  let overviewIntroHtml = '';
+  if (caseStudy?.narrative) {
+    const lines = caseStudy.narrative.split('\n');
+    const introLines = [];
+    let inFirstSection = false;
+    let firstSectionFound = false;
+    for (const line of lines) {
+      if (/^#\s/.test(line)) continue;
+      if (/^##\s/.test(line) && !firstSectionFound) { firstSectionFound = true; inFirstSection = true; continue; }
+      if (/^##\s/.test(line) && firstSectionFound) break;
+      if (inFirstSection || !firstSectionFound) introLines.push(line);
+    }
+    const introText = introLines.join('\n').trim();
+    if (introText) {
+      const rendered = typeof marked !== 'undefined' ? marked.parse(introText) : `<p>${esc(introText)}</p>`;
+      overviewIntroHtml = `<div class="overview-intro">${rendered}</div>`;
+    }
+  }
+
+  el.innerHTML = `${overviewIntroHtml}
     <div class="charts-row">
       <div class="chart-box">
         <h3>Commit Categories</h3>
