@@ -240,6 +240,21 @@ async function apiFetch(url) {
   if (!res.ok) throw { status: res.status, body: await res.text() };
   return res.json();
 }
+function _extractIsoDate(text) {
+  const M = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+               jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
+  let m;
+  m = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (m) return m[1];
+  m = text.match(/\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{4})\b/i);
+  if (m) return `${m[3]}-${M[m[2].slice(0,3).toLowerCase()]}-${m[1].padStart(2,'0')}`;
+  m = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{1,2}),?\s+(\d{4})\b/i);
+  if (m) return `${m[3]}-${M[m[1].slice(0,3).toLowerCase()]}-${m[2].padStart(2,'0')}`;
+  m = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{4})\b/i);
+  if (m) return `${m[2]}-${M[m[1].slice(0,3).toLowerCase()]}-01`;
+  return null;
+}
+
 function bestGranularity(commits) {
   const months = new Set(commits.map(c => (c.committed_at || '').slice(0, 7)).filter(Boolean));
   const unique = new Set(commits.map(c => (c.committed_at || '').slice(0, 10)).filter(Boolean));
@@ -1131,14 +1146,43 @@ function _renderCsTimeline(content) {
     return typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(content)}</div>` : `<pre>${esc(content)}</pre>`;
   }
 
-  // Distribute commits equally across phases (approximation without explicit date boundaries)
+  // Partition commits by dates extracted from phase titles, falling back to equal buckets
   const sorted = (_tlAllCommits || []).slice().sort((a,b) => (a.committed_at||'') < (b.committed_at||'') ? -1 : 1);
   const total = sorted.length;
-  const perPhase = phases.length ? Math.ceil(total / phases.length) : 0;
+
+  // Try to extract an anchor date from each phase title (and first content lines)
+  const anchors = phases.map(p =>
+    _extractIsoDate(p.title) || _extractIsoDate(p.lines.slice(0, 6).join(' ')) || null
+  );
+  const hasAnchors = anchors.some(a => a !== null);
+
+  const perPhase = hasAnchors ? 0 : (phases.length ? Math.ceil(total / phases.length) : 0);
   const buckets = phases.map((p, idx) => {
-    const slice = sorted.slice(idx * perPhase, (idx + 1) * perPhase);
+    let slice;
+    if (hasAnchors) {
+      const from = anchors[idx];
+      let to = null;
+      for (let j = idx + 1; j < anchors.length; j++) { if (anchors[j]) { to = anchors[j]; break; } }
+      if (from) {
+        slice = sorted.filter(c => {
+          const d = (c.committed_at || '').slice(0, 10);
+          return d >= from && (to ? d < to : true);
+        });
+      } else {
+        // Phase with no anchor: grab what falls between the previous and next anchors
+        const prev = anchors.slice(0, idx).reverse().find(a => a);
+        slice = sorted.filter(c => {
+          const d = (c.committed_at || '').slice(0, 10);
+          return (prev ? d >= prev : true) && (to ? d < to : true);
+        });
+      }
+    } else {
+      slice = sorted.slice(idx * perPhase, (idx + 1) * perPhase);
+    }
     return {
-      dateRange: slice.length ? `${slice[0].committed_at.slice(0,10)} → ${slice[slice.length-1].committed_at.slice(0,10)}` : '',
+      dateRange: slice.length >= 2
+        ? `${slice[0].committed_at.slice(0,10)} → ${slice[slice.length-1].committed_at.slice(0,10)}`
+        : slice.length === 1 ? slice[0].committed_at.slice(0,10) : '',
       count: slice.length,
     };
   });
