@@ -372,9 +372,13 @@ function _buildRepoCard(repo, patterns) {
 function handleAddRepo() {
   const input = document.getElementById('home-repo-input');
   const raw = input.value.trim();
-  if (!raw) return;
-
   const statusEl = document.getElementById('ingest-status');
+  if (!raw) {
+    statusEl.textContent = 'Enter a GitHub URL or owner/repo (e.g. torvalds/linux).';
+    statusEl.style.color = 'var(--red)';
+    input.focus();
+    return;
+  }
   const resultsEl = document.getElementById('search-results');
   resultsEl.style.display = 'none';
   resultsEl.innerHTML = '';
@@ -1154,8 +1158,9 @@ function _renderCsTimeline(content) {
 function _csTlOpen(idx) {
   const card = document.getElementById(`cs-tl-card-${idx}`);
   if (!card) return;
-  card.classList.add('open');
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const wasOpen = card.classList.contains('open');
+  card.classList.toggle('open');
+  if (!wasOpen) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function _renderArchTransition(content) {
