@@ -548,6 +548,20 @@ async function _loadAnalyzeEstimate(repoId, meta) {
    ========================================================= */
 let _tlAllCommits = [];
 let _tlPatterns = null;
+let _commitAudience = localStorage.getItem('commit-audience') || 'expert';
+// Sync selector to persisted value on load (selector HTML defaults to "expert")
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('commit-audience-select');
+  if (sel) sel.value = _commitAudience;
+});
+
+function _setCommitAudience(audience) {
+  _commitAudience = audience;
+  localStorage.setItem('commit-audience', audience);
+  const sel = document.getElementById('commit-audience-select');
+  if (sel) sel.value = audience;
+  _applyTimelineFilters();
+}
 
 async function _applyTimelineFilters() {
   if (!currentRepo) return;
@@ -672,8 +686,12 @@ function renderTimeline(commits, patterns) {
     monthCommits.forEach((c, i) => {
       const xid = `tlx-${month.replace('-', '')}-${i}`;
       const cat = (c.category || '').toUpperCase();
-      const hasAnalysis = !!(c.category || c.summary);
-      const hasDetail = !!(c.summary && c.summary !== c.message);
+      // Resolve audience-aware summary: use dual fields when available, fall back to legacy summary
+      const activeSummary = c.summary_beginner !== undefined && c.summary_beginner !== null
+        ? (_commitAudience === 'beginner' ? c.summary_beginner : (c.summary_expert ?? ''))
+        : (c.summary || '');
+      const hasAnalysis = !!(c.category || activeSummary);
+      const hasDetail = !!(activeSummary && activeSummary !== c.message);
       const shaUrl = currentRepoMeta?.canonical_url?.includes('github.com')
         ? `${currentRepoMeta.canonical_url}/commit/${c.sha || ''}`
         : null;
@@ -696,7 +714,7 @@ function renderTimeline(commits, patterns) {
           ? `<a href="${esc(shaUrl)}" target="_blank" rel="noopener" style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</a>`
           : `<span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</span>`;
         html += `<div class="tl-detail" id="${xid}">
-          ${esc(c.summary)}
+          ${esc(activeSummary)}
           ${shaEl}
         </div>`;
       }
