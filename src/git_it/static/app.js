@@ -105,11 +105,14 @@ document.addEventListener('mouseout',  e => { if (e.target.closest('[data-tip]')
 document.addEventListener('focusin',   e => { if (!_tipsEnabled) return; const t = e.target.closest('[data-tip]'); if (t) _showTip(t); });
 document.addEventListener('focusout',  e => { if (e.target.closest('[data-tip]')) _hideTip(); });
 
+document.documentElement.classList.add('tips-enabled');
 document.getElementById('btn-tips').addEventListener('click', function() {
   _tipsEnabled = !_tipsEnabled;
   _hideTip();
   this.classList.toggle('active', _tipsEnabled);
   this.setAttribute('aria-pressed', _tipsEnabled ? 'true' : 'false');
+  this.querySelector('.btn-tips-label').textContent = _tipsEnabled ? 'Hide Tooltips' : 'Show Tooltips';
+  document.documentElement.classList.toggle('tips-enabled', _tipsEnabled);
 });
 
 document.getElementById('btn-theme').addEventListener('click', function() {
