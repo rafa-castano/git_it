@@ -104,9 +104,12 @@ async def test_case_study_tool_does_not_create_missing_table(tmp_path: Path) -> 
 
 
 def test_server_module_imports_no_write_adapters() -> None:
-    source = (
-        Path(__file__).parent.parent.parent / "src" / "git_it" / "mcp" / "server.py"
-    ).read_text(encoding="utf-8")
+    # The read-only code path is the MCP server plus the shared tool layer it wraps.
+    root = Path(__file__).parent.parent.parent / "src" / "git_it"
+    sources = [
+        (root / "mcp" / "server.py").read_text(encoding="utf-8"),
+        (root / "tools" / "registry.py").read_text(encoding="utf-8"),
+    ]
 
     forbidden = [
         "SqliteRepositoryDeleter",
@@ -117,5 +120,6 @@ def test_server_module_imports_no_write_adapters() -> None:
         "save_case_study",
         ".initialize(",
     ]
-    for symbol in forbidden:
-        assert symbol not in source, f"read-only server must not reference {symbol!r}"
+    for source in sources:
+        for symbol in forbidden:
+            assert symbol not in source, f"read-only tool layer must not reference {symbol!r}"
