@@ -11,11 +11,28 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from slowapi import _rate_limit_exceeded_handler  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint  # noqa: E402
+from starlette.requests import Request  # noqa: E402
+from starlette.responses import Response  # noqa: E402
+from starlette.types import ASGIApp  # noqa: E402
 
 from git_it.api.limiter import limiter  # noqa: E402
 from git_it.api.routes.repos import router as repos_router  # noqa: E402
 
 _STATIC_DIR = Path(__file__).parent.parent / "static"
+
+
+class _NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
 
 def create_app(project_root: Path | None = None) -> FastAPI:
@@ -32,6 +49,7 @@ def create_app(project_root: Path | None = None) -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_middleware(SlowAPIMiddleware)
 
+    app.add_middleware(_NoCacheStaticMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

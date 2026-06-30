@@ -608,7 +608,10 @@ async function _applyTimelineFilters() {
   }
   let commits = _tlAllCommits.slice(0, limitN);
   if (_tlHourFilter) {
-    commits = commits.filter(c => (c.committed_at || '') >= _tlHourFilter.from && (c.committed_at || '') <= _tlHourFilter.to);
+    // Match using the same normalization as buildActivityData: slice(0,13).replace('T',' ')
+    commits = commits.filter(c =>
+      (c.committed_at || '').slice(0, 13).replace('T', ' ') === _tlHourFilter.hourPrefix
+    );
   } else {
     if (fromDate) commits = commits.filter(c => (c.committed_at || '') >= fromDate);
     if (toDate) commits = commits.filter(c => (c.committed_at || '') <= toDate + 'T23:59:59');
@@ -954,12 +957,15 @@ async function loadOverview(repoId) {
               fromDate = `${period}-01`;
               toDate = new Date(y, m, 0).toISOString().slice(0, 10);
             } else if (period.length > 10) {
-              // Hour granularity: "2024-06-01 10h"
+              // Hour granularity: "2024-06-01 10h" — period is built by
+              // c.committed_at.slice(0,13).replace('T',' ')+'h', so we reverse
+              // that to get the hour prefix used as the chart key
               const day = period.slice(0, 10);
-              const hour = period.slice(11, 13).padStart(2, '0');
               fromDate = day;
               toDate = day;
-              _tlHourFilter = { from: `${day}T${hour}:00:00`, to: `${day}T${hour}:59:59` };
+              // hourPrefix matches what buildActivityData uses as key prefix
+              const hourPrefix = period.slice(0, 13); // "2024-06-01 10"
+              _tlHourFilter = { hourPrefix };
             } else {
               // Day granularity: "2024-06-01"
               fromDate = period;
