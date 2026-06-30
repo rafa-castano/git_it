@@ -18,6 +18,7 @@ Spec source files live in `specs/` at the project root.
 | 008 | Repository Deletion | Implemented |
 | 009 | Dual-Audience Commit Summaries | Implemented |
 | 010 | Case Study Audience Availability | Implemented |
+| 011 | Read-Only MCP Server Exposure | Implemented |
 
 ## How specs relate to the codebase
 

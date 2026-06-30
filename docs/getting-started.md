@@ -62,6 +62,21 @@ Open `http://localhost:8000` in your browser. The dashboard has four tabs:
 
 To ingest a repository, use the search bar on the home screen or call the API directly.
 
+## MCP server (read-only)
+
+Git It can expose its analyzed domain to any MCP client (Claude Desktop, Codex) as a
+read-only stdio server:
+
+```bash
+git-it mcp
+```
+
+This publishes five read-only tools (`list_repositories`, `get_case_study`,
+`get_patterns`, `search_commits`, `get_contributors`) backed by the same data the
+REST API serves. It reads the database resolved from `GIT_IT_DATA_DIR` and never
+mutates data, spends LLM budget, or exposes secrets. See `docs/mcp/servers.md` and
+ADR 011 for the client config and security model.
+
 ## Environment variables
 
 | Variable | Required | Description |
