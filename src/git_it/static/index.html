@@ -132,8 +132,8 @@
               <option value="OTHER">OTHER</option>
             </select>
             <input type="text" id="tl-search" placeholder="Filter commits…" aria-label="Filter commits by keyword, author, or SHA" oninput="_debouncedTimelineFilter()">
-            <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
-            <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+            <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_tlHourFilter=null;_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+            <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_tlHourFilter=null;_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
             <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load" onchange="_applyTimelineFilters()">
               <option value="200" selected>All analyzed</option>
             </select>

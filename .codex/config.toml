@@ -19,7 +19,7 @@ args = [
   "docs",
   "evals",
   "skills",
-  "SPECS",
+  "specs",
   "src",
   "tests",
 ]

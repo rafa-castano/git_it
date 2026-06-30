@@ -561,6 +561,7 @@ async function _loadAnalyzeEstimate(repoId, meta) {
    ========================================================= */
 let _tlAllCommits = [];
 let _tlPatterns = null;
+let _tlHourFilter = null; // set when chart click drills into a specific hour
 let _commitAudience = localStorage.getItem('commit-audience') || 'expert';
 // Sync selector to persisted value on load (selector HTML defaults to "expert")
 document.addEventListener('DOMContentLoaded', () => {
@@ -606,8 +607,12 @@ async function _applyTimelineFilters() {
     return;
   }
   let commits = _tlAllCommits.slice(0, limitN);
-  if (fromDate) commits = commits.filter(c => (c.committed_at || '') >= fromDate);
-  if (toDate) commits = commits.filter(c => (c.committed_at || '') <= toDate + 'T23:59:59');
+  if (_tlHourFilter) {
+    commits = commits.filter(c => (c.committed_at || '') >= _tlHourFilter.from && (c.committed_at || '') <= _tlHourFilter.to);
+  } else {
+    if (fromDate) commits = commits.filter(c => (c.committed_at || '') >= fromDate);
+    if (toDate) commits = commits.filter(c => (c.committed_at || '') <= toDate + 'T23:59:59');
+  }
   if (keyword) {
     commits = commits.filter(c =>
       (c.message||'').toLowerCase().includes(keyword) ||
@@ -942,14 +947,23 @@ async function loadOverview(repoId) {
           switchTab('commits');
           setTimeout(() => {
             let fromDate, toDate;
+            _tlHourFilter = null;
             if (period.length === 7) {
+              // Month granularity: "2024-06"
               const [y, m] = period.split('-').map(Number);
               fromDate = `${period}-01`;
               toDate = new Date(y, m, 0).toISOString().slice(0, 10);
-            } else {
+            } else if (period.length > 10) {
+              // Hour granularity: "2024-06-01 10h"
               const day = period.slice(0, 10);
+              const hour = period.slice(11, 13).padStart(2, '0');
               fromDate = day;
               toDate = day;
+              _tlHourFilter = { from: `${day}T${hour}:00:00`, to: `${day}T${hour}:59:59` };
+            } else {
+              // Day granularity: "2024-06-01"
+              fromDate = period;
+              toDate = period;
             }
             const fromEl = document.getElementById('tl-date-from');
             const toEl = document.getElementById('tl-date-to');
