@@ -1239,7 +1239,6 @@ async function loadCaseStudy(repoId) {
   const currentAudience = localStorage.getItem('cs-audience') || 'beginner';
   const chips = `<div class="meta-chips">
     <span class="chip" data-tip="statCommits" tabindex="0">${data.commit_count} commits</span>
-    <span class="chip" data-tip="secHotspots" tabindex="0">${data.hotspot_count} hotspots</span>
     <span class="chip gray">${words} words</span>
     ${data.generated_at ? `<span class="chip gray">Generated ${fmtDate(data.generated_at)}</span>` : ''}
     <span class="cs-audience-wrap" title="Switch audience — cached versions load instantly; new levels generate in background (~1 min)">
