@@ -104,64 +104,44 @@
 
     <main id="main-area">
 
-      <!-- Timeline / Deep Analysis switcher -->
-      <div class="view-nav" role="tablist" aria-label="Repository views">
-        <button id="view-btn-timeline" class="view-nav-btn active" role="tab" aria-selected="true" aria-controls="panel-timeline">Timeline</button>
-        <button id="view-btn-detail" class="view-nav-btn" role="tab" aria-selected="false" aria-controls="panel-detail">Deep Analysis</button>
-      </div>
-
-      <!-- ── Timeline panel ── -->
-      <div id="panel-timeline" role="tabpanel" aria-labelledby="view-btn-timeline" tabindex="0">
-        <div class="filter-bar" style="margin-bottom:0.5rem">
-          <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load" onchange="_applyTimelineFilters()">
-            <option value="200" selected>All analyzed</option>
-          </select>
-          <input type="text" id="tl-search" placeholder="Filter timeline…" aria-label="Filter timeline by keyword, author, or SHA" onkeydown="if(event.key==='Enter')_applyTimelineFilters()">
-          <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
-          <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+      <!-- Flat tabs: Overview · Case Study · Commits · Contributors -->
+      <div id="repo-content" style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="tabs" role="tablist" aria-label="Repository views">
+          <button class="tab-btn active" data-tab="overview"      role="tab" aria-selected="true"  aria-controls="tab-overview"      id="tbtn-overview">Overview</button>
+          <button class="tab-btn"        data-tab="case-study"    role="tab" aria-selected="false" aria-controls="tab-case-study"    id="tbtn-case-study">Case Study</button>
+          <button class="tab-btn"        data-tab="commits"       role="tab" aria-selected="false" aria-controls="tab-commits"       id="tbtn-commits">Commits</button>
+          <button class="tab-btn"        data-tab="contributors"  role="tab" aria-selected="false" aria-controls="tab-contributors"  id="tbtn-contributors">Contributors</button>
         </div>
-        <div id="timeline-content"></div>
-      </div>
 
-      <!-- ── Deep Analysis panel ── -->
-      <div id="panel-detail" role="tabpanel" aria-labelledby="view-btn-detail" tabindex="0" style="display:none">
-        <div id="repo-content" style="display:flex; flex-direction:column; gap:1rem;">
-          <div class="tabs" role="tablist" aria-label="Repository views">
-            <button class="tab-btn" data-tab="overview"      role="tab" aria-selected="true"  aria-controls="tab-overview"      id="tbtn-overview">Overview</button>
-            <button class="tab-btn" data-tab="case-study"   role="tab" aria-selected="false" aria-controls="tab-case-study"   id="tbtn-case-study">Case Study</button>
-            <button class="tab-btn" data-tab="commits"      role="tab" aria-selected="false" aria-controls="tab-commits"      id="tbtn-commits">Commits</button>
-            <button class="tab-btn" data-tab="contributors" role="tab" aria-selected="false" aria-controls="tab-contributors" id="tbtn-contributors">Contributors</button>
+        <div class="tab-panel active" id="tab-overview"      role="tabpanel" aria-labelledby="tbtn-overview"      tabindex="0"><div id="overview-content"></div></div>
+        <div class="tab-panel"        id="tab-case-study"    role="tabpanel" aria-labelledby="tbtn-case-study"    tabindex="0"><div id="case-study-content"></div></div>
+        <div class="tab-panel"        id="tab-commits"       role="tabpanel" aria-labelledby="tbtn-commits"       tabindex="0">
+          <div class="filter-bar" style="margin-bottom:0.5rem">
+            <select id="cat-filter" aria-label="Filter commits by category" onchange="_applyTimelineFilters()">
+              <option value="">All categories</option>
+              <option value="FEATURE">FEATURE</option>
+              <option value="BUGFIX">BUGFIX</option>
+              <option value="REFACTOR">REFACTOR</option>
+              <option value="BUILD">BUILD</option>
+              <option value="DOCS">DOCS</option>
+              <option value="TEST">TEST</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+            <input type="text" id="tl-search" placeholder="Filter commits…" aria-label="Filter commits by keyword, author, or SHA" onkeydown="if(event.key==='Enter')_applyTimelineFilters()">
+            <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+            <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
+            <select id="tl-limit-select" aria-label="Number of commits to show" title="Number of commits to load" onchange="_applyTimelineFilters()">
+              <option value="200" selected>All analyzed</option>
+            </select>
           </div>
-
-          <div class="tab-panel active" id="tab-overview"   role="tabpanel" aria-labelledby="tbtn-overview"   tabindex="0"><div id="overview-content"></div></div>
-          <div class="tab-panel"        id="tab-case-study" role="tabpanel" aria-labelledby="tbtn-case-study" tabindex="0"><div id="case-study-content"></div></div>
-          <div class="tab-panel"        id="tab-commits"    role="tabpanel" aria-labelledby="tbtn-commits"    tabindex="0">
-            <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.25rem;margin-bottom:0.25rem;border-bottom:1px solid var(--border)">
-              <button class="hdr-btn" onclick="switchTab('overview')" aria-label="Go back to Overview">← Overview</button>
-              <div id="commits-back-bar" style="display:none;align-items:center;gap:0.5rem">
-                <button class="hdr-btn" onclick="_clearCommitFilters()" aria-label="Clear filter">Clear filter</button>
-                <span id="commits-filter-desc" style="font-size:12px;color:var(--muted)"></span>
-              </div>
-            </div>
-            <div class="filter-bar">
-              <select id="cat-filter" aria-label="Filter commits by category">
-                <option value="">All categories</option>
-                <option value="FEATURE">FEATURE</option>
-                <option value="BUGFIX">BUGFIX</option>
-                <option value="REFACTOR">REFACTOR</option>
-                <option value="BUILD">BUILD</option>
-                <option value="DOCS">DOCS</option>
-                <option value="TEST">TEST</option>
-                <option value="OTHER">OTHER</option>
-              </select>
-              <input type="text" id="keyword-filter" placeholder="Search commits…" aria-label="Search commits by keyword, SHA, or summary">
-            </div>
-            <div id="commits-content" aria-live="polite"></div>
-            <button id="load-more-btn" style="display:none" aria-label="Load more commits">Load more</button>
+          <div id="commits-filter-bar" style="display:none;align-items:center;gap:0.5rem;padding:0.25rem 0;margin-bottom:0.25rem">
+            <button class="hdr-btn" onclick="_clearCommitFilters()" aria-label="Clear filter">Clear filter</button>
+            <span id="commits-filter-desc" style="font-size:12px;color:var(--muted)"></span>
           </div>
-          <div class="tab-panel" id="tab-contributors" role="tabpanel" aria-labelledby="tbtn-contributors" tabindex="0">
-            <div id="contributors-content"></div>
-          </div>
+          <div id="timeline-content"></div>
+        </div>
+        <div class="tab-panel" id="tab-contributors" role="tabpanel" aria-labelledby="tbtn-contributors" tabindex="0">
+          <div id="contributors-content"></div>
         </div>
       </div>
 

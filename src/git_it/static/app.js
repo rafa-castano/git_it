@@ -131,8 +131,6 @@ document.getElementById('btn-theme').addEventListener('click', function() {
    ========================================================= */
 let currentRepo = null;
 let currentRepoMeta = null;
-let commitsLimit = 20;
-let allCommits = [];
 let _evidenceShaFilter = null;
 let patternsData = null;
 let detailLoaded = false;
@@ -478,8 +476,6 @@ function goHome() {
 function selectRepo(repoId) {
   if (currentRepo === repoId && document.getElementById('repo-view').classList.contains('visible')) return;
   currentRepo = repoId;
-  commitsLimit = 20;
-  allCommits = [];
   patternsData = null;
   detailLoaded = false;
   _analyzePrefetch = null;
@@ -526,35 +522,14 @@ async function _loadAnalyzeEstimate(repoId, meta) {
   } catch { /* non-critical */ }
 }
 
-  switchView('timeline');
+  detailLoaded = true;
+  switchTab('overview');
   loadTimeline(repoId);
+  loadOverview(repoId);
+  loadCaseStudy(repoId);
+  loadPatterns(repoId);
+  loadContributors(repoId);
 }
-
-/* =========================================================
-   View switching
-   ========================================================= */
-function switchView(view) {
-  const isTimeline = view === 'timeline';
-  document.getElementById('panel-timeline').style.display = isTimeline ? 'block' : 'none';
-  document.getElementById('panel-detail').style.display = isTimeline ? 'none' : 'flex';
-  document.getElementById('view-btn-timeline').classList.toggle('active', isTimeline);
-  document.getElementById('view-btn-detail').classList.toggle('active', !isTimeline);
-  document.getElementById('view-btn-timeline').setAttribute('aria-selected', isTimeline ? 'true' : 'false');
-  document.getElementById('view-btn-detail').setAttribute('aria-selected', isTimeline ? 'false' : 'true');
-
-  if (!isTimeline && !detailLoaded && currentRepo) {
-    detailLoaded = true;
-    switchTab('overview');
-    loadOverview(currentRepo);
-    loadCaseStudy(currentRepo);
-    loadPatterns(currentRepo);
-    loadCommits(currentRepo, false);
-    loadContributors(currentRepo);
-  }
-}
-
-document.getElementById('view-btn-timeline').addEventListener('click', () => { switchView('timeline'); if (currentRepo) loadTimeline(currentRepo); });
-document.getElementById('view-btn-detail').addEventListener('click', () => switchView('detail'));
 
 /* =========================================================
    Timeline
@@ -569,13 +544,12 @@ async function _applyTimelineFilters() {
   const keyword = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
   const fromDate = document.getElementById('tl-date-from')?.value;
   const toDate = document.getElementById('tl-date-to')?.value;
+  const cat = (document.getElementById('cat-filter')?.value || '').toUpperCase();
   if (limitN > _tlAllCommits.length) {
     await loadTimeline(currentRepo);
     return;
   }
-  // Always apply the limit — fixes going from large → small limit
   let commits = _tlAllCommits.slice(0, limitN);
-  // Fix 4: Apply date range filter
   if (fromDate) commits = commits.filter(c => (c.committed_at || '') >= fromDate);
   if (toDate) commits = commits.filter(c => (c.committed_at || '') <= toDate + 'T23:59:59');
   if (keyword) {
@@ -587,6 +561,8 @@ async function _applyTimelineFilters() {
       (c.summary||'').toLowerCase().includes(keyword)
     );
   }
+  if (cat) commits = commits.filter(c => (c.category || '').toUpperCase() === cat);
+  if (_evidenceShaFilter) commits = commits.filter(c => _evidenceShaFilter.has(c.sha));
   renderTimeline(commits, _tlPatterns);
 }
 
@@ -808,15 +784,18 @@ async function loadOverview(repoId) {
           if (!els.length) return;
           const cat = catCounts[els[0].index]?.category;
           if (!cat) return;
-          switchView('detail'); switchTab('commits');
+          switchTab('commits');
           const sel = document.getElementById('cat-filter');
-          if (sel) { sel.value = cat.toUpperCase(); _applyCommitFilter(`Category: ${cat}`); }
+          if (sel) { sel.value = cat.toUpperCase(); _applyTimelineFilters(); }
         },
       },
     });
     const legendEl = document.getElementById('donut-legend-custom');
     if (legendEl) legendEl.innerHTML = catCounts.map(c =>
-      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem">
+      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem"
+        style="cursor:pointer" title="View ${esc(c.category)} commits"
+        onclick="switchTab('commits');var s=document.getElementById('cat-filter');if(s){s.value='${esc(c.category.toUpperCase())}';_applyTimelineFilters();}"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
         <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
         ${esc(c.category.toLowerCase())}
       </span>`
@@ -840,7 +819,7 @@ async function loadOverview(repoId) {
           if (!els.length) return;
           const period = actLabels[els[0].index];
           if (!period) return;
-          switchView('timeline');
+          switchTab('commits');
           setTimeout(() => {
             let fromDate, toDate;
             if (period.length === 7) {
@@ -994,7 +973,7 @@ function _renderCsTimeline(content) {
   }
 
   // Distribute commits equally across phases (approximation without explicit date boundaries)
-  const sorted = (allCommits || []).slice().sort((a,b) => (a.committed_at||'') < (b.committed_at||'') ? -1 : 1);
+  const sorted = (_tlAllCommits || []).slice().sort((a,b) => (a.committed_at||'') < (b.committed_at||'') ? -1 : 1);
   const total = sorted.length;
   const perPhase = phases.length ? Math.ceil(total / phases.length) : 0;
   const buckets = phases.map((p, idx) => {
@@ -1410,22 +1389,26 @@ function _toggleEvidenceMode() {
 }
 
 function _applyCommitFilter(desc) {
-  const bar = document.getElementById('commits-back-bar');
+  const bar = document.getElementById('commits-filter-bar');
   const descEl = document.getElementById('commits-filter-desc');
   if (bar) bar.style.display = 'flex';
   if (descEl) descEl.textContent = desc;
-  renderCommitsTable(allCommits, allCommits.length);
+  _applyTimelineFilters();
 }
 
 function _clearCommitFilters() {
   const sel = document.getElementById('cat-filter');
-  const kw = document.getElementById('keyword-filter');
+  const kw = document.getElementById('tl-search');
+  const from = document.getElementById('tl-date-from');
+  const to = document.getElementById('tl-date-to');
   if (sel) sel.value = '';
   if (kw) kw.value = '';
+  if (from) from.value = '';
+  if (to) to.value = '';
   _evidenceShaFilter = null;
-  const bar = document.getElementById('commits-back-bar');
+  const bar = document.getElementById('commits-filter-bar');
   if (bar) bar.style.display = 'none';
-  renderCommitsTable(allCommits, allCommits.length);
+  _applyTimelineFilters();
 }
 
 function _filterHotspot(btn) {
@@ -1437,13 +1420,8 @@ function _filterHotspot(btn) {
 
 async function _filterByEvidenceShas(shas, label) {
   if (!currentRepo || !shas || !shas.length) return;
-  switchView('detail');
   switchTab('commits');
-  // Fetch all analyzed commits so SHA filter doesn't silently miss any
-  if (commitsLimit < 1000) {
-    commitsLimit = 1000;
-    await loadCommits(currentRepo, false);
-  }
+  if (!_tlAllCommits.length) await loadTimeline(currentRepo);
   _evidenceShaFilter = new Set(shas);
   _applyCommitFilter(label);
 }
@@ -1451,10 +1429,9 @@ async function _filterByEvidenceShas(shas, label) {
 function _searchCommitsByFile(filePath) {
   if (!currentRepo) return;
   const keyword = filePath.split('/').pop();
-  switchView('detail');
   switchTab('commits');
   setTimeout(() => {
-    const input = document.getElementById('keyword-filter');
+    const input = document.getElementById('tl-search');
     if (input) { input.value = keyword; _applyCommitFilter(`File: ${keyword}`); }
   }, 100);
 }
@@ -1467,10 +1444,9 @@ function _searchCommitsByKeyword(keyword) {
   const stop = new Set(['through','about','those','these','their','there','where','which','would','could','should','after','before','since','until','while','other','first','second','third','using','being','having','making','during','within','after','before','between']);
   const words = keyword.split(/[\s,\/\-:]+/).filter(w => w.length > 4 && !stop.has(w.toLowerCase()));
   const kw = (words.sort((a,b) => b.length - a.length)[0] || keyword.split(/\s+/)[0]).replace(/[^\w]/g, '').toLowerCase();
-  switchView('detail');
   switchTab('commits');
   setTimeout(() => {
-    const input = document.getElementById('keyword-filter');
+    const input = document.getElementById('tl-search');
     if (!input) return;
     input.value = kw;
     _applyCommitFilter(`Component: ${kw}`);
@@ -1485,7 +1461,7 @@ function _searchCommitsBySectionBody(bodyText, label) {
   const uniqueShas = [...new Set(shaMatches.map(s => s.toLowerCase()))];
   if (uniqueShas.length > 0) {
     // Filter to SHAs that actually exist in loaded commits
-    const matchingShas = allCommits
+    const matchingShas = _tlAllCommits
       .filter(c => uniqueShas.some(s => (c.sha || '').toLowerCase().startsWith(s)))
       .map(c => c.sha);
     if (matchingShas.length > 0) {
@@ -1497,10 +1473,9 @@ function _searchCommitsBySectionBody(bodyText, label) {
   const stop = new Set(['through','about','those','these','their','there','where','which','would','could','should','after','before','since','until','while','other','first','second','third','using','being','having','making','during','within']);
   const bodyWords = (bodyText || '').split(/[\s,\/\-:.\(\)]+/).filter(w => w.length > 4 && /[a-z]/i.test(w) && !stop.has(w.toLowerCase()) && !/^[0-9a-f]{7,}$/i.test(w));
   const kw = (bodyWords.sort((a,b) => b.length - a.length)[0] || label).replace(/[^\w]/g, '').toLowerCase();
-  switchView('detail');
   switchTab('commits');
   setTimeout(() => {
-    const input = document.getElementById('keyword-filter');
+    const input = document.getElementById('tl-search');
     if (!input) return;
     input.value = kw;
     _applyCommitFilter(`Section: ${label}`);
@@ -1539,101 +1514,6 @@ function _rebuildPatternsChart() {
   });
 }
 
-/* =========================================================
-   Commits
-   ========================================================= */
-async function loadCommits(repoId, append) {
-  const el = document.getElementById('commits-content');
-  const btn = document.getElementById('load-more-btn');
-  if (!append) { el.innerHTML = spinner(); btn.style.display = 'none'; allCommits = []; }
-  let data;
-  try { data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/commits?limit=${commitsLimit}&order=newest`); }
-  catch { el.innerHTML = '<div class="empty-state" role="alert">Error loading commits.</div>'; return; }
-  allCommits = data.commits || [];
-  renderCommitsTable(allCommits, data.total);
-}
-
-function renderCommitsTable(commits, total) {
-  const el = document.getElementById('commits-content');
-  const btn = document.getElementById('load-more-btn');
-  const catFilter = document.getElementById('cat-filter').value;
-  const keyword = document.getElementById('keyword-filter').value.toLowerCase();
-  let filtered = commits;
-  if (_evidenceShaFilter) filtered = filtered.filter(c => _evidenceShaFilter.has(c.sha));
-  if (catFilter) filtered = filtered.filter(c => (c.category || '').toUpperCase() === catFilter);
-  if (keyword) filtered = filtered.filter(c =>
-    (c.message||'').toLowerCase().includes(keyword) ||
-    (c.summary||'').toLowerCase().includes(keyword) ||
-    (c.sha||'').toLowerCase().includes(keyword) ||
-    (c.affected_components||[]).some(ac => ac.toLowerCase().includes(keyword)) ||
-    (c.files_changed||[]).some(f => f.toLowerCase().includes(keyword))
-  );
-  if (filtered.length === 0) {
-    el.innerHTML = `<div class="empty-state">
-      <p>No commits match "<strong>${esc(keyword || catFilter)}</strong>".</p>
-      <p style="margin-top:0.5rem;font-size:12px;color:var(--muted)">Only analyzed commits are searchable. Analyze more to expand coverage.</p>
-      <div style="margin-top:0.75rem;display:flex;gap:0.5rem;justify-content:center">
-        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="_clearCommitFilters()">Clear filter</button>
-        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="switchTab('overview')">← Overview</button>
-        <button class="analyze-btn" style="font-size:12px;padding:0.3rem 0.7rem" onclick="triggerAnalyze()">+ Analyze more</button>
-      </div>
-    </div>`;
-    btn.style.display = 'none'; return;
-  }
-
-  let rows = '';
-  filtered.forEach((c, i) => {
-    const sha7 = (c.sha || '').slice(0, 7);
-    const cat = (c.category || '').toUpperCase();
-    const bClass = badgeClass(c.category || '');
-    const catKey = catTipKey(c.category || '');
-    const riskKey = riskTipKey(c.importance || '');
-    const importance = c.importance
-      ? `<span class="badge" style="background:#1e293b;color:${c.importance==='high'?'#ef4444':c.importance==='medium'?'#eab308':'#6ee7b7'}" data-tip="${riskKey}" tabindex="0">${esc(c.importance.toUpperCase())}</span>`
-      : '';
-    const summary = truncate(c.summary || c.message || '', 80);
-    const expandId = `expand-${i}`;
-    rows += `<tr class="clickable-row" onclick="toggleExpand('${expandId}')" aria-expanded="false">
-      <td><span class="sha-code">${esc(sha7)}</span></td>
-      <td class="date-cell">${fmtDate(c.committed_at)}</td>
-      <td>${cat ? `<span class="badge ${bClass}" data-tip="${catKey}" tabindex="0">${esc(cat)}</span>` : '<span aria-label="uncategorized">—</span>'} ${importance}</td>
-      <td class="summary-cell" title="${esc(c.summary || c.message || '')}">${esc(summary)}</td>
-    </tr>
-    <tr class="expand-row" id="${expandId}">
-      <td colspan="4" class="expand-cell">${esc(c.summary || c.message || '(no summary)')}</td>
-    </tr>`;
-  });
-
-  el.innerHTML = `<div class="table-wrap"><table aria-label="Analyzed commits">
-    <thead><tr>
-      <th scope="col">SHA</th><th scope="col">Date</th>
-      <th scope="col" data-tip="catUnknown" tabindex="0">Category</th>
-      <th scope="col">Summary</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div>`;
-
-  btn.style.display = (total !== undefined && commits.length < total) ? 'inline-block' : 'none';
-  btn.disabled = false;
-}
-
-function toggleExpand(id) {
-  const r = document.getElementById(id);
-  if (!r) return;
-  r.classList.toggle('open');
-  const row = r.previousElementSibling;
-  if (row) row.setAttribute('aria-expanded', r.classList.contains('open') ? 'true' : 'false');
-}
-
-document.getElementById('cat-filter').addEventListener('change', () => renderCommitsTable(allCommits, allCommits.length));
-document.getElementById('keyword-filter').addEventListener('input', () => renderCommitsTable(allCommits, allCommits.length));
-document.getElementById('load-more-btn').addEventListener('click', function() {
-  if (!currentRepo) return;
-  commitsLimit += 20;
-  this.disabled = true;
-  this.textContent = 'Loading…';
-  loadCommits(currentRepo, false).then(() => { this.textContent = 'Load more'; });
-});
 
 /* =========================================================
    Trigger analysis
@@ -1725,8 +1605,6 @@ function _pollAnalyzeStatus(repoId) {
       } catch {}
       // Always reload timeline so _tlAllCommits is fresh regardless of which view is active
       if (currentRepo === repoId) loadTimeline(repoId);
-      // Reload commits tab if active
-      if (document.getElementById('tab-commits')?.classList.contains('active')) loadCommits(repoId, false);
       // Reload case study — regenerated on backend after analysis
       if (currentRepo === repoId) loadCaseStudy(repoId);
       // Reset button after showing Done
