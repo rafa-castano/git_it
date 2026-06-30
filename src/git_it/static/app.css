@@ -321,6 +321,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .cc-files { font-size: 11px; color: var(--muted); }
 .cc-files code { font-family: monospace; font-size: 10px; background: var(--border); padding: 0.1rem 0.3rem; border-radius: 2px; margin-right: 0.2rem; color: var(--text); }
 
+/* ── Top contributor tier ── */
+.contributor-card.is-top-tier { position: relative; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent); }
+.cc-rank { display: inline-block; position: absolute; top: 0.6rem; right: 0.75rem; font-size: 10px; font-weight: 800; color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--surface)); border: 1px solid var(--accent); border-radius: 4px; padding: 0.1rem 0.35rem; line-height: 1.4; letter-spacing: 0.02em; }
+.contributors-rest-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 1.25rem 0 0.6rem; }
+
 /* ── Analyze button ── */
 .analyze-btn { font-size: 13px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
 .analyze-btn:hover { background: var(--accent); color: #fff; }

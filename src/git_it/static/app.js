@@ -1744,8 +1744,11 @@ async function loadContributors(repoId) {
     <span style="color:var(--border)">·</span> categories based on analyzed sample only
   </p>`;
 
-  html += '<div class="contributor-grid">';
-  humans.forEach(c => {
+  const top3 = humans.slice(0, 3);
+  const rest = humans.slice(3);
+  const RANK_LABELS = ['#1', '#2', '#3'];
+
+  function renderCard(c, rank) {
     const initials = c.author_name.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
     const bgColors = ['#6366f1','#22c55e','#f97316','#a855f7','#3b82f6','#ef4444','#eab308'];
     const bg = bgColors[c.author_name.charCodeAt(0) % bgColors.length];
@@ -1759,7 +1762,10 @@ async function loadContributors(repoId) {
       ? `https://github.com/${encodeURIComponent(c.github_username)}`
       : `https://github.com/search?q=${encodeURIComponent(c.author_name)}&type=users`;
     const ghLabel = c.github_username ? `@${esc(c.github_username)} ↗` : 'Search on GitHub ↗';
-    html += `<div class="contributor-card">
+    const tierClass = rank !== null ? ' is-top-tier' : '';
+    const rankBadge = rank !== null ? `<span class="cc-rank" aria-label="Rank ${rank + 1}">${RANK_LABELS[rank]}</span>` : '';
+    return `<div class="contributor-card${tierClass}">
+      ${rankBadge}
       <div class="cc-top">
         <div class="cc-avatar" style="background:${bg}" aria-hidden="true">${esc(initials)}</div>
         <div style="flex:1">
@@ -1774,8 +1780,19 @@ async function loadContributors(repoId) {
       ${cats.length ? `<div class="cc-cats">${cats.map(([cat, cnt]) => `<span class="badge ${badgeClass(cat)}" title="${cnt} commits">${esc(cat)}</span>`).join('')}</div>` : ''}
       ${topFiles.length ? `<div class="cc-files" style="flex-wrap:wrap;overflow:hidden;max-width:100%">Top files: ${topFiles.map(f => `<code style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">${esc(f.split('/').pop())}</code>`).join('')}</div>` : ''}
     </div>`;
-  });
-  html += '</div>';
+  }
+
+  if (top3.length) {
+    html += '<div class="contributor-grid">';
+    top3.forEach((c, i) => { html += renderCard(c, i); });
+    html += '</div>';
+  }
+  if (rest.length) {
+    html += '<p class="contributors-rest-label">All contributors</p>';
+    html += '<div class="contributor-grid">';
+    rest.forEach(c => { html += renderCard(c, null); });
+    html += '</div>';
+  }
   el.innerHTML = html;
 }
 
