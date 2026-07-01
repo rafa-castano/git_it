@@ -569,6 +569,7 @@ async function _loadAnalyzeEstimate(repoId, meta) {
   loadCaseStudy(repoId);
   loadPatterns(repoId);
   loadContributors(repoId);
+  _resetAskTab(repoId);
 }
 
 /* =========================================================
@@ -1897,6 +1898,83 @@ async function loadContributors(repoId) {
     html += '</div>';
   }
   el.innerHTML = html;
+}
+
+/* =========================================================
+   Ask (GitItGPT) — spec 012 AC-6
+   ========================================================= */
+let _askHistory = [];
+let _askRepoId = null;
+
+function _resetAskTab(repoId) {
+  _askHistory = [];
+  _askRepoId = repoId;
+  const transcript = document.getElementById('ask-transcript');
+  if (transcript) transcript.innerHTML = '';
+  const errEl = document.getElementById('ask-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
+
+function _appendAskMessage(role, text) {
+  const transcript = document.getElementById('ask-transcript');
+  if (!transcript) return;
+  const div = document.createElement('div');
+  div.className = 'ask-msg ask-msg-' + role;
+  div.innerHTML = esc(text);
+  transcript.appendChild(div);
+  transcript.scrollTop = transcript.scrollHeight;
+}
+
+function _showAskError(message) {
+  const errEl = document.getElementById('ask-error');
+  if (!errEl) return;
+  errEl.textContent = message;
+  errEl.style.display = '';
+}
+
+async function _submitAskQuestion(message) {
+  const errEl = document.getElementById('ask-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  _appendAskMessage('user', message);
+
+  const submitBtn = document.getElementById('ask-submit');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history: _askHistory }),
+    });
+    if (!res.ok) {
+      _showAskError(
+        res.status === 401
+          ? 'Unauthorized — check the API key configuration.'
+          : 'The assistant is temporarily unavailable. Please try again.'
+      );
+      return;
+    }
+    const data = await res.json();
+    _askHistory.push({ role: 'user', content: message });
+    _askHistory.push({ role: 'assistant', content: data.reply });
+    _appendAskMessage('assistant', data.reply);
+  } catch {
+    _showAskError('Network error — could not reach the assistant.');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+const _askForm = document.getElementById('ask-form');
+if (_askForm) {
+  _askForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('ask-input');
+    const message = (input.value || '').trim();
+    if (!message || !currentRepo) return;
+    if (_askRepoId !== currentRepo) _resetAskTab(currentRepo);
+    input.value = '';
+    _submitAskQuestion(message);
+  });
 }
 
 /* =========================================================

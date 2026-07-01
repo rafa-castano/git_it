@@ -96,3 +96,34 @@ def test_static_index_lang_attribute(tmp_path: Path) -> None:
     client = TestClient(app)
     response = client.get("/static/index.html")
     assert 'lang="en"' in response.text
+
+
+# ---------------------------------------------------------------------------
+# Spec 012 AC-6 — "Ask" tab (GitItGPT)
+# ---------------------------------------------------------------------------
+
+
+def test_static_index_has_ask_tab(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert 'data-tab="ask"' in response.text
+    assert 'id="tab-ask"' in response.text
+
+
+def test_static_index_ask_tab_has_input_and_transcript(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert 'id="ask-input"' in response.text
+    assert 'id="ask-transcript"' in response.text
+    assert 'id="ask-error"' in response.text
+
+
+def test_static_app_js_has_chat_submit_logic(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/app.js")
+    assert response.status_code == 200
+    assert "/chat" in response.text
+    assert "ask-transcript" in response.text

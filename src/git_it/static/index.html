@@ -111,6 +111,7 @@
           <button class="tab-btn"        data-tab="case-study"    role="tab" aria-selected="false" aria-controls="tab-case-study"    id="tbtn-case-study">Case Study</button>
           <button class="tab-btn"        data-tab="commits"       role="tab" aria-selected="false" aria-controls="tab-commits"       id="tbtn-commits">Commits</button>
           <button class="tab-btn"        data-tab="contributors"  role="tab" aria-selected="false" aria-controls="tab-contributors"  id="tbtn-contributors">Contributors</button>
+          <button class="tab-btn"        data-tab="ask"           role="tab" aria-selected="false" aria-controls="tab-ask"           id="tbtn-ask">Ask</button>
         </div>
 
         <div class="tab-panel active" id="tab-overview"      role="tabpanel" aria-labelledby="tbtn-overview"      tabindex="0"><div id="overview-content"></div></div>
@@ -147,6 +148,14 @@
         </div>
         <div class="tab-panel" id="tab-contributors" role="tabpanel" aria-labelledby="tbtn-contributors" tabindex="0">
           <div id="contributors-content"></div>
+        </div>
+        <div class="tab-panel" id="tab-ask" role="tabpanel" aria-labelledby="tbtn-ask" tabindex="0">
+          <div id="ask-transcript" role="log" aria-live="polite" aria-label="Conversation with GitItGPT"></div>
+          <div id="ask-error" role="alert" style="display:none"></div>
+          <form id="ask-form" class="ask-form">
+            <input type="text" id="ask-input" aria-label="Ask a question about this repository" placeholder="Ask about this repository…" autocomplete="off">
+            <button type="submit" id="ask-submit">Ask</button>
+          </form>
         </div>
       </div>
 
