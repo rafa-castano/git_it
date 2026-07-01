@@ -246,3 +246,15 @@ def test_static_app_css_hdr_status_centers_its_text(tmp_path: Path) -> None:
     assert "display: flex" in rule
     assert "align-items: center" in rule
     assert "justify-content: center" in rule
+
+
+def test_static_app_css_tl_day_sep_is_visually_prominent(tmp_path: Path) -> None:
+    # The day separator in the Commits tab used var(--border) text on a
+    # 2rem partial line — nearly invisible against the background. Now
+    # uses accent-colored bold text on a tinted band with a full-width line.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    rule = text.split(".tl-day-sep {", 1)[1].split("}", 1)[0]
+    assert "color: var(--accent)" in rule
+    assert "background: color-mix(in srgb, var(--accent)" in rule
