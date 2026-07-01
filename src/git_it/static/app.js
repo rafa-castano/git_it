@@ -1927,7 +1927,7 @@ function _resetAskTab(repoId) {
 
 function _appendAskMessage(role, text) {
   const transcript = document.getElementById('ask-transcript');
-  if (!transcript) return;
+  if (!transcript) return null;
   const div = document.createElement('div');
   div.className = 'ask-msg ask-msg-' + role;
   div.innerHTML = role === 'assistant'
@@ -1935,6 +1935,27 @@ function _appendAskMessage(role, text) {
     : esc(text);
   transcript.appendChild(div);
   transcript.scrollTop = transcript.scrollHeight;
+  return div;
+}
+
+/** Parse one buffered SSE chunk into complete frames + the leftover partial
+ * frame (spec 013 AC-3/AC-4). Each frame is `{event, data}`, `data` parsed as
+ * JSON (or null if it wasn't valid JSON). */
+function _parseSseChunk(buffer) {
+  const rawFrames = buffer.split('\n\n');
+  const remainder = rawFrames.pop() ?? '';
+  const frames = rawFrames.map(raw => {
+    let event = 'message';
+    let dataLine = '';
+    raw.split('\n').forEach(line => {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+    });
+    let data = null;
+    try { data = dataLine ? JSON.parse(dataLine) : null; } catch { data = null; }
+    return { event, data };
+  });
+  return { frames, remainder };
 }
 
 function _appendAskThinking() {
@@ -1956,22 +1977,38 @@ function _showAskError(message) {
   errEl.style.display = '';
 }
 
+const ASK_STREAM_SILENCE_TIMEOUT_MS = 30000;
+
 async function _submitAskQuestion(message) {
   const errEl = document.getElementById('ask-error');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
   _appendAskMessage('user', message);
-  const thinkingEl = _appendAskThinking();
+  let thinkingEl = _appendAskThinking();
 
   const submitBtn = document.getElementById('ask-submit');
   if (submitBtn) submitBtn.disabled = true;
+
+  const controller = new AbortController();
+  let silenceTimer = null;
+  const armSilenceTimer = () => {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => controller.abort(), ASK_STREAM_SILENCE_TIMEOUT_MS);
+  };
+
+  let bubbleEl = null;
+  let accumulated = '';
+  let terminal = null; // 'done' | 'error'
+
   try {
-    const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/chat`, {
+    armSilenceTimer();
+    const res = await fetch(`/api/repos/${encodeURIComponent(currentRepo)}/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history: _askHistory }),
+      signal: controller.signal,
     });
-    if (thinkingEl) thinkingEl.remove();
     if (!res.ok) {
+      if (thinkingEl) thinkingEl.remove();
       _showAskError(
         res.status === 401
           ? 'Unauthorized — check the API key configuration.'
@@ -1979,14 +2016,57 @@ async function _submitAskQuestion(message) {
       );
       return;
     }
-    const data = await res.json();
-    _askHistory.push({ role: 'user', content: message });
-    _askHistory.push({ role: 'assistant', content: data.reply });
-    _appendAskMessage('assistant', data.reply);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      armSilenceTimer();
+      buffer += decoder.decode(value, { stream: true });
+      const { frames, remainder } = _parseSseChunk(buffer);
+      buffer = remainder;
+
+      for (const frame of frames) {
+        if (frame.event === 'done') {
+          terminal = 'done';
+        } else if (frame.event === 'error') {
+          terminal = 'error';
+          if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
+          _showAskError(
+            (frame.data && frame.data.message) ||
+            'The assistant is temporarily unavailable. Please try again.'
+          );
+        } else if (frame.data && frame.data.text_delta) {
+          if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
+          if (!bubbleEl) bubbleEl = _appendAskMessage('assistant', '');
+          accumulated += frame.data.text_delta;
+          bubbleEl.querySelector('.markdown-body').innerHTML = renderMarkdown(accumulated);
+          const transcript = document.getElementById('ask-transcript');
+          if (transcript) transcript.scrollTop = transcript.scrollHeight;
+        }
+      }
+    }
+
+    if (terminal === 'done' && accumulated) {
+      _askHistory.push({ role: 'user', content: message });
+      _askHistory.push({ role: 'assistant', content: accumulated });
+    } else if (terminal === null) {
+      // The connection closed without a done/error frame — treat as a failure.
+      if (thinkingEl) thinkingEl.remove();
+      _showAskError('The assistant is temporarily unavailable. Please try again.');
+    }
   } catch {
     if (thinkingEl) thinkingEl.remove();
-    _showAskError('Network error — could not reach the assistant.');
+    _showAskError(
+      controller.signal.aborted
+        ? 'The assistant took too long to respond. Please try again.'
+        : 'Network error — could not reach the assistant.'
+    );
   } finally {
+    if (silenceTimer) clearTimeout(silenceTimer);
     if (submitBtn) submitBtn.disabled = false;
   }
 }

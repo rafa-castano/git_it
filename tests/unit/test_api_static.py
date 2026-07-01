@@ -157,3 +157,25 @@ def test_static_app_js_sanitizes_markdown_via_shared_helper(tmp_path: Path) -> N
     # Regression: no call site may bypass the shared helper and render
     # marked.parse() output unsanitized.
     assert "typeof marked !== 'undefined' ? marked.parse" not in text
+
+
+# ---------------------------------------------------------------------------
+# Spec 013 AC-4 — frontend streams the final answer via SSE
+# ---------------------------------------------------------------------------
+
+
+def test_static_app_js_calls_streaming_endpoint(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/app.js")
+    assert "/chat/stream" in response.text
+
+
+def test_static_app_js_reads_sse_response_with_silence_timeout(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert "getReader(" in text
+    assert "AbortController" in text
+    # Spec 013: 30s of silence is treated as a dropped connection.
+    assert "30000" in text
