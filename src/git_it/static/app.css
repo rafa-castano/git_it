@@ -182,7 +182,11 @@ main { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-d
 
 /* ── Charts ── */
 .charts-row { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem; }
-.chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+/* Grid items default to min-width:auto, which floors their shrink at the
+   canvas's intrinsic pixel size (Chart.js's last-measured width attribute).
+   Without min-width:0 the row cannot reflow when the effective viewport
+   narrows (browser zoom, window resize) — it overflows instead. */
+.chart-box { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 [data-theme="light"] .chart-box { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .chart-box h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.75rem; }
 .chart-container { position: relative; }
@@ -408,3 +412,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .cs-tl-sub-dot { width:28px; height:28px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:0.85rem; z-index:1; flex-shrink:0; }
 .cs-tl-sub-line { position:absolute; top:14px; left:calc(50% + 14px); right:calc(-50% + 14px); height:1px; background:var(--border); }
 .cs-tl-sub-label { text-align:center; margin-top:0.3rem; font-size:10px; color:var(--muted); padding:0 0.2rem; line-height:1.3; }
+
+/* ── Responsive: narrow effective viewport (browser zoom or window resize) ── */
+@media (max-width: 900px) {
+  .charts-row { grid-template-columns: 1fr; }
+  aside { width: 160px; }
+}

@@ -179,3 +179,35 @@ def test_static_app_js_reads_sse_response_with_silence_timeout(tmp_path: Path) -
     assert "AbortController" in text
     # Spec 013: 30s of silence is treated as a dropped connection.
     assert "30000" in text
+
+
+# ---------------------------------------------------------------------------
+# Bug fix — Overview charts overflow instead of reflowing when the effective
+# viewport narrows (browser zoom or window resize).
+#
+# Root cause: `.charts-row` is a CSS Grid (`1fr 2fr`); grid items default to
+# `min-width: auto`, which floors their shrink at the content's intrinsic size
+# — here, the Chart.js `<canvas>`'s last-measured pixel width. Without an
+# explicit `min-width: 0` on the grid item, the row cannot shrink below that
+# canvas size and instead overflows (content "doesn't adapt"), and once a
+# canvas has been pushed into that state it does not reliably self-correct
+# when the viewport widens back (content "doesn't restore"). A responsive
+# breakpoint stacks the row into one column at narrow effective widths.
+# ---------------------------------------------------------------------------
+
+
+def test_static_app_css_chart_box_can_shrink_below_canvas_intrinsic_size(
+    tmp_path: Path,
+) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert ".chart-box { min-width: 0" in text
+
+
+def test_static_app_css_has_responsive_breakpoint_for_charts_row(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "@media" in text
+    assert ".charts-row { grid-template-columns: 1fr" in text
