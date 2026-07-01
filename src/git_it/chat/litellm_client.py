@@ -7,9 +7,10 @@ adapter is the only place that knows litellm's shape.
 """
 
 import json
+from collections.abc import Iterator
 from typing import Any
 
-from git_it.chat.service import LLMTurn, ToolCall
+from git_it.chat.service import LLMTurn, StreamPart, ToolCall
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 
 _DEFAULT_MAX_TOKENS = 1024
@@ -47,6 +48,68 @@ class LiteLLMChatClient:
         response = litellm.completion(**kwargs)
         message = response.choices[0].message  # type: ignore[union-attr]
         return _from_wire_message(message)
+
+    def respond_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> Iterator[StreamPart]:
+        """Spec 013 AC-1: yields text deltas as they arrive; the final part
+        carries the fully assembled LLMTurn. A turn commits to one mode from
+        its first chunk — a tool-calling turn never yields a text delta."""
+        import litellm
+
+        wire_messages = [{"role": "system", "content": system}]
+        wire_messages.extend(_to_wire_message(m) for m in messages)
+        wire_tools = [_to_wire_tool(t) for t in tools]
+
+        kwargs: dict[str, Any] = {
+            "model": self._model,
+            "messages": wire_messages,
+            "max_tokens": self._max_tokens,
+            "stream": True,
+        }
+        if wire_tools:
+            kwargs["tools"] = wire_tools
+            kwargs["tool_choice"] = "auto"
+
+        content_parts: list[str] = []
+        tool_calls_by_index: dict[int, dict[str, Any]] = {}
+
+        for chunk in litellm.completion(**kwargs):
+            delta = chunk.choices[0].delta
+            content = getattr(delta, "content", None)
+            if content:
+                content_parts.append(content)
+                yield StreamPart(text_delta=content)
+            for tc_delta in getattr(delta, "tool_calls", None) or []:
+                acc = tool_calls_by_index.setdefault(
+                    tc_delta.index, {"id": None, "name": None, "arguments": ""}
+                )
+                if tc_delta.id:
+                    acc["id"] = tc_delta.id
+                function = getattr(tc_delta, "function", None)
+                if function is not None:
+                    if getattr(function, "name", None):
+                        acc["name"] = function.name
+                    if getattr(function, "arguments", None):
+                        acc["arguments"] += function.arguments
+
+        text = "".join(content_parts)
+        if tool_calls_by_index:
+            calls = tuple(
+                ToolCall(
+                    id=acc["id"] or f"call_{i}",
+                    name=acc["name"] or "",
+                    arguments=_parse_arguments(acc["arguments"]),
+                )
+                for i, acc in sorted(tool_calls_by_index.items())
+            )
+            yield StreamPart(turn=LLMTurn(text=text or None, tool_calls=calls))
+        else:
+            yield StreamPart(turn=LLMTurn(text=text))
 
 
 def _to_wire_message(message: dict[str, Any]) -> dict[str, Any]:
