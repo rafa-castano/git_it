@@ -252,14 +252,14 @@ def test_static_app_css_hdr_status_centers_its_text(tmp_path: Path) -> None:
 def test_static_app_css_tl_day_sep_is_visually_prominent(tmp_path: Path) -> None:
     # The day separator in the Commits tab used var(--border) text on a
     # 2rem partial line — nearly invisible against the background. Now
-    # uses accent-colored bold text on a tinted band with a full-width line.
-    # (color later switched to --accent-text — see the accent-contrast audit
-    # tests below — the tinted background stays --accent.)
+    # uses a tinted band with a full-width accent line for visual prominence;
+    # the text itself is var(--text) (see the dark-mode contrast audit
+    # tests below) since even a lightened accent still read as "blue text".
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     text = client.get("/static/app.css").text
     rule = text.split(".tl-day-sep {", 1)[1].split("}", 1)[0]
-    assert "color: var(--accent-text)" in rule
+    assert "color: var(--text)" in rule
     assert "background: color-mix(in srgb, var(--accent)" in rule
 
 
@@ -362,25 +362,18 @@ def test_static_app_css_ask_error_uses_dark_mode_appropriate_colors(tmp_path: Pa
 
 
 # ---------------------------------------------------------------------------
-# Dark-mode contrast audit, round 2 — --accent (#6366f1) used directly as body
-# text color computes to only 4.22:1 on --bg / 3.76:1 on --surface, below the
-# 4.5:1 WCAG AA minimum (large text >=18.66px passes at 3:1 and is left as
-# --accent: .stat-value, .sc-count, .markdown-body h2). --accent-text
-# (#818cf8 dark / #4f46e5 light, same as --accent since light already
-# passes) is used for every small/body-sized --accent text usage instead.
-# Also: unstyled ::placeholder fell back to the browser default gray
-# (~#757575, ~3.65:1 on dark inputs) instead of the theme.
+# Dark-mode contrast audit, round 2 (superseded — see round 3 below) — tried
+# brightening --accent to a lighter #818cf8 ("--accent-text") for small/body
+# text instead of using --accent (#6366f1, 4.22:1 on --bg, below the 4.5:1
+# WCAG AA minimum). Users still reported it as "dark blue text" — a lighter
+# step of the same hue is still categorically blue. Round 3 replaces all of
+# it with var(--text) (no blue at all), keeping --accent only for
+# backgrounds/borders/underlines where color signals "active" without the
+# text itself needing to be legible-as-blue.
+#
+# Round 3 also keeps: unstyled ::placeholder fell back to the browser default
+# gray (~#757575, ~3.65:1 on dark inputs) instead of the theme.
 # ---------------------------------------------------------------------------
-
-
-def test_static_app_css_defines_accent_text_variable_for_both_themes(tmp_path: Path) -> None:
-    app = create_app(project_root=tmp_path)
-    client = TestClient(app)
-    text = client.get("/static/app.css").text
-    root_rule = text.split(":root {", 1)[1].split("}", 1)[0]
-    light_rule = text.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
-    assert "--accent-text: #818cf8;" in root_rule
-    assert "--accent-text: #4f46e5;" in light_rule
 
 
 def test_static_app_css_placeholder_uses_muted_not_browser_default(tmp_path: Path) -> None:
@@ -388,6 +381,16 @@ def test_static_app_css_placeholder_uses_muted_not_browser_default(tmp_path: Pat
     client = TestClient(app)
     text = client.get("/static/app.css").text
     assert "::placeholder { color: var(--muted); opacity: 1; }" in text
+
+
+def test_static_app_css_no_leftover_accent_text_variable(tmp_path: Path) -> None:
+    # Round 2 introduced --accent-text as a lighter shade of --accent for
+    # text; round 3 replaced every usage with var(--text) instead, so the
+    # variable should not still be defined as dead code.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "accent-text" not in text
 
 
 @pytest.mark.parametrize(
@@ -405,40 +408,40 @@ def test_static_app_css_placeholder_uses_muted_not_browser_default(tmp_path: Pat
         ".migration-row .arrow {",
     ],
 )
-def test_static_app_css_small_text_uses_accent_text_not_accent(
-    tmp_path: Path, rule_prefix: str
-) -> None:
+def test_static_app_css_small_text_uses_text_not_accent(tmp_path: Path, rule_prefix: str) -> None:
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     text = client.get("/static/app.css").text
     assert rule_prefix in text, f"rule {rule_prefix!r} not found in app.css"
     rule = text.split(rule_prefix, 1)[1].split("}", 1)[0]
-    assert "color: var(--accent-text)" in rule or "color:var(--accent-text)" in rule
+    assert "color: var(--text)" in rule or "color:var(--text)" in rule
     assert "color: var(--accent);" not in rule
     assert "color:var(--accent);" not in rule
 
 
-def test_static_app_css_tab_active_states_use_accent_text_for_color_only(
+def test_static_app_css_tab_active_states_use_text_for_color_only(
     tmp_path: Path,
 ) -> None:
     # .tab-btn / .cs-tab-btn active states set both color and border-bottom-color
-    # to accent — only the text color needs the brighter variant; the border
-    # already passes 3:1 as a UI component and stays --accent for the underline.
+    # to accent originally — the text color is now var(--text) (no blue at
+    # all); the border-bottom stays --accent as the "this tab is active"
+    # visual cue, which doesn't need to be legible text.
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     text = client.get("/static/app.css").text
     tab_rule = text.split('.tab-btn[aria-selected="true"] {', 1)[1].split("}", 1)[0]
-    assert "color: var(--accent-text)" in tab_rule
+    assert "color: var(--text)" in tab_rule
     assert "border-bottom-color: var(--accent)" in tab_rule
     cs_tab_rule = text.split(".cs-tab-btn.active {", 1)[1].split("}", 1)[0]
-    assert "color: var(--accent-text)" in cs_tab_rule
+    assert "color: var(--text)" in cs_tab_rule
     assert "border-bottom-color: var(--accent)" in cs_tab_rule
 
 
-def test_static_app_js_accent_text_links_and_buttons_use_accent_text(tmp_path: Path) -> None:
+def test_static_app_js_links_and_buttons_use_text_not_accent(tmp_path: Path) -> None:
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     text = client.get("/static/app.js").text
     assert "color:var(--accent);" not in text
     assert "color: var(--accent);" not in text
-    assert text.count("color:var(--accent-text)") >= 4
+    assert "accent-text" not in text
+    assert text.count("color:var(--text);text-decoration:underline") >= 3
