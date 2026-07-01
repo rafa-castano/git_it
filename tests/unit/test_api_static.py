@@ -445,3 +445,18 @@ def test_static_app_js_links_and_buttons_use_text_not_accent(tmp_path: Path) -> 
     assert "color: var(--accent);" not in text
     assert "accent-text" not in text
     assert text.count("color:var(--text);text-decoration:underline") >= 3
+
+
+def test_static_app_css_muted_is_brightened_for_legibility(tmp_path: Path) -> None:
+    # --muted (#9ca3af, ~7.4:1 on --bg) technically passed WCAG AA, but users
+    # reported it as too dim next to full-brightness --text in side-by-side
+    # contexts (active vs. inactive tabs, etc.) — same lesson as --accent:
+    # pick a clearly brighter step, not a marginal one. Only dark mode was
+    # reported as dim; light mode's --muted is unchanged.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    root_rule = text.split(":root {", 1)[1].split("}", 1)[0]
+    light_rule = text.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
+    assert "--muted: #c1c9d6;" in root_rule
+    assert "--muted: #475569;" in light_rule

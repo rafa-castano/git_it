@@ -1,7 +1,12 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg: #0f1117; --surface: #1a1d27; --border: #2d3148;
-  --accent: #6366f1; --text: #eef2f7; --muted: #9ca3af;
+  --accent: #6366f1; --text: #eef2f7;
+  /* #9ca3af (7.43:1 on --bg) technically passed WCAG AA but read as too dim
+     next to --text in side-by-side use (inactive tabs vs. the active one,
+     etc.) — same lesson as --accent: pick a clearly brighter step, not a
+     marginal one. #c1c9d6 is 11.32:1 on --bg / 10.08:1 on --surface. */
+  --muted: #c1c9d6;
   --green: #22c55e; --yellow: #eab308; --red: #ef4444;
   --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
 }
