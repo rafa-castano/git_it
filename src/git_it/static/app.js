@@ -227,6 +227,16 @@ function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+/* ADR 013: the one path that renders LLM-generated Markdown. Fails safe (escaped
+   plain text), never open (unsanitized HTML), if marked/DOMPurify fail to load. */
+function renderMarkdown(text, fallbackTag) {
+  const body = text || '';
+  if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+    const tag = fallbackTag || 'pre';
+    return `<${tag}>${esc(body)}</${tag}>`;
+  }
+  return DOMPurify.sanitize(marked.parse(body));
+}
 function truncate(str, n) { if (!str) return ''; return str.length > n ? str.slice(0, n) + '…' : str; }
 function repoShortName(url) {
   try { const p = (url || '').replace(/\.git$/, '').split('/'); return p.slice(-2).join('/'); }
@@ -872,7 +882,7 @@ async function loadOverview(repoId) {
       const firstPara = (introText.split(/\n\n+/)[0] || introText).trim();
       const sentences = firstPara.split(/(?<=[.!?])\s+/);
       const capped = sentences.slice(0, 2).join(' ');
-      const rendered = typeof marked !== 'undefined' ? marked.parse(capped) : `<p>${esc(capped)}</p>`;
+      const rendered = renderMarkdown(capped, 'p');
       overviewIntroHtml = `<div class="overview-intro">${rendered}<p style="margin-top:0.5rem"><a class="overview-cs-link" onclick="switchTab('case-study')" tabindex="0" role="button" onkeydown="if(event.key==='Enter')switchTab('case-study')">Read full case study →</a></p></div>`;
     }
   }
@@ -1099,7 +1109,7 @@ function _renderSectionCards(content) {
   if (current) cards.push(current);
 
   if (cards.length === 0) {
-    const html = typeof marked !== 'undefined' ? marked.parse(content) : '<pre>' + esc(content) + '</pre>';
+    const html = renderMarkdown(content);
     return `<div class="markdown-body">${html}</div>`;
   }
 
@@ -1109,7 +1119,7 @@ function _renderSectionCards(content) {
     const isArchPattern = /architect|key pattern|design pattern|structural pattern/i.test(cleanTitle);
     const icon = isArchPattern ? '🏛' : _iconForHeading(cleanTitle);
     const body = card.lines.join('\n').trim();
-    const html = typeof marked !== 'undefined' ? marked.parse(body) : '<pre>' + esc(body) + '</pre>';
+    const html = renderMarkdown(body);
     const extraCls = isArchPattern ? ' cs-arch-pattern-card open' : '';
     return `<div class="cs-subcard${extraCls}" id="csc-${i}">
       <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
@@ -1144,7 +1154,7 @@ function _renderCsTimeline(content) {
   if (current) phases.push(current);
 
   if (!phases.length) {
-    return typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(content)}</div>` : `<pre>${esc(content)}</pre>`;
+    return `<div class="markdown-body">${renderMarkdown(content)}</div>`;
   }
 
   // Partition commits by dates extracted from phase titles, falling back to equal buckets
@@ -1227,7 +1237,7 @@ function _renderCsTimeline(content) {
       }
     });
     if (currentSub) subSections.push(currentSub);
-    const md = typeof marked !== 'undefined' ? marked.parse(bodyRaw) : `<pre>${esc(bodyRaw)}</pre>`;
+    const md = renderMarkdown(bodyRaw);
     const subRail = subSections.length > 1
       ? `<div class="cs-tl-sub-rail" aria-label="Sub-phases" style="margin:0.75rem 0 0.5rem">` +
         subSections.map((s, si) => {
@@ -1276,11 +1286,11 @@ function _renderArchTransition(content) {
   });
   if (current) cards.push(current);
   if (!cards.length) {
-    return typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(content)}</div>` : `<pre>${esc(content)}</pre>`;
+    return `<div class="markdown-body">${renderMarkdown(content)}</div>`;
   }
   return cards.map((card, i) => {
     const body = card.lines.join('\n');
-    const rest = typeof marked !== 'undefined' ? marked.parse(body) : `<pre>${esc(body)}</pre>`;
+    const rest = renderMarkdown(body);
     return `<div class="cs-subcard" id="arch-${i}">
       <div class="cs-subcard-hdr" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.parentElement.classList.toggle('open')}">
@@ -1371,12 +1381,12 @@ async function loadCaseStudy(repoId) {
       const isTl = s.title === 'Timeline';
       const body = isArch ? _renderArchTransition(s.content)
         : isTl ? _renderCsTimeline(s.content)
-        : (useCards ? _renderSectionCards(s.content) : (typeof marked !== 'undefined' ? `<div class="markdown-body">${marked.parse(s.content)}</div>` : `<pre>${esc(s.content)}</pre>`));
+        : (useCards ? _renderSectionCards(s.content) : `<div class="markdown-body">${renderMarkdown(s.content)}</div>`);
       tabBtns += `<button class="cs-tab-btn${i === 0 ? ' active' : ''}" onclick="_csSwitchTab(${i})" role="tab" aria-selected="${i === 0}" aria-controls="cs-sec-${i}" id="cs-btn-${i}">${esc(s.title)}</button>`;
       tabPanels += `<div class="cs-section${i === 0 ? ' active' : ''}" id="cs-sec-${i}" role="tabpanel" aria-labelledby="cs-btn-${i}" tabindex="0">${body}</div>`;
     });
   } else {
-    const html = typeof marked !== 'undefined' ? marked.parse(data.narrative || '') : '<pre>' + esc(data.narrative || '') + '</pre>';
+    const html = renderMarkdown(data.narrative || '');
     tabPanels = `<div class="cs-section active"><div class="markdown-body">${html}</div></div>`;
   }
 
@@ -1920,9 +1930,23 @@ function _appendAskMessage(role, text) {
   if (!transcript) return;
   const div = document.createElement('div');
   div.className = 'ask-msg ask-msg-' + role;
-  div.innerHTML = esc(text);
+  div.innerHTML = role === 'assistant'
+    ? `<div class="markdown-body">${renderMarkdown(text)}</div>`
+    : esc(text);
   transcript.appendChild(div);
   transcript.scrollTop = transcript.scrollHeight;
+}
+
+function _appendAskThinking() {
+  const transcript = document.getElementById('ask-transcript');
+  if (!transcript) return null;
+  const div = document.createElement('div');
+  div.className = 'ask-msg ask-msg-assistant ask-msg-thinking';
+  div.setAttribute('aria-label', 'GitItGPT is thinking');
+  div.innerHTML = '<span class="ask-thinking-dots"><span></span><span></span><span></span></span>';
+  transcript.appendChild(div);
+  transcript.scrollTop = transcript.scrollHeight;
+  return div;
 }
 
 function _showAskError(message) {
@@ -1936,6 +1960,7 @@ async function _submitAskQuestion(message) {
   const errEl = document.getElementById('ask-error');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
   _appendAskMessage('user', message);
+  const thinkingEl = _appendAskThinking();
 
   const submitBtn = document.getElementById('ask-submit');
   if (submitBtn) submitBtn.disabled = true;
@@ -1945,6 +1970,7 @@ async function _submitAskQuestion(message) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history: _askHistory }),
     });
+    if (thinkingEl) thinkingEl.remove();
     if (!res.ok) {
       _showAskError(
         res.status === 401
@@ -1958,6 +1984,7 @@ async function _submitAskQuestion(message) {
     _askHistory.push({ role: 'assistant', content: data.reply });
     _appendAskMessage('assistant', data.reply);
   } catch {
+    if (thinkingEl) thinkingEl.remove();
     _showAskError('Network error — could not reach the assistant.');
   } finally {
     if (submitBtn) submitBtn.disabled = false;

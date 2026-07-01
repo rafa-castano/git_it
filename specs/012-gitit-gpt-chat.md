@@ -137,8 +137,17 @@ so that exposing it cannot spend beyond a cap, mutate data, or be hijacked.
 ### AC-6 — Frontend Ask tab
 - A new "Ask" tab on the repository view with a message input and a transcript.
 - Submitting a message calls the chat endpoint for the open repo and renders the
-  reply; the assistant's text is HTML-escaped before rendering.
+  reply.
 - Errors (network, 401, 5xx) show a non-blocking inline message.
+- **Amended 2026-07-01**: while waiting for a reply, the transcript shows a
+  "thinking" indicator so the user does not mistake the wait for a failure (no
+  streaming in this cut — see Non-goals).
+- **Amended 2026-07-01**: the assistant's reply is rendered as sanitized Markdown
+  (`marked.parse()` + `DOMPurify.sanitize()`, see ADR 013), not HTML-escaped
+  plain text as originally shipped in batch 04. This also retrofits the
+  pre-existing Overview and Case Study Markdown rendering (previously
+  unsanitized) to the same sanitized path — one rendering boundary for every
+  LLM-generated Markdown surface in the app.
 
 ---
 

@@ -78,11 +78,16 @@ never invented.
   model.
 - Conversation history is kept client-side only (capped at 20 prior turns per
   request); switching repositories starts a fresh conversation.
-- The assistant's reply is HTML-escaped before rendering (no Markdown parsing)
-  since repository text — and therefore the model's echo of it — is untrusted.
+- While waiting for a reply, the transcript shows a "thinking" indicator (no
+  streaming yet — the full reply arrives at once).
+- The assistant's reply is rendered as sanitized Markdown (`marked.parse()` +
+  `DOMPurify.sanitize()`) since repository text — and therefore the model's echo
+  of it — is untrusted. This is the same sanitized rendering path Overview and
+  Case Study use (ADR 013).
 
-See `docs/prompt-contracts/gitit-gpt-system-prompt.md` and ADR 012 for the
-system prompt, its injection-hardening rule, and the security model.
+See `docs/prompt-contracts/gitit-gpt-system-prompt.md`, ADR 012, and ADR 013 for
+the system prompt, its injection-hardening rule, and the rendering security
+model.
 
 ## MCP server (read-only)
 

@@ -127,3 +127,33 @@ def test_static_app_js_has_chat_submit_logic(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "/chat" in response.text
     assert "ask-transcript" in response.text
+
+
+def test_static_index_ask_tab_has_thinking_indicator(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/app.js")
+    assert "ask-msg-thinking" in response.text
+
+
+# ---------------------------------------------------------------------------
+# ADR 013 — sanitize all client-side Markdown rendering with DOMPurify
+# ---------------------------------------------------------------------------
+
+
+def test_static_index_loads_dompurify(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/index.html")
+    assert "dompurify" in response.text.lower()
+
+
+def test_static_app_js_sanitizes_markdown_via_shared_helper(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/static/app.js")
+    text = response.text
+    assert "DOMPurify.sanitize(" in text
+    # Regression: no call site may bypass the shared helper and render
+    # marked.parse() output unsanitized.
+    assert "typeof marked !== 'undefined' ? marked.parse" not in text

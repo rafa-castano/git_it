@@ -36,7 +36,9 @@ one repository per conversation.
 
 Free-text final answer, or (mid-loop) a tool call. There is no persisted
 structured output for this feature; the endpoint returns `{"reply": string}`.
-The frontend renders the reply **HTML-escaped**, not Markdown-rendered.
+The frontend renders the reply as **sanitized Markdown**
+(`marked.parse()` + `DOMPurify.sanitize()` — see ADR 013), never as raw
+unsanitized HTML.
 
 ## Security rule (verbatim from the system prompt)
 
