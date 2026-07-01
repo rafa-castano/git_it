@@ -12,7 +12,7 @@ without network. Real wiring to litellm lands in a later batch.
 
 import inspect
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -49,6 +49,25 @@ class ChatMessage:
     content: str
 
 
+@dataclass(frozen=True)
+class StreamPart:
+    """One increment from a streaming LLM call (spec 013 AC-1).
+
+    `text_delta` is set for a chunk of a content-only turn. `turn` is set once,
+    on the final part of the iterator, carrying the fully assembled `LLMTurn`
+    (same shape `respond()` returns) so the caller can decide whether to
+    dispatch tools or stop.
+
+    Contract: a turn commits to one mode from its first chunk — an
+    implementation MUST NOT emit `text_delta` parts for a turn whose assembled
+    `LLMTurn` ends up carrying tool calls. `ChatService.chat_stream` forwards
+    deltas to the caller as they arrive and cannot retract them once sent.
+    """
+
+    text_delta: str | None = None
+    turn: LLMTurn | None = None
+
+
 class ChatLLM(Protocol):
     """A tool-calling chat model. `respond` returns the next turn given the system
     prompt, the running message list, and the available tool schemas."""
@@ -60,6 +79,14 @@ class ChatLLM(Protocol):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> LLMTurn: ...
+
+    def respond_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> Iterator[StreamPart]: ...
 
 
 @dataclass(frozen=True)
@@ -190,6 +217,40 @@ class ChatService:
             tool_calls_made=loop.tool_calls_made,
             cap_reached=True,
         )
+
+    def chat_stream(
+        self,
+        *,
+        repository_id: str,
+        message: str,
+        history: Sequence[ChatMessage] = (),
+    ) -> Iterator[str]:
+        """Spec 013 AC-2: yields text deltas for the final (non-tool-calling)
+        turn only. Tool-calling turns are dispatched exactly as `chat()` does —
+        synchronously, invisibly, no delta forwarded."""
+        loop = _Loop(messages=[{"role": m.role, "content": m.content} for m in history])
+        loop.messages.append({"role": "user", "content": message})
+        tools = _tool_schemas()
+
+        for _turn in range(1, self._turn_cap + 1):
+            assembled: LLMTurn | None = None
+            for part in self._llm.respond_stream(
+                system=SYSTEM_PROMPT, messages=loop.messages, tools=tools
+            ):
+                if part.text_delta:
+                    yield part.text_delta
+                if part.turn is not None:
+                    assembled = part.turn
+            if assembled is None:
+                assembled = LLMTurn(text="")
+            if assembled.text:
+                loop.last_text = assembled.text
+            if not assembled.tool_calls:
+                return
+            self._run_tool_calls(repository_id, assembled, loop)
+
+        note = f"{loop.last_text}\n\n{_CAP_NOTE}".strip() if loop.last_text else _CAP_NOTE
+        yield note
 
     def _run_tool_calls(self, repository_id: str, reply: LLMTurn, loop: _Loop) -> None:
         loop.messages.append(

@@ -51,7 +51,8 @@ there is no *in-app* assistant for users who are not running an MCP client.
 
 ## Non-goals
 
-- **No streaming (SSE)** in this cut — full-response only. (Future spec.)
+- **No streaming (SSE)** in this cut — full-response only.
+  (Superseded by spec 013-gitit-gpt-streaming.md.)
 - **No multi-provider selector** — Anthropic via `DEFAULT_MODEL`. litellm keeps the
   door open; provider switching is a future spec.
 - **No multi-repo / cross-repo chat** — the assistant only sees the open repo.
