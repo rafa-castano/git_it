@@ -6,6 +6,7 @@ No network, no external services, fully deterministic.
 
 import json
 import sqlite3
+import time
 from pathlib import Path
 
 import pytest
@@ -289,6 +290,59 @@ def test_list_repos_no_case_study_flag_false(client_with_repo: TestClient) -> No
     response = client_with_repo.get("/api/repos")
     repo = response.json()["repos"][0]
     assert repo["has_case_study"] is False
+
+
+def test_list_repos_stays_fast_with_many_commits_and_analyses(tmp_path: Path) -> None:
+    """Regression test for a JOIN fan-out bug in SqliteRepositoryListReader.
+
+    commit_facts and commit_analyses are both "many" tables keyed on
+    repository_id. LEFT JOINing both onto ingestion_runs in one query produces
+    their cross product per repository before COUNT(DISTINCT ...) collapses it
+    back down — correct counts, but O(commits * analyses) work.
+
+    Measured scaling of the join-based query on this exact schema: n=300 ->
+    75ms, n=800 -> 698ms, n=1600 -> 2870ms (quadratic, as expected for a fan-out).
+    The scalar-subquery rewrite stays sub-millisecond at every size, including
+    on real seeded data (1548 commits / 231 analyses: ~1855ms -> ~0.1ms).
+    n=800 here reliably fails against the old query while staying well clear
+    of the fixed query's cost.
+    """
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    n = 800
+    with sqlite3.connect(db) as conn:
+        conn.executemany(
+            "INSERT INTO commit_facts"
+            " (repository_id, sha, committed_at, message, author_name, committer_name, parent_shas)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("repo-abc", f"sha{i:04d}", "2024-01-01T00:00:00", "msg", "a", "a", "[]")
+                for i in range(n)
+            ],
+        )
+        conn.executemany(
+            "INSERT INTO commit_analyses (repository_id, commit_sha, data) VALUES (?, ?, ?)",
+            [("repo-abc", f"sha{i:04d}", "{}") for i in range(n)],
+        )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    start = time.perf_counter()
+    response = client.get("/api/repos")
+    elapsed = time.perf_counter() - start
+
+    assert response.status_code == 200
+    repo = response.json()["repos"][0]
+    assert repo["commit_count"] == n
+    assert repo["analysis_count"] == n
+    assert elapsed < 0.3, (
+        f"GET /api/repos took {elapsed:.2f}s for {n} commits/analyses — "
+        "check for a commit_facts x commit_analyses JOIN fan-out regression"
+    )
 
 
 # ---------------------------------------------------------------------------
