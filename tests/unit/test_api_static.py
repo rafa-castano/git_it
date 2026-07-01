@@ -290,3 +290,19 @@ def test_static_app_css_tl_day_group_closed_by_default(tmp_path: Path) -> None:
     assert ".tl-day-group { display: none; }" in text
     assert ".tl-day-group.open { display: block; }" in text
     assert '.tl-day-sep[aria-expanded="true"] .tl-day-chevron { transform: rotate(90deg); }' in text
+
+
+def test_static_app_js_overview_activity_chart_shows_commits_empty_state(tmp_path: Path) -> None:
+    # Selecting a date range with no commits in the Overview tab's Commit
+    # Activity chart previously left the stale/blank chart on screen with no
+    # feedback. Now it shows the same empty state as the Commits tab, and
+    # restores the canvas + chart when the range is widened/cleared again.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert 'id="chart-activity-container"' in text
+    assert "if (!actLabels.length) {" in text
+    section = text.split("if (!actLabels.length) {", 1)[1].split("return;", 1)[0]
+    assert "No analyzed commits yet." in section
+    assert "Use the <strong>+ Analyze</strong> button above to start commit analysis." in section
+    assert "if (container && !document.getElementById('chart-activity'))" in text

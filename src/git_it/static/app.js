@@ -936,7 +936,7 @@ async function loadOverview(repoId) {
               style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">×</button>
           </div>
         </div>
-        <div class="chart-container" style="height:220px"><canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas></div>
+        <div class="chart-container" id="chart-activity-container" style="height:220px"><canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas></div>
       </div>
     </div>
     <div class="chart-box" style="margin-bottom:1rem">
@@ -987,7 +987,20 @@ async function loadOverview(repoId) {
 
   function _buildActivityChart(filteredCommits) {
     const { labels: actLabels, data: actData } = buildActivityData(filteredCommits);
-    if (!actLabels.length) return;
+    const container = document.getElementById('chart-activity-container');
+    if (!actLabels.length) {
+      destroyChart('activity');
+      if (container) {
+        container.innerHTML = `<div class="tl-empty">
+          <p>No analyzed commits yet.</p>
+          <p style="margin-top:.5rem">Use the <strong>+ Analyze</strong> button above to start commit analysis.</p>
+        </div>`;
+      }
+      return;
+    }
+    if (container && !document.getElementById('chart-activity')) {
+      container.innerHTML = '<canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas>';
+    }
     destroyChart('activity');
     _charts['activity'] = new Chart(document.getElementById('chart-activity'), {
       type: 'bar',
