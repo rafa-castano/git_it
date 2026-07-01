@@ -205,6 +205,18 @@ def test_static_app_css_chart_box_can_shrink_below_canvas_intrinsic_size(
     assert ".chart-box { min-width: 0" in text
 
 
+def test_static_app_css_main_can_shrink_below_content_intrinsic_size(
+    tmp_path: Path,
+) -> None:
+    # Same class of fix, one level up: `main` is a flex item alongside the
+    # fixed-width sidebar; without min-width:0 it can't shrink below its
+    # widest descendant's intrinsic size either (project-wide audit finding).
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "min-width: 0" in text.split("main {", 1)[1].split("}", 1)[0]
+
+
 def test_static_app_css_has_responsive_breakpoint_for_charts_row(tmp_path: Path) -> None:
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
