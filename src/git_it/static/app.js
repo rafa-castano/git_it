@@ -734,8 +734,8 @@ function renderTimeline(commits, patterns, { defaultOpen = false } = {}) {
     const mergeCommits = commits.filter(c => { try { return JSON.parse(c.parent_shas || '[]').length > 1; } catch { return false; } }).length;
     html += `<div class="tl-timeframe" aria-label="Analysis time range">
       Commits from <strong>${firstDate}</strong> to <strong>${lastDate}</strong>
-      <span style="color:var(--border)">·</span> <strong>${commits.length}</strong> shown
-      ${mergeCommits > 0 ? `<span style="color:var(--border)">·</span> <span data-tip="tlMerge" tabindex="0" style="color:var(--muted)">↔ ${mergeCommits} merge${mergeCommits !== 1 ? 's' : ''}</span>` : ''}
+      <span style="color:var(--muted)">·</span> <strong>${commits.length}</strong> shown
+      ${mergeCommits > 0 ? `<span style="color:var(--muted)">·</span> <span data-tip="tlMerge" tabindex="0" style="color:var(--muted)">↔ ${mergeCommits} merge${mergeCommits !== 1 ? 's' : ''}</span>` : ''}
     </div>`;
   }
   html += '<div class="timeline">';
@@ -1894,7 +1894,7 @@ async function loadContributors(repoId) {
   let html = `<p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
     <strong style="color:var(--text)">${humans.length}</strong> human contributor${humans.length !== 1 ? 's' : ''}
     ${bots.length ? ` · <strong style="color:var(--text)">${bots.length}</strong> bot${bots.length !== 1 ? 's' : ''} (not shown)` : ''}
-    <span style="color:var(--border)">·</span> categories based on analyzed sample only
+    <span style="color:var(--muted)">·</span> categories based on analyzed sample only
   </p>`;
 
   const top3 = humans.slice(0, 3);

@@ -306,3 +306,53 @@ def test_static_app_js_overview_activity_chart_shows_commits_empty_state(tmp_pat
     assert "No analyzed commits yet." in section
     assert "Use the <strong>+ Analyze</strong> button above to start commit analysis." in section
     assert "if (container && !document.getElementById('chart-activity'))" in text
+
+
+# ---------------------------------------------------------------------------
+# Dark-mode contrast audit (frontend-a11y skill) — var(--border) (#2d3148)
+# was being reused as TEXT color for separator characters, giving ~1.3:1-1.5:1
+# contrast against --bg/--surface (WCAG requires >=4.5:1 for body text, or
+# >=3:1 even for large/UI text). --muted (#9ca3af) gives ~6.6:1-7.4:1.
+# ---------------------------------------------------------------------------
+
+
+def test_static_app_css_separators_use_muted_not_border_for_text(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert ".hdr-sep { color: var(--muted); }" in text
+    assert ".tl-timeframe-sep { color: var(--muted); }" in text
+    assert "color: var(--border)" not in text
+    assert "color:var(--border)" not in text
+
+
+def test_static_app_js_separators_use_muted_not_border_for_text(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert "color:var(--border)" not in text
+
+
+def test_static_index_html_hdr_sep_has_no_low_contrast_inline_override(tmp_path: Path) -> None:
+    # The .hdr-sep CSS rule alone wasn't enough — index.html had an inline
+    # style="color:var(--border)" on the same element, which wins on
+    # specificity and silently defeated the CSS fix above.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/index.html").text
+    assert 'class="hdr-sep"' in text
+    assert "color:var(--border)" not in text
+    assert "color: var(--border)" not in text
+
+
+def test_static_app_css_ask_error_uses_dark_mode_appropriate_colors(tmp_path: Path) -> None:
+    # #ask-error's default (dark-mode) rule shipped a light-mode-appropriate
+    # palette (light pink bg + dark red text) with only [data-theme="light"]
+    # overriding it to a *different* light palette — dark mode never had its
+    # own colors. Now the default matches the dark-tinted-bg + light-text
+    # convention already used by .badge-bugfix etc.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "#ask-error { background: #3f1d1d; color: #fca5a5;" in text
+    assert '[data-theme="light"] #ask-error { background: #fef2f2; color: #b91c1c;' in text
