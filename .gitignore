@@ -57,3 +57,5 @@ site/
 
 # Root-level screenshot artifacts (batch evidence images — not project source)
 /*.png
+# Local AI runtime state
+.atl/

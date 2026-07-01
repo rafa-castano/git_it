@@ -25,12 +25,14 @@ Codex should use these subagents as role-specific operating modes. A subagent is
 
 ## Available subagents
 
-- `.agents/01-software-engineering-agent.md`
-- `.agents/02-architecture-agent.md`
-- `.agents/03-ai-development-flow-agent.md`
-- `.agents/04-quality-agent.md`
-- `.agents/05-infrastructure-cloud-agent.md`
-- `.agents/06-security-agent.md`
+These are read-as-reference instruction profiles (plain Markdown, no frontmatter) — not natively invokable Claude Code subagents. They live alongside gentle-ai's frontmatter-based subagents in the same directory, since Claude Code's native subagent/skill discovery scans `.claude/agents/` and `.claude/skills/`.
+
+- `.claude/agents/01-software-engineering-agent.md`
+- `.claude/agents/02-architecture-agent.md`
+- `.claude/agents/03-ai-development-flow-agent.md`
+- `.claude/agents/04-quality-agent.md`
+- `.claude/agents/05-infrastructure-cloud-agent.md`
+- `.claude/agents/06-security-agent.md`
 
 ## General handoff protocol
 

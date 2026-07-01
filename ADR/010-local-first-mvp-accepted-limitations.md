@@ -7,7 +7,7 @@ Decision makers: Architecture Agent, Infrastructure and Cloud Agent
 ## Context
 
 The Git It MVP is deployed as a single-process FastAPI application (`git-it serve` → `uvicorn`)
-running on the developer's local machine (see ADR 005 and `.agents/05-infrastructure-cloud-agent.md`).
+running on the developer's local machine (see ADR 005 and `.claude/agents/05-infrastructure-cloud-agent.md`).
 This architecture enables a no-container, no-cloud setup that works in constrained corporate
 environments, but it brings a set of deliberate design choices that would be unacceptable in a
 multi-process, multi-tenant, or public deployment.
@@ -198,7 +198,7 @@ Postgres read support is a real requirement.
 
 ## Documentation impact
 
-- `.agents/05-infrastructure-cloud-agent.md` — local-first MVP principle this ADR implements.
+- `.claude/agents/05-infrastructure-cloud-agent.md` — local-first MVP principle this ADR implements.
 - `ADR/005-use-local-first-no-container-mvp.md` — the parent infrastructure decision.
 - `ADR/006-use-postgresql-pgvector.md` — PostgreSQL adapter scope and limitations.
 - `docs/progress/infrastructure/batch-63-postgresql-migration.md` — Postgres adapter
@@ -206,7 +206,7 @@ Postgres read support is a real requirement.
 
 ## Links
 
-- `.agents/05-infrastructure-cloud-agent.md`
+- `.claude/agents/05-infrastructure-cloud-agent.md`
 - `ADR/005-use-local-first-no-container-mvp.md`
 - `ADR/006-use-postgresql-pgvector.md`
 - `src/git_it/api/routes/repos.py` — limitations (a) and (c)

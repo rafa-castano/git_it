@@ -1,3 +1,8 @@
+---
+name: grill-me-with-docs
+description: Transforms a vague feature idea into a complete spec via a questioning protocol before any implementation. Use before creating a new feature, changing architecture, modifying LLM prompts, changing data models, adding security-sensitive functionality, generating user-facing narratives, or introducing external dependencies.
+---
+
 # Skill: grill-me-with-docs
 
 ## Purpose
