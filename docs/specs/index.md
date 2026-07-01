@@ -19,7 +19,7 @@ Spec source files live in `specs/` at the project root.
 | 009 | Dual-Audience Commit Summaries | Implemented |
 | 010 | Case Study Audience Availability | Implemented |
 | 011 | Read-Only MCP Server Exposure | Implemented |
-| 012 | GitItGPT (in-dashboard AI chat) | Draft |
+| 012 | GitItGPT (in-dashboard AI chat) | Implemented |
 
 ## How specs relate to the codebase
 

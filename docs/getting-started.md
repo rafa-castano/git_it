@@ -53,14 +53,36 @@ The API is now available at `http://localhost:8000`.
 
 ## Using the dashboard
 
-Open `http://localhost:8000` in your browser. The dashboard has four tabs:
+Open `http://localhost:8000` in your browser. The dashboard has five tabs:
 
-- **Overview** — repository summary, contributor breakdown, commit category donut chart
-- **Commits** — paginated commit list with LLM-generated category and risk badges
-- **Patterns** — detected patterns: hotspots, refactor waves, revert signals, ownership concentration
+- **Overview** — repository summary, commit category donut chart, commit activity, top hotspots
 - **Case Study** — full engineering narrative generated from the commit history
+- **Commits** — paginated commit list with LLM-generated category and risk badges
+- **Contributors** — per-author contribution stats
+- **Ask** — conversational GitItGPT assistant scoped to the open repository
 
 To ingest a repository, use the search bar on the home screen or call the API directly.
+
+## Ask tab (GitItGPT)
+
+The **Ask** tab lets you ask natural-language questions about the open repository
+("when did they start adding tests?", "who are the top contributors?") without
+leaving the dashboard. Submitting a message calls
+`POST /api/repos/{repository_id}/chat`, which runs a bounded, read-only
+tool-calling loop (`ChatService`) over the same shared tool layer the MCP server
+uses (spec 011) — answers are grounded in real commit SHAs, dates, and counts,
+never invented.
+
+- Read-only: the assistant cannot ingest, analyze, regenerate, or delete.
+- Repo-scoped: `repository_id` comes from the open repository, never from the
+  model.
+- Conversation history is kept client-side only (capped at 20 prior turns per
+  request); switching repositories starts a fresh conversation.
+- The assistant's reply is HTML-escaped before rendering (no Markdown parsing)
+  since repository text — and therefore the model's echo of it — is untrusted.
+
+See `docs/prompt-contracts/gitit-gpt-system-prompt.md` and ADR 012 for the
+system prompt, its injection-hardening rule, and the security model.
 
 ## MCP server (read-only)
 

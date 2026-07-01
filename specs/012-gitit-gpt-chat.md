@@ -1,6 +1,6 @@
 # Feature Spec: 012 — GitItGPT (in-dashboard AI chat)
 
-Status: Draft
+Status: Implemented
 Owner: TBD
 Primary agent: AI Development Flow Agent (supporting: Security Agent, Quality Agent)
 Created: 2026-07-01
