@@ -946,9 +946,9 @@ async function loadOverview(repoId) {
       </div>
     </div>`;
 
-  const _tc = () => document.documentElement.dataset.theme === 'light' ? '#475569' : '#94a3b8';
-  const _tcy = () => document.documentElement.dataset.theme === 'light' ? '#0f172a' : '#e2e8f0';
-  const _gc = () => document.documentElement.dataset.theme === 'light' ? '#e2e8f0' : '#2d3148';
+  const _tc = () => getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#94a3b8';
+  const _tcy = () => getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e2e8f0';
+  const _gc = () => getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2d3148';
 
   if (catCounts.length > 0) {
     destroyChart('donut');

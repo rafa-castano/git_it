@@ -1,5 +1,6 @@
 """Tests for static file serving and root redirect."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -460,3 +461,60 @@ def test_static_app_css_muted_is_brightened_for_legibility(tmp_path: Path) -> No
     light_rule = text.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
     assert "--muted: #c1c9d6;" in root_rule
     assert "--muted: #475569;" in light_rule
+
+
+# ---------------------------------------------------------------------------
+# Dark-mode contrast audit, round 4 — two hardcoded colors that never went
+# through a CSS variable (so earlier rounds' fixes couldn't reach them), plus
+# a general typography bump ("too small at 100% zoom").
+# ---------------------------------------------------------------------------
+
+
+def test_static_app_js_chart_tick_colors_read_css_variables(tmp_path: Path) -> None:
+    # loadOverview() had its own _tc/_tcy/_gc helpers hardcoding theme hex
+    # values directly (e.g. dark tick color '#94a3b8', independent of
+    # --muted), instead of reading the CSS variables like the other chart's
+    # helpers already did. Any future --muted/--text/--border brightening
+    # would silently miss this chart's axis labels, exactly as happened here.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert text.count("getComputedStyle(document.documentElement).getPropertyValue('--muted')") >= 2
+    assert "document.documentElement.dataset.theme === 'light' ? '#475569' : '#94a3b8'" not in text
+
+
+def test_static_app_css_cs_tl_sub_dot_has_visible_background(tmp_path: Path) -> None:
+    # .cs-tl-sub-dot used background: var(--bg) — identical to the page's
+    # own background — so the icon circle had no visible backdrop, only its
+    # 1px border. Matches .cs-tl-dot's already-correct var(--surface).
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    rule = text.split(".cs-tl-sub-dot {", 1)[1].split("}", 1)[0]
+    assert "background:var(--surface)" in rule
+
+
+def test_static_app_css_font_sizes_bumped_up_for_legibility(tmp_path: Path) -> None:
+    # "Too small in 100% zoom" — the app was dominated by 10-13px text with
+    # almost nothing above 14px. Every literal `font-size: Npx` declaration
+    # (rem/em-based sizes were left alone) was bumped by +1px.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "body { font-family: 'Inter', system-ui, sans-serif; font-size: 16px;" in text
+    # The smallest labels/badges (originally 10px) should now be 11px, not 10px.
+    assert re.search(r"font-size:\s?10px", text) is None
+
+
+def test_static_app_css_repo_card_stats_dont_break_mid_phrase(tmp_path: Path) -> None:
+    # Bumping font-size pushed "<strong>1548</strong> commits" past the
+    # repo-card's width, wrapping mid-phrase ("1548" / "commits" on separate
+    # lines). .rc-stat now stays on one line as a unit; the row as a whole
+    # wraps instead, keeping each stat phrase intact.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    stats_rule = text.split(".rc-stats {", 1)[1].split("}", 1)[0]
+    assert "flex-wrap: wrap" in stats_rule
+    stat_rule = text.split(".rc-stat {", 1)[1].split("}", 1)[0]
+    assert "white-space: nowrap" in stat_rule
