@@ -223,3 +223,13 @@ def test_static_app_css_has_responsive_breakpoint_for_charts_row(tmp_path: Path)
     text = client.get("/static/app.css").text
     assert "@media" in text
     assert ".charts-row { grid-template-columns: 1fr" in text
+
+
+def test_static_app_css_repo_card_shadow_has_light_theme_override(tmp_path: Path) -> None:
+    # a11y audit finding: .repo-card's dark rgba(0,0,0,0.3) shadow had no
+    # [data-theme="light"] override, unlike .stat-card/.chart-box which
+    # already supply a lighter rgba(0,0,0,0.06) for light mode.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert '[data-theme="light"] .repo-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }' in text

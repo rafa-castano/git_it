@@ -68,6 +68,7 @@ header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: 
 .repo-cards-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
 .repo-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
 .repo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; position: relative; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+[data-theme="light"] .repo-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .repo-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.2); }
 .repo-card:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .rc-accent { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--accent); border-radius: 10px 10px 0 0; }
