@@ -20,7 +20,7 @@ Spec source files live in `specs/` at the project root.
 | 010 | Case Study Audience Availability | Implemented |
 | 011 | Read-Only MCP Server Exposure | Implemented |
 | 012 | GitItGPT (in-dashboard AI chat) | Implemented |
-| 013 | GitItGPT Response Streaming | Draft |
+| 013 | GitItGPT Response Streaming | Implemented |
 
 ## How specs relate to the codebase
 

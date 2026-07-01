@@ -68,7 +68,7 @@ To ingest a repository, use the search bar on the home screen or call the API di
 The **Ask** tab lets you ask natural-language questions about the open repository
 ("when did they start adding tests?", "who are the top contributors?") without
 leaving the dashboard. Submitting a message calls
-`POST /api/repos/{repository_id}/chat`, which runs a bounded, read-only
+`POST /api/repos/{repository_id}/chat/stream`, which runs a bounded, read-only
 tool-calling loop (`ChatService`) over the same shared tool layer the MCP server
 uses (spec 011) — answers are grounded in real commit SHAs, dates, and counts,
 never invented.
@@ -78,16 +78,19 @@ never invented.
   model.
 - Conversation history is kept client-side only (capped at 20 prior turns per
   request); switching repositories starts a fresh conversation.
-- While waiting for a reply, the transcript shows a "thinking" indicator (no
-  streaming yet — the full reply arrives at once).
+- The final answer **streams** token-by-token over Server-Sent Events (spec 013,
+  ADR 014): a "thinking" indicator covers tool-calling turns (invisible, as
+  always) and the initial wait, then is replaced by the answer growing live as
+  it's generated. A non-streaming `POST /chat` variant still exists unchanged
+  for any other caller.
 - The assistant's reply is rendered as sanitized Markdown (`marked.parse()` +
   `DOMPurify.sanitize()`) since repository text — and therefore the model's echo
   of it — is untrusted. This is the same sanitized rendering path Overview and
-  Case Study use (ADR 013).
+  Case Study use (ADR 013); it re-renders on every streamed delta.
 
-See `docs/prompt-contracts/gitit-gpt-system-prompt.md`, ADR 012, and ADR 013 for
-the system prompt, its injection-hardening rule, and the rendering security
-model.
+See `docs/prompt-contracts/gitit-gpt-system-prompt.md`, ADR 012, ADR 013, and
+ADR 014 for the system prompt, its injection-hardening rule, the rendering
+security model, and the streaming design.
 
 ## MCP server (read-only)
 

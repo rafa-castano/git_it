@@ -23,6 +23,7 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 | 011 | Expose the Git It Domain as a Read-Only MCP Server | Accepted |
 | 012 | Introduce In-Process Agentic Tool-Calling (GitItGPT) | Accepted |
 | 013 | Sanitize All Client-Side Markdown Rendering with DOMPurify | Accepted |
+| 014 | Stream the GitItGPT Final Answer over SSE | Accepted |
 
 ## How to add a new ADR
 

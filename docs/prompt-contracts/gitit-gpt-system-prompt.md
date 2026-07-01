@@ -35,8 +35,11 @@ one repository per conversation.
 ## Output
 
 Free-text final answer, or (mid-loop) a tool call. There is no persisted
-structured output for this feature; the endpoint returns `{"reply": string}`.
-The frontend renders the reply as **sanitized Markdown**
+structured output for this feature. `POST /chat` returns `{"reply": string}` in
+one response; `POST /chat/stream` (spec 013, ADR 014, used by the Ask tab)
+streams the same final answer as SSE `data: {"text_delta": string}` frames,
+terminated by `event: done` or `event: error`. The frontend renders the
+(accumulating) reply as **sanitized Markdown**
 (`marked.parse()` + `DOMPurify.sanitize()` — see ADR 013), never as raw
 unsanitized HTML.
 
