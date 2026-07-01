@@ -258,3 +258,35 @@ def test_static_app_css_tl_day_sep_is_visually_prominent(tmp_path: Path) -> None
     rule = text.split(".tl-day-sep {", 1)[1].split("}", 1)[0]
     assert "color: var(--accent)" in rule
     assert "background: color-mix(in srgb, var(--accent)" in rule
+
+
+def test_static_app_js_day_groups_default_closed_and_toggle(tmp_path: Path) -> None:
+    # Commits tab: day blocks render closed by default; clicking the day
+    # separator (tlDayToggle) rolls them out. Mirrors the existing tlToggle
+    # pattern used for individual commit detail rows.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert "function tlDayToggle(id)" in text
+    assert 'onclick="tlDayToggle(' in text
+    assert "class=\"tl-day-group${openNow ? ' open' : ''}\"" in text
+    assert "aria-expanded=\"${openNow ? 'true' : 'false'}\"" in text
+
+
+def test_static_app_js_active_filter_expands_day_groups(tmp_path: Path) -> None:
+    # Closed-by-default day groups must not hide search/filter results — a
+    # narrowing filter (keyword/date range/category/evidence/hour) forces
+    # defaultOpen so matches are visible without an extra click per day.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+    assert "renderTimeline(commits, _tlPatterns, { defaultOpen: hasActiveFilter })" in text
+
+
+def test_static_app_css_tl_day_group_closed_by_default(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert ".tl-day-group { display: none; }" in text
+    assert ".tl-day-group.open { display: block; }" in text
+    assert '.tl-day-sep[aria-expanded="true"] .tl-day-chevron { transform: rotate(90deg); }' in text

@@ -653,7 +653,10 @@ async function _applyTimelineFilters() {
   }
   if (cat) commits = commits.filter(c => (c.category || '').toUpperCase() === cat);
   if (_evidenceShaFilter) commits = commits.filter(c => _evidenceShaFilter.has(c.sha));
-  renderTimeline(commits, _tlPatterns);
+  // A narrowing search/filter is active (as opposed to just the commit-count limit) —
+  // expand day groups automatically so matches aren't hidden behind a closed day.
+  const hasActiveFilter = !!(keyword || fromDate || toDate || cat || _evidenceShaFilter || _tlHourFilter);
+  renderTimeline(commits, _tlPatterns, { defaultOpen: hasActiveFilter });
 }
 
 async function loadTimeline(repoId) {
@@ -704,7 +707,7 @@ function buildSignalIndex(patterns) {
   return idx;
 }
 
-function renderTimeline(commits, patterns) {
+function renderTimeline(commits, patterns, { defaultOpen = false } = {}) {
   const el = document.getElementById('timeline-content');
   if (!commits.length) {
     el.innerHTML = `<div class="tl-empty">
@@ -747,53 +750,69 @@ function renderTimeline(commits, patterns) {
       <div class="tl-month-hdr"><span>${esc(label)}</span><div class="tl-month-line"></div></div>`;
 
     html += '<div class="tl-commits-group">';
-    let prevDay = null;
-    monthCommits.forEach((c, i) => {
-      const xid = `tlx-${month.replace('-', '')}-${i}`;
-      const cat = (c.category || '').toUpperCase();
-      // Resolve audience-aware summary: use dual fields when available, fall back to legacy summary
-      const activeSummary = c.summary_beginner !== undefined && c.summary_beginner !== null
-        ? (_commitAudience === 'beginner' ? c.summary_beginner : (c.summary_expert ?? ''))
-        : (c.summary || '');
-      const hasAnalysis = !!(c.category || activeSummary);
-      const shaUrl = currentRepoMeta?.canonical_url?.includes('github.com')
-        ? `${currentRepoMeta.canonical_url}/commit/${c.sha || ''}`
-        : null;
-      // All commits with a GitHub link or a meaningful summary are expandable
-      const hasDetail = !!(activeSummary && activeSummary !== c.message) || !!shaUrl;
 
-      // Day separator — insert between commits of different days within the month
-      const curDay = (c.committed_at || '').slice(0, 10);
-      if (prevDay !== null && curDay !== prevDay) {
-        const [dyear, dmon, dday] = curDay.split('-');
-        const dayLabel = new Date(parseInt(dyear), parseInt(dmon) - 1, parseInt(dday))
-          .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        html += `<div class="tl-day-sep" aria-hidden="true">${esc(dayLabel)}</div>`;
-      }
-      prevDay = curDay;
+    // Group this month's commits by day so each day can collapse/expand as a unit.
+    const dayGroups = [];
+    monthCommits.forEach(c => {
+      const dayKey = (c.committed_at || '').slice(0, 10);
+      const last = dayGroups[dayGroups.length - 1];
+      if (!last || last.day !== dayKey) dayGroups.push({ day: dayKey, commits: [] });
+      dayGroups[dayGroups.length - 1].commits.push(c);
+    });
 
-      const interactiveAttrs = hasDetail
-        ? `onclick="tlToggle('${xid}')" role="button" tabindex="0" aria-expanded="false"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}">`
-        : '>';
-      html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}" id="tlr-${xid}" ${interactiveAttrs}
-        <span class="tl-date">${esc(fmtMonthDay(c.committed_at || ''))}</span>
-        <span class="tl-msg">${esc(truncate(c.message || '', 70))}</span>
-        <div class="tl-badges">
-          ${cat ? `<span class="badge ${badgeClass(c.category || '')}" data-tip="${catTipKey(c.category || '')}">${esc(cat)}</span>` : ''}
-          ${hasDetail ? '<span class="tl-expand-arrow" aria-hidden="true">›</span>' : ''}
-        </div>
+    dayGroups.forEach((group, di) => {
+      const dayId = `tlday-${month.replace('-', '')}-${di}`;
+      const [dyear, dmon, dday] = group.day.split('-');
+      const dayLabel = new Date(parseInt(dyear), parseInt(dmon) - 1, parseInt(dday))
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const openNow = defaultOpen;
+      html += `<div class="tl-day-sep" id="tlsep-${dayId}" role="button" tabindex="0"
+          aria-expanded="${openNow ? 'true' : 'false'}" aria-controls="${dayId}"
+          onclick="tlDayToggle('${dayId}')"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlDayToggle('${dayId}')}">
+        <span class="tl-day-chevron" aria-hidden="true">›</span>${esc(dayLabel)}
+        <span class="tl-day-count">${group.commits.length} commit${group.commits.length !== 1 ? 's' : ''}</span>
       </div>`;
-      if (hasDetail) {
-        const sha7 = (c.sha || '').slice(0, 7);
-        const shaEl = shaUrl
-          ? `<a href="${esc(shaUrl)}" target="_blank" rel="noopener" style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</a>`
-          : `<span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</span>`;
-        html += `<div class="tl-detail" id="${xid}">
-          ${esc(activeSummary)}
-          ${shaEl}
+      html += `<div class="tl-day-group${openNow ? ' open' : ''}" id="${dayId}">`;
+
+      group.commits.forEach((c, i) => {
+        const xid = `tlx-${month.replace('-', '')}-${di}-${i}`;
+        const cat = (c.category || '').toUpperCase();
+        // Resolve audience-aware summary: use dual fields when available, fall back to legacy summary
+        const activeSummary = c.summary_beginner !== undefined && c.summary_beginner !== null
+          ? (_commitAudience === 'beginner' ? c.summary_beginner : (c.summary_expert ?? ''))
+          : (c.summary || '');
+        const hasAnalysis = !!(c.category || activeSummary);
+        const shaUrl = currentRepoMeta?.canonical_url?.includes('github.com')
+          ? `${currentRepoMeta.canonical_url}/commit/${c.sha || ''}`
+          : null;
+        // All commits with a GitHub link or a meaningful summary are expandable
+        const hasDetail = !!(activeSummary && activeSummary !== c.message) || !!shaUrl;
+
+        const interactiveAttrs = hasDetail
+          ? `onclick="tlToggle('${xid}')" role="button" tabindex="0" aria-expanded="false"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tlToggle('${xid}')}">`
+          : '>';
+        html += `<div class="tl-row${hasAnalysis ? ' analyzed' : ''}" id="tlr-${xid}" ${interactiveAttrs}
+          <span class="tl-date">${esc(fmtMonthDay(c.committed_at || ''))}</span>
+          <span class="tl-msg">${esc(truncate(c.message || '', 70))}</span>
+          <div class="tl-badges">
+            ${cat ? `<span class="badge ${badgeClass(c.category || '')}" data-tip="${catTipKey(c.category || '')}">${esc(cat)}</span>` : ''}
+            ${hasDetail ? '<span class="tl-expand-arrow" aria-hidden="true">›</span>' : ''}
+          </div>
         </div>`;
-      }
+        if (hasDetail) {
+          const sha7 = (c.sha || '').slice(0, 7);
+          const shaEl = shaUrl
+            ? `<a href="${esc(shaUrl)}" target="_blank" rel="noopener" style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</a>`
+            : `<span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</span>`;
+          html += `<div class="tl-detail" id="${xid}">
+            ${esc(activeSummary)}
+            ${shaEl}
+          </div>`;
+        }
+      });
+      html += '</div>';
     });
     html += '</div></div>';
   });
@@ -807,6 +826,14 @@ function tlToggle(id) {
   el.classList.toggle('open');
   const row = document.getElementById('tlr-' + id);
   if (row) row.setAttribute('aria-expanded', el.classList.contains('open') ? 'true' : 'false');
+}
+
+function tlDayToggle(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
+  const sep = document.getElementById('tlsep-' + id);
+  if (sep) sep.setAttribute('aria-expanded', el.classList.contains('open') ? 'true' : 'false');
 }
 
 /* =========================================================
