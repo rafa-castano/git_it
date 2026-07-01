@@ -233,3 +233,16 @@ def test_static_app_css_repo_card_shadow_has_light_theme_override(tmp_path: Path
     client = TestClient(app)
     text = client.get("/static/app.css").text
     assert '[data-theme="light"] .repo-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }' in text
+
+
+def test_static_app_css_hdr_status_centers_its_text(tmp_path: Path) -> None:
+    # .hdr-meta is a flex row with default align-items:stretch, so .hdr-status
+    # gets stretched to match its taller siblings (buttons); without its own
+    # centering the text sits top-aligned in the stretched pill instead of centered.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    rule = text.split(".hdr-status {", 1)[1].split("}", 1)[0]
+    assert "display: flex" in rule
+    assert "align-items: center" in rule
+    assert "justify-content: center" in rule
