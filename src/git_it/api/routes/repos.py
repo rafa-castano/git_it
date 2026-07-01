@@ -3,10 +3,12 @@ import json
 import logging
 import re
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from git_it.api.auth import require_api_key
 from git_it.api.cost import LLM_COST_PER_CALL_USD, estimate_narrative_cost
@@ -530,6 +532,54 @@ def chat_with_repo(
             status_code=503, detail="The assistant is temporarily unavailable."
         ) from exc
     return ChatResponse(reply=result.reply)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/repos/{repository_id}/chat/stream  (GitItGPT streaming — spec 013)
+# ---------------------------------------------------------------------------
+
+
+def _sse_data(payload: dict[str, object]) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+def _sse_event(event: str, payload: dict[str, object]) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+@router.post("/{repository_id}/chat/stream")
+@limiter.limit("20/minute")
+def chat_stream_with_repo(
+    request: Request,
+    repository_id: str,
+    payload: ChatRequest,
+    chat_service: Annotated[ChatService, Depends(get_chat_service)],
+    _: None = Depends(require_api_key),
+) -> StreamingResponse:
+    # Bound prompt size / budget: keep only the most recent turns.
+    history = [
+        ChatMessage(role=t.role, content=t.content) for t in payload.history[-MAX_CHAT_HISTORY:]
+    ]
+
+    def _generate() -> Iterator[str]:
+        try:
+            for delta in chat_service.chat_stream(
+                repository_id=repository_id,
+                message=payload.message,
+                history=history,
+            ):
+                yield _sse_data({"text_delta": delta})
+            yield _sse_event("done", {})
+        except Exception as exc:
+            # Status/headers are already committed once streaming starts — a
+            # mid-stream failure can only be signalled inside the stream, and
+            # never with the raw exception (may carry provider keys/internals).
+            _logger.warning(
+                "chat stream failed: %s", type(exc).__name__, extra={"repository_id": repository_id}
+            )
+            yield _sse_event("error", {"message": "The assistant is temporarily unavailable."})
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------
