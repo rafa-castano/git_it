@@ -1373,7 +1373,7 @@ function _linkifyCommitShas(html, canonicalUrl) {
   // Match 7-40 char hex strings not already inside an href attribute
   return html.replace(/(?<!href=["'][^"']{0,200})\b([0-9a-f]{7,40})\b/gi, (match, sha) => {
     const ghUrl = `${canonicalUrl}/commit/${sha}`;
-    return `<a href="${ghUrl}" target="_blank" rel="noopener" title="View commit ${sha} on GitHub" style="font-family:monospace;color:var(--accent);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${sha}</a>`;
+    return `<a href="${ghUrl}" target="_blank" rel="noopener" title="View commit ${sha} on GitHub" style="font-family:monospace;color:var(--accent-text);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${sha}</a>`;
   });
 }
 
@@ -1532,7 +1532,7 @@ async function loadPatterns(repoId) {
         return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border-radius:6px;border-left:3px solid ${color}" title="${esc(h.file_path)}">
           <code style="font-size:12px;flex:1;cursor:pointer" onclick="_searchCommitsByFile(${JSON.stringify(h.file_path)})">${esc(fname)}</code>
           <span style="font-size:11px;color:var(--muted)">${h.commit_count} commits</span>
-          ${analyzed ? `<button data-shas="${esc(JSON.stringify(shas))}" data-label="Hotspot: ${esc(fname)}" onclick="_filterHotspot(this)" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0">${analyzed} analyzed →</button>` : ''}
+          ${analyzed ? `<button data-shas="${esc(JSON.stringify(shas))}" data-label="Hotspot: ${esc(fname)}" onclick="_filterHotspot(this)" style="font-size:11px;color:var(--accent-text);background:none;border:none;cursor:pointer;padding:0">${analyzed} analyzed →</button>` : ''}
         </div>`;
       }).join('')
     + `</div></div>`;
@@ -1551,7 +1551,7 @@ async function loadPatterns(repoId) {
       const analyzedCount = (h.evidence_commit_shas || []).length;
       const fname = h.file_path.split('/').pop();
       const analyzedLabel = analyzedCount > 0
-        ? `<button data-shas="${esc(JSON.stringify(h.evidence_commit_shas||[]))}" data-label="Hotspot: ${esc(fname)}" onclick="event.stopPropagation();_filterHotspot(this)" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0">${analyzedCount} →</button>`
+        ? `<button data-shas="${esc(JSON.stringify(h.evidence_commit_shas||[]))}" data-label="Hotspot: ${esc(fname)}" onclick="event.stopPropagation();_filterHotspot(this)" style="font-size:12px;color:var(--accent-text);background:none;border:none;cursor:pointer;padding:0">${analyzedCount} →</button>`
         : `<span style="color:var(--muted)">0</span>`;
       html += `<tr title="${esc(h.file_path)} — ${h.commit_count} total commits, ${analyzedCount} analyzed">
         <td><code style="font-size:11px">${esc(fname)}</code><div style="font-size:10px;color:var(--muted)">${esc(h.file_path)}</div></td>
@@ -1923,7 +1923,7 @@ async function loadContributors(repoId) {
         <div class="cc-avatar" style="background:${bg}" aria-hidden="true">${esc(initials)}</div>
         <div style="flex:1">
           <div class="cc-name">${esc(c.author_name)}</div>
-          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;padding:0.1rem 0.3rem;border:1px solid var(--accent);border-radius:4px;white-space:nowrap">${ghLabel}</a>` : ''}</div>
+          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--accent-text);text-decoration:none;font-size:13px;font-weight:600;padding:0.1rem 0.3rem;border:1px solid var(--accent);border-radius:4px;white-space:nowrap">${ghLabel}</a>` : ''}</div>
         </div>
       </div>
       <div class="cc-stats">
