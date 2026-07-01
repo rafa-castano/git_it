@@ -10,15 +10,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from git_it.api.auth import require_api_key
 from git_it.api.cost import LLM_COST_PER_CALL_USD, estimate_narrative_cost
-from git_it.api.deps import get_project_root
+from git_it.api.deps import get_chat_service, get_project_root
 from git_it.api.limiter import limiter
 from git_it.api.mappers import map_pattern_report
 from git_it.api.schemas import (
+    MAX_CHAT_HISTORY,
     AnalyzeEstimateResponse,
     AnalyzeRequest,
     AnalyzeResponse,
     AnalyzeStatusResponse,
     CaseStudyResponse,
+    ChatRequest,
+    ChatResponse,
     CommitsResponse,
     CommitSummaryItem,
     ContributorItem,
@@ -32,6 +35,7 @@ from git_it.api.schemas import (
     RepoListResponse,
     RepoSummary,
 )
+from git_it.chat.service import ChatMessage, ChatService
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
@@ -491,6 +495,41 @@ def get_contributors(repository_id: str, project_root: ProjectRoot) -> Contribut
         contributors=contributors,
         total=len(contributors),
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/repos/{repository_id}/chat  (GitItGPT — spec 012)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{repository_id}/chat", response_model=ChatResponse)
+@limiter.limit("20/minute")
+def chat_with_repo(
+    request: Request,
+    repository_id: str,
+    payload: ChatRequest,
+    chat_service: Annotated[ChatService, Depends(get_chat_service)],
+    _: None = Depends(require_api_key),
+) -> ChatResponse:
+    # Bound prompt size / budget: keep only the most recent turns.
+    history = [
+        ChatMessage(role=t.role, content=t.content) for t in payload.history[-MAX_CHAT_HISTORY:]
+    ]
+    try:
+        result = chat_service.chat(
+            repository_id=repository_id,
+            message=payload.message,
+            history=history,
+        )
+    except Exception as exc:
+        # Never leak the raw error (may carry provider keys or internals).
+        _logger.warning(
+            "chat failed: %s", type(exc).__name__, extra={"repository_id": repository_id}
+        )
+        raise HTTPException(
+            status_code=503, detail="The assistant is temporarily unavailable."
+        ) from exc
+    return ChatResponse(reply=result.reply)
 
 
 # ---------------------------------------------------------------------------

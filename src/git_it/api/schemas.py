@@ -215,3 +215,25 @@ class ContributorsResponse(BaseModel):
 class DeleteRepoResponse(BaseModel):
     deleted: bool
     repository_id: str
+
+
+# ---------------------------------------------------------------------------
+# GitItGPT chat (spec 012)
+# ---------------------------------------------------------------------------
+
+# Cap on prior turns accepted per request, to bound prompt size / budget.
+MAX_CHAT_HISTORY = 20
+
+
+class ChatTurn(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list[ChatTurn] = []
+
+
+class ChatResponse(BaseModel):
+    reply: str
