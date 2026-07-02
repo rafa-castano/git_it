@@ -84,6 +84,7 @@ One file per batch, organized by feature area.
 - [Batch 75 — Pattern mapper extraction and routes decomposition](api/batch-75-routes-decomposition.md)
 - [Batch 77 — Integration tests for repo lifecycle flow](api/batch-77-integration-tests.md)
 - [Batch 78 — Repository deletion endpoint and UI](api/batch-78-repository-deletion.md)
+- [Batch 80 — Delete bug fix and commit count alignment](api/batch-80-delete-fix-and-commit-count.md)
 - [Batch 82 — PostgreSQL read layer for the API (spec 014)](api/batch-82-postgres-read-layer.md)
 
 ## Analysis
@@ -98,7 +99,9 @@ One file per batch, organized by feature area.
 
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
+- [Batch 79 — Publish readiness: paths, hygiene, docs](infrastructure/batch-79-publish-readiness.md)
 - [Bug fix — PostgresSynopsisStore migrated from psycopg2 to psycopg v3](infrastructure/bugfix-postgres-synopsis-store-psycopg-v3.md)
 
 ## UI
 - [Batch 76 — Extract CSS and JS from index.html to static files](ui/batch-76-frontend-split.md)
+- [Batch 81 — Tab hierarchy flatten and Timeline merge into Commits](frontend/batch-81-tab-restructure.md)
