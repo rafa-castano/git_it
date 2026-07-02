@@ -57,4 +57,4 @@ locally and gated in CI (`.github/workflows/ci.yml`).
 
 ## Commits
 
-- TBD
+- e3c6a45 — docs: add Known Limitations and Roadmap, fix stale ADR/spec status indexes
