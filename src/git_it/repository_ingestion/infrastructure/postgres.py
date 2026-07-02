@@ -547,6 +547,18 @@ class PostgresCaseStudyStore:
             audience=str(row[5]),
         )
 
+    def list_available_audiences(self, repository_id: str) -> list[str]:
+        with psycopg.connect(self._conninfo) as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT audience FROM case_studies
+                WHERE repository_id = %s
+                ORDER BY audience
+                """,
+                (repository_id,),
+            ).fetchall()
+        return [row[0] for row in rows]
+
     def get_repo_context(self, repository_id: str) -> str | None:
         record = self.get_case_study(repository_id, audience="beginner")
         if record is None:
@@ -630,35 +642,93 @@ class PostgresCommitWithAnalysisReader:
     def __init__(self, conninfo: str) -> None:
         self._conninfo = conninfo
 
+    def count_commits_with_analyses(
+        self,
+        repository_id: str,
+        *,
+        category: str | None = None,
+    ) -> int:
+        """Return the total number of analyzed commits, optionally filtered by category."""
+        with psycopg.connect(self._conninfo) as conn:
+            if category is not None:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    WHERE ca.repository_id = %s
+                      AND ca.data::json->>'category' = %s
+                    """,
+                    (repository_id, category),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    WHERE ca.repository_id = %s
+                    """,
+                    (repository_id,),
+                ).fetchone()
+        return int(row[0]) if row else 0
+
     def list_commits_with_analyses(
         self,
         repository_id: str,
         *,
         limit: int,
         order: str = "newest",
+        category: str | None = None,
     ) -> list[CommitWithAnalysisRecord]:
         if order not in ("newest", "oldest"):
             raise ValueError(f"Invalid order value: {order!r}")
         order_dir = "ASC" if order == "oldest" else "DESC"
         with psycopg.connect(self._conninfo) as conn:
-            rows = conn.execute(
-                f"""
-                SELECT cf.sha, cf.message, cf.committed_at, ca.data
-                FROM commit_analyses ca
-                JOIN commit_facts cf
-                  ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
-                WHERE ca.repository_id = %s
-                ORDER BY cf.committed_at {order_dir}
-                LIMIT %s
-                """,
-                (repository_id, limit),
-            ).fetchall()
+            if category is not None:
+                rows = conn.execute(
+                    f"""
+                    SELECT cf.sha, cf.message, cf.committed_at, ca.data,
+                           STRING_AGG(ff.file_path, '|||') AS files
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    LEFT JOIN file_facts ff
+                      ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
+                    WHERE ca.repository_id = %s
+                      AND ca.data::json->>'category' = %s
+                    GROUP BY cf.sha, cf.message, cf.committed_at, ca.data
+                    ORDER BY cf.committed_at {order_dir}
+                    LIMIT %s
+                    """,
+                    (repository_id, category, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"""
+                    SELECT cf.sha, cf.message, cf.committed_at, ca.data,
+                           STRING_AGG(ff.file_path, '|||') AS files
+                    FROM commit_analyses ca
+                    JOIN commit_facts cf
+                      ON cf.sha = ca.commit_sha AND cf.repository_id = ca.repository_id
+                    LEFT JOIN file_facts ff
+                      ON ff.commit_sha = ca.commit_sha AND ff.repository_id = ca.repository_id
+                    WHERE ca.repository_id = %s
+                    GROUP BY cf.sha, cf.message, cf.committed_at, ca.data
+                    ORDER BY cf.committed_at {order_dir}
+                    LIMIT %s
+                    """,
+                    (repository_id, limit),
+                ).fetchall()
         return [
             CommitWithAnalysisRecord(
                 sha=str(row[0]),
                 message=str(row[1]),
                 committed_at=str(row[2]),
                 analysis_data=str(row[3]) if row[3] is not None else None,
+                files_changed=tuple(str(row[4]).split("|||")) if row[4] else (),
             )
             for row in rows
         ]
@@ -865,3 +935,45 @@ class PostgresSynopsisStore:
                 (repository_id,),
             ).fetchone()
         return str(row[0]) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Repository deleter
+# ---------------------------------------------------------------------------
+
+
+class PostgresRepositoryDeleter:
+    """Hard-deletes all data for a repository from every table that holds its data.
+
+    Deletes child tables first, then the parent ``ingestion_runs`` table, mirroring
+    SqliteRepositoryDeleter. Tables absent from the schema are skipped, so deletion
+    works even against a database provisioned by an older migration.
+    """
+
+    def __init__(self, conninfo: str) -> None:
+        self._conninfo = conninfo
+
+    def delete_repository(self, repository_id: str) -> None:
+        with psycopg.connect(self._conninfo) as conn:
+            existing_tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+                ).fetchall()
+            }
+            # Child tables first (mirrors the SQLite deleter's dependency order)
+            for table in (
+                "github_context",
+                "file_facts",
+                "commit_analyses",
+                "commit_facts",
+                "case_studies",
+                "repository_synopsis",
+                "ingestion_runs",
+            ):
+                if table in existing_tables:
+                    conn.execute(
+                        f"DELETE FROM {table} WHERE repository_id = %s",  # noqa: S608
+                        (repository_id,),
+                    )
+            conn.commit()

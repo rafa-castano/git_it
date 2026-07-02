@@ -40,25 +40,23 @@ from git_it.api.schemas import (
 from git_it.chat.service import ChatMessage, ChatService
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
+    build_case_study_store,
     build_commit_analysis_service,
+    build_commit_count_reader,
+    build_commit_with_analysis_reader,
+    build_contributor_reader,
+    build_ingestion_run_store,
     build_narrative_service,
+    build_repository_deleter,
     build_repository_ingestion_service,
+    build_repository_list_reader,
+    database_is_provisioned,
 )
 from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
-from git_it.repository_ingestion.infrastructure.sqlite import (
-    SqliteCaseStudyStore,
-    SqliteCommitCountReader,
-    SqliteCommitWithAnalysisReader,
-    SqliteContributorReader,
-    SqliteIngestionRunStore,
-    SqliteRepositoryDeleter,
-    SqliteRepositoryListReader,
-)
-from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
 
 router = APIRouter(prefix="/api/repos", tags=["repos"])
 
@@ -86,10 +84,6 @@ _analyze_progress_lock = threading.Lock()
 
 _regen_progress: dict[str, dict] = {}
 _regen_progress_lock = threading.Lock()
-
-
-def _get_db_path(project_root: Path) -> Path:
-    return ingestion_workspace_root(project_root) / "git-it.sqlite3"
 
 
 def _canonical_repo_id(canonical_url: str) -> str:
@@ -154,11 +148,10 @@ def ingest_repo(
 
 @router.get("", response_model=RepoListResponse)
 def list_repos(project_root: ProjectRoot) -> RepoListResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return RepoListResponse(repos=[], total=0)
 
-    reader = SqliteRepositoryListReader(db_path)
+    reader = build_repository_list_reader(project_root=project_root)
     records = reader.list_repositories()
     repos = [
         RepoSummary(
@@ -185,12 +178,10 @@ def get_case_study(
     project_root: ProjectRoot,
     audience: str = DEFAULT_AUDIENCE,
 ) -> CaseStudyResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Case study not found")
 
-    store = SqliteCaseStudyStore(db_path)
-    store.initialize()
+    store = build_case_study_store(project_root=project_root)
     record = store.get_case_study(repository_id, audience)
 
     if record is None:
@@ -230,8 +221,7 @@ def regenerate_case_study(
     project_root: ProjectRoot,
     _: None = Depends(require_api_key),
 ) -> RegenStatusResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Repository not found.")
     t = threading.Thread(
         target=_regen_bg,
@@ -280,11 +270,10 @@ def get_commits(
     order: Literal["newest", "oldest"] = "newest",
     category: str | None = None,
 ) -> CommitsResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return CommitsResponse(repository_id=repository_id, commits=[], total=0)
 
-    reader = SqliteCommitWithAnalysisReader(db_path)
+    reader = build_commit_with_analysis_reader(project_root=project_root)
     total = reader.count_commits_with_analyses(repository_id, category=category)
     records = reader.list_commits_with_analyses(
         repository_id, limit=limit, order=order, category=category
@@ -337,10 +326,9 @@ def get_commits(
 
 def _resolve_canonical_url(repository_id: str, project_root: Path) -> str | None:
     """Look up the canonical_url for a repository from the most recent ingestion run."""
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return None
-    store = SqliteIngestionRunStore(db_path)
+    store = build_ingestion_run_store(project_root=project_root)
     runs = store.list_ingestion_runs_for_repository(repository_id)
     if not runs:
         return None
@@ -406,10 +394,9 @@ def estimate_analyze(
     limit: int = 20,
     model: str = DEFAULT_MODEL,
 ) -> AnalyzeEstimateResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Repository not found.")
-    count_reader = SqliteCommitCountReader(db_path)
+    count_reader = build_commit_count_reader(project_root=project_root)
     total_commits = count_reader.count_commits(repository_id)
     analyzed_commits = count_reader.count_analyses(repository_id)
     svc = build_commit_analysis_service(project_root=project_root, model=model)
@@ -436,8 +423,7 @@ def trigger_analyze(
     project_root: ProjectRoot,
     _: None = Depends(require_api_key),
 ) -> AnalyzeResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Repository not found.")
     t = threading.Thread(
         target=_analyze_bg,
@@ -467,11 +453,10 @@ def get_analyze_status(repository_id: str) -> AnalyzeStatusResponse:
 
 @router.get("/{repository_id}/contributors", response_model=ContributorsResponse)
 def get_contributors(repository_id: str, project_root: ProjectRoot) -> ContributorsResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Repository not found.")
 
-    reader = SqliteContributorReader(db_path)
+    reader = build_contributor_reader(project_root=project_root)
     records = reader.list_contributors(repository_id)
 
     if not records:
@@ -595,12 +580,11 @@ def delete_repo(
     project_root: ProjectRoot,
     _: None = Depends(require_api_key),
 ) -> DeleteRepoResponse:
-    db_path = _get_db_path(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         raise HTTPException(status_code=404, detail="Repository not found.")
 
     # Verify the repository exists
-    store = SqliteIngestionRunStore(db_path)
+    store = build_ingestion_run_store(project_root=project_root)
     runs = store.list_ingestion_runs_for_repository(repository_id)
     if not runs:
         raise HTTPException(status_code=404, detail="Repository not found.")
@@ -623,7 +607,7 @@ def delete_repo(
             detail="Cannot delete repository while an operation is in progress.",
         )
 
-    deleter = SqliteRepositoryDeleter(db_path)
+    deleter = build_repository_deleter(project_root=project_root)
     deleter.delete_repository(repository_id)
 
     return DeleteRepoResponse(deleted=True, repository_id=repository_id)

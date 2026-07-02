@@ -84,6 +84,7 @@ One file per batch, organized by feature area.
 - [Batch 75 — Pattern mapper extraction and routes decomposition](api/batch-75-routes-decomposition.md)
 - [Batch 77 — Integration tests for repo lifecycle flow](api/batch-77-integration-tests.md)
 - [Batch 78 — Repository deletion endpoint and UI](api/batch-78-repository-deletion.md)
+- [Batch 82 — PostgreSQL read layer for the API (spec 014)](api/batch-82-postgres-read-layer.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

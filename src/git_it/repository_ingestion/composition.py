@@ -35,12 +35,17 @@ from git_it.repository_ingestion.infrastructure.llm import (
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
+    PostgresCommitCountReader,
     PostgresCommitReader,
     PostgresCommitStore,
+    PostgresCommitWithAnalysisReader,
+    PostgresContributorReader,
     PostgresFileFactReader,
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresRepositoryDeleter,
+    PostgresRepositoryListReader,
     PostgresSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
@@ -49,12 +54,17 @@ from git_it.repository_ingestion.infrastructure.postgres import (
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCaseStudyStore,
     SqliteCommitAnalysisStore,
+    SqliteCommitCountReader,
     SqliteCommitFactStore,
     SqliteCommitReader,
+    SqliteCommitWithAnalysisReader,
+    SqliteContributorReader,
     SqliteFileFactReader,
     SqliteFileFactStore,
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
+    SqliteRepositoryDeleter,
+    SqliteRepositoryListReader,
     SqliteSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.workspace import (
@@ -73,6 +83,98 @@ def _get_db_backend() -> tuple[str, str]:
     if url.startswith("postgresql://") or url.startswith("postgres://"):
         return "postgres", url
     return "sqlite", ""
+
+
+def database_is_provisioned(*, project_root: Path) -> bool:
+    """Backend-aware replacement for the SQLite ``db_path.exists()`` guard.
+
+    For SQLite the database is provisioned once the file exists. For PostgreSQL
+    there is no file to check — reachability is validated by the connection
+    itself, which fails loud (spec 014) instead of falling back to SQLite.
+    """
+    backend, _ = _get_db_backend()
+    if backend == "postgres":
+        return True
+    return (ingestion_workspace_root(project_root) / "git-it.sqlite3").exists()
+
+
+def build_repository_list_reader(
+    *,
+    project_root: Path,
+) -> SqliteRepositoryListReader | PostgresRepositoryListReader:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresRepositoryListReader(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteRepositoryListReader(db_path)
+
+
+def build_case_study_store(
+    *,
+    project_root: Path,
+) -> SqliteCaseStudyStore | PostgresCaseStudyStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresCaseStudyStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteCaseStudyStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_commit_count_reader(
+    *,
+    project_root: Path,
+) -> SqliteCommitCountReader | PostgresCommitCountReader:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresCommitCountReader(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteCommitCountReader(db_path)
+
+
+def build_commit_with_analysis_reader(
+    *,
+    project_root: Path,
+) -> SqliteCommitWithAnalysisReader | PostgresCommitWithAnalysisReader:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresCommitWithAnalysisReader(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteCommitWithAnalysisReader(db_path)
+
+
+def build_contributor_reader(
+    *,
+    project_root: Path,
+) -> SqliteContributorReader | PostgresContributorReader:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresContributorReader(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteContributorReader(db_path)
+
+
+def build_ingestion_run_store(
+    *,
+    project_root: Path,
+) -> SqliteIngestionRunStore | PostgresIngestionRunStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresIngestionRunStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteIngestionRunStore(db_path)
+
+
+def build_repository_deleter(
+    *,
+    project_root: Path,
+) -> SqliteRepositoryDeleter | PostgresRepositoryDeleter:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresRepositoryDeleter(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteRepositoryDeleter(db_path)
 
 
 def build_repository_ingestion_service(

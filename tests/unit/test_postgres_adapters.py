@@ -16,15 +16,18 @@ from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
     IngestionRunRecord,
 )
-from git_it.repository_ingestion.domain.analysis import CommitAnalysis
-from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
+from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
     PostgresCommitStore,
+    PostgresCommitWithAnalysisReader,
+    PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresRepositoryDeleter,
     initialize,
 )
 
@@ -126,7 +129,7 @@ def test_postgres_commit_analysis_store_roundtrips_analysis(conninfo: str) -> No
     store = PostgresCommitAnalysisStore(conninfo)
     analysis = CommitAnalysis(
         commit_sha="pg-sha-analysis-001",
-        category="feature",
+        category=CommitCategory.FEATURE,
         summary="Added new feature",
         confidence=0.95,
     )
@@ -145,7 +148,7 @@ def test_postgres_commit_analysis_store_is_idempotent(conninfo: str) -> None:
     store = PostgresCommitAnalysisStore(conninfo)
     analysis = CommitAnalysis(
         commit_sha="pg-sha-analysis-002",
-        category="refactor",
+        category=CommitCategory.REFACTOR,
         summary="Cleaned up code",
         confidence=0.88,
     )
@@ -213,3 +216,121 @@ def test_postgres_github_context_cache_hit_after_save(conninfo: str) -> None:
     assert retrieved is not None
     assert retrieved.pr_number == 101
     assert retrieved.pr_title == "Add PostgreSQL support"
+
+
+# ---------------------------------------------------------------------------
+# Spec 014 — Postgres read-layer parity for the API endpoints
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_case_study_store_lists_available_audiences(conninfo: str) -> None:
+    """list_available_audiences returns distinct audiences, mirroring SQLite."""
+    store = PostgresCaseStudyStore(conninfo)
+    for audience in ("beginner", "expert"):
+        store.save_case_study(
+            CaseStudyRecord(
+                repository_id="pg-repo-9",
+                narrative="Narrative text.",
+                commit_count=1,
+                hotspot_count=0,
+                audience=audience,
+            )
+        )
+
+    audiences = store.list_available_audiences("pg-repo-9")
+
+    assert audiences == ["beginner", "expert"]
+
+
+def _seed_analyzed_commit(
+    conninfo: str,
+    *,
+    repository_id: str,
+    sha: str,
+    category: CommitCategory,
+    file_path: str | None = None,
+) -> None:
+    file_changes = (
+        (ExtractedFileChange(path=file_path, insertions=1, deletions=1),) if file_path else ()
+    )
+    commit = ExtractedCommit(
+        sha=sha,
+        committed_at="2026-01-01T00:00:00+00:00",
+        message="msg",
+        author_name="Author",
+        committer_name="Committer",
+        parent_shas=(),
+        file_changes=file_changes,
+    )
+    PostgresCommitStore(conninfo).save_commit_facts([commit], repository_id=repository_id)
+    PostgresFileFactStore(conninfo).save_file_facts([commit], repository_id=repository_id)
+    PostgresCommitAnalysisStore(conninfo).save_analysis(
+        CommitAnalysis(commit_sha=sha, category=category, summary="s", confidence=0.9),
+        repository_id=repository_id,
+    )
+
+
+def test_postgres_commit_with_analysis_reader_counts_and_filters_by_category(
+    conninfo: str,
+) -> None:
+    """count/list honour the category filter, mirroring the SQLite contract."""
+    _seed_analyzed_commit(
+        conninfo, repository_id="pg-repo-10", sha="pg-sha-cat-1", category=CommitCategory.DOCS
+    )
+    _seed_analyzed_commit(
+        conninfo, repository_id="pg-repo-10", sha="pg-sha-cat-2", category=CommitCategory.FEATURE
+    )
+    reader = PostgresCommitWithAnalysisReader(conninfo)
+
+    assert reader.count_commits_with_analyses("pg-repo-10") == 2
+    assert reader.count_commits_with_analyses("pg-repo-10", category="docs") == 1
+    filtered = reader.list_commits_with_analyses("pg-repo-10", limit=10, category="docs")
+    assert [record.sha for record in filtered] == ["pg-sha-cat-1"]
+
+
+def test_postgres_commit_with_analysis_reader_returns_files_changed(conninfo: str) -> None:
+    """files_changed is aggregated from file_facts, mirroring the SQLite contract."""
+    _seed_analyzed_commit(
+        conninfo,
+        repository_id="pg-repo-11",
+        sha="pg-sha-files-1",
+        category=CommitCategory.FEATURE,
+        file_path="src/main.py",
+    )
+    reader = PostgresCommitWithAnalysisReader(conninfo)
+
+    records = reader.list_commits_with_analyses("pg-repo-11", limit=10)
+
+    assert records[0].files_changed == ("src/main.py",)
+
+
+def test_postgres_repository_deleter_removes_all_repository_rows(conninfo: str) -> None:
+    """delete_repository removes ingestion runs, facts, and analyses for the repo."""
+    run_store = PostgresIngestionRunStore(conninfo)
+    run_store.save_ingestion_run(
+        IngestionRunRecord(
+            run_id="pg-run-del-1",
+            repository_id="pg-repo-12",
+            canonical_url="https://github.com/owner/repo",
+            status="COMPLETED",
+            started_at="2026-06-18T10:00:00Z",
+            completed_at=None,
+            error_code=None,
+            error_stage=None,
+            retryable=None,
+            safe_message=None,
+        )
+    )
+    _seed_analyzed_commit(
+        conninfo,
+        repository_id="pg-repo-12",
+        sha="pg-sha-del-1",
+        category=CommitCategory.FEATURE,
+        file_path="src/main.py",
+    )
+
+    PostgresRepositoryDeleter(conninfo).delete_repository("pg-repo-12")
+
+    assert run_store.list_ingestion_runs_for_repository("pg-repo-12") == []
+    reader = PostgresCommitWithAnalysisReader(conninfo)
+    assert reader.count_commits_with_analyses("pg-repo-12") == 0

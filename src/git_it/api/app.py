@@ -1,12 +1,14 @@
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+import psycopg  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import RedirectResponse  # noqa: E402
+from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from slowapi import _rate_limit_exceeded_handler  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
@@ -20,6 +22,27 @@ from git_it.api.limiter import limiter  # noqa: E402
 from git_it.api.routes.repos import router as repos_router  # noqa: E402
 
 _STATIC_DIR = Path(__file__).parent.parent / "static"
+
+_logger = logging.getLogger(__name__)
+
+
+def _postgres_unavailable_handler(request: Request, exc: Exception) -> Response:
+    """Fail loud when the Postgres backend selected via DATABASE_URL is unreachable.
+
+    Never falls back to SQLite (spec 014). The message is static so the
+    connection string (which may embed credentials) can never leak; the raw
+    exception is logged server-side by type name only.
+    """
+    _logger.warning("database unavailable: %s", type(exc).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "Database unavailable: the PostgreSQL backend selected via "
+                "DATABASE_URL could not be reached."
+            )
+        },
+    )
 
 
 class _NoCacheStaticMiddleware(BaseHTTPMiddleware):
@@ -47,6 +70,7 @@ def create_app(project_root: Path | None = None) -> FastAPI:
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(psycopg.OperationalError, _postgres_unavailable_handler)
     app.add_middleware(SlowAPIMiddleware)
 
     app.add_middleware(_NoCacheStaticMiddleware)

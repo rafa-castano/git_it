@@ -97,6 +97,13 @@ end-to-end before any public release.
 
 ### (c) Direct SQLite reader instantiation in API route handlers
 
+> **Resolved 2026-07-02** by spec 014 (`specs/014-postgres-read-layer.md`): the route
+> handlers below now obtain their readers through `build_*` read factories in
+> `composition.py` that honour `_get_db_backend()`, exactly as the "Revisit when"
+> clause of this section prescribed. When the Postgres backend is selected and
+> unreachable, reads fail loud with a 503 — never a silent SQLite fallback. The
+> text below is preserved as originally written for historical context.
+
 **What:** Several GET route handlers in `src/git_it/api/routes/repos.py` instantiate SQLite
 readers directly rather than going through the composition layer:
 
