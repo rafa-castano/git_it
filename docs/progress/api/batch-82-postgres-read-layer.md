@@ -107,4 +107,4 @@ Total: 692 → 723 passed (8 → 12 skipped).
 
 ## Commits
 
-- TBD
+- 0435d04 — feat: route API read endpoints through DATABASE_URL-aware factories
