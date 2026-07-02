@@ -641,7 +641,26 @@ async function _applyTimelineFilters() {
   // A narrowing search/filter is active (as opposed to just the commit-count limit) —
   // expand day groups automatically so matches aren't hidden behind a closed day.
   const hasActiveFilter = !!(keyword || fromDate || toDate || cat || _evidenceShaFilter || _tlHourFilter);
+  _updateCommitFilterBar({ hasActiveFilter, keyword, fromDate, toDate, cat });
   renderTimeline(commits, _tlPatterns, { defaultOpen: hasActiveFilter });
+}
+
+/** Show/hide the "Clear filters" bar above the Commits timeline and, unless a
+ * caller already set a more specific label via _applyCommitFilter (evidence
+ * or hotspot drill-downs), describe which manual filter(s) are active. */
+function _updateCommitFilterBar({ hasActiveFilter, keyword, fromDate, toDate, cat }) {
+  const bar = document.getElementById('commits-filter-bar');
+  const descEl = document.getElementById('commits-filter-desc');
+  if (bar) bar.style.display = hasActiveFilter ? 'flex' : 'none';
+  if (!descEl || !hasActiveFilter) return;
+  // Evidence/hotspot-driven filters already set a specific label — keep it.
+  if (_evidenceShaFilter) return;
+  const parts = [];
+  if (cat) parts.push(`Category: ${cat}`);
+  if (keyword) parts.push(`Search: "${keyword}"`);
+  if (_tlHourFilter) parts.push('Time period selected');
+  else if (fromDate || toDate) parts.push(`Date: ${fromDate || '…'} – ${toDate || '…'}`);
+  descEl.textContent = parts.join(' · ');
 }
 
 async function loadTimeline(repoId) {
@@ -1645,6 +1664,7 @@ function _clearCommitFilters() {
   if (from) from.value = '';
   if (to) to.value = '';
   _evidenceShaFilter = null;
+  _tlHourFilter = null;
   const bar = document.getElementById('commits-filter-bar');
   if (bar) bar.style.display = 'none';
   _applyTimelineFilters();
