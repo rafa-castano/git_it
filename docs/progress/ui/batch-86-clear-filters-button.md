@@ -82,4 +82,4 @@ their filters short of resetting each control individually.
 
 ## Commits
 
-- `feat: show Clear filters button for manually applied commit filters` — (SHA recorded after commit)
+- `feat: show Clear filters button for manually applied commit filters` — `9fdb393`

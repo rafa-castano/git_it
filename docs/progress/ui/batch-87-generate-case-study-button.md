@@ -79,4 +79,4 @@ case, gated on the repo actually having analyzed commits.
 
 ## Commits
 
-- `feat: add Generate case study button when commits are analyzed but no narrative exists` — (SHA recorded after commit)
+- `feat: add Generate case study button when commits are analyzed but no narrative exists` — `ec8f290`

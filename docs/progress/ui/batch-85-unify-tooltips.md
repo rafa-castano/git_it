@@ -76,4 +76,4 @@ carry into the custom tooltip text so nothing is lost.
 
 ## Commits
 
-- `fix: remove duplicate title tooltip on donut legend and unify into custom tooltip` — (SHA recorded after commit)
+- `fix: remove duplicate title tooltip on donut legend and unify into custom tooltip` — `e8aedcd`

@@ -58,4 +58,4 @@ exists solely to build them.
 
 ## Commits
 
-- `fix: remove pattern pills and per-card patterns fetch from homepage repo cards` — (SHA recorded after commit)
+- `fix: remove pattern pills and per-card patterns fetch from homepage repo cards` — `6e7a589`
