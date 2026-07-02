@@ -15,12 +15,13 @@ Spec source files live in `specs/` at the project root.
 | 005 | Documentation Engine | Draft |
 | 006 | MCP Strategy | Draft |
 | 007 | Cost Estimation | Implemented |
-| 008 | Repository Deletion | Implemented |
+| 008 | Repository Deletion | Draft (built, untested at integration level) |
 | 009 | Dual-Audience Commit Summaries | Implemented |
 | 010 | Case Study Audience Availability | Implemented |
 | 011 | Read-Only MCP Server Exposure | Implemented |
 | 012 | GitItGPT (in-dashboard AI chat) | Implemented |
 | 013 | GitItGPT Response Streaming | Implemented |
+| 014 | PostgreSQL Read Layer for the API | Implemented |
 
 ## How specs relate to the codebase
 

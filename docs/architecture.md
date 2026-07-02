@@ -75,3 +75,42 @@ See the [ADR index](adr/index.md) for recorded architectural decisions, includin
 - Why a modular monolith was chosen over microservices (ADR 003)
 - Why facts and interpretations are stored separately (ADR 004)
 - Why structured LLM outputs are required (ADR 005)
+
+## Known limitations
+
+ADR 010 documents the accepted limitations of the local-first, single-process
+MVP. Two remain open; one has since been resolved:
+
+- **In-memory progress state** — analyze/regen job progress is held in
+  process memory, so it is lost on restart and invisible across multiple
+  workers. Still open.
+- **Permissive CORS** — the API sets `allow_origins=["*"]`; write endpoints
+  are protected by API key, but GET routes are openly readable by design for
+  local development. Still open.
+- **Direct SQLite reader instantiation in API routes** — routes used to
+  construct SQLite readers directly instead of going through a port.
+  Resolved 2026-07-02 by `specs/014-postgres-read-layer.md`, which introduced
+  a PostgreSQL-backed read layer
+  (`src/git_it/repository_ingestion/infrastructure/postgres.py`) selected via
+  `DATABASE_URL`.
+
+See `ADR/010-local-first-mvp-accepted-limitations.md` for full detail on all
+three.
+
+## Roadmap
+
+Open Draft specs describe work that is scoped but not yet built or not yet
+fully accepted. These are not commitments or timelines — just the current gap
+between what's specified and what's shipped:
+
+- **Spec 005 — Documentation Engine**: automated generation of
+  documentation from repository analysis. Not yet built. See
+  `specs/005-documentation-engine.md`.
+- **Spec 006 — MCP Strategy**: the broader MCP strategy document. The MCP
+  server itself is live (ADR 011, spec 011), but this strategy spec covering
+  the wider approach is still Draft. See `specs/006-mcp-strategy.md`.
+- **Spec 008 — Repository Deletion**: the DELETE endpoint and delete UI are
+  built (`src/git_it/api/routes/repos.py`, `src/git_it/static/app.js`), but
+  the spec was never bumped past Draft and there is no integration test
+  covering the delete flow (`tests/integration/test_repo_lifecycle.py` has no
+  delete coverage). See `specs/008-repository-deletion.md`.

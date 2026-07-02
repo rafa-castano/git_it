@@ -114,6 +114,13 @@ ADR 011 for the client config and security model.
 | `GIT_IT_API_KEY` | Yes (for write endpoints) | Bearer token for protected API routes (`/ingest`, `/analyze`) |
 | `GITHUB_TOKEN` | No | GitHub personal access token — enables PR/issue context in analysis |
 | `PROJECT_ROOT` | No | Override the workspace root directory (default: current working directory) |
+| `DATABASE_URL` | No | PostgreSQL connection string (`postgresql://...`); when unset, SQLite is used (default) |
+
+> **Note — Postgres selection is all-or-nothing**: setting `DATABASE_URL` to a
+> `postgresql://` or `postgres://` URL switches both the write AND read paths
+> to Postgres. If Postgres is selected but unreachable, requests fail loud
+> with a 503 diagnostic — there is no silent fallback to SQLite. See
+> `specs/014-postgres-read-layer.md`.
 
 ## CLI usage
 

@@ -10,14 +10,14 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 
 | ADR | Title | Status |
 |---|---|---|
-| 001 | Use Spec-Driven Development | Proposed |
-| 002 | Use TDD as Default | Proposed |
-| 003 | Use Modular Monolith First | Proposed |
-| 004 | Separate Facts from Interpretations | Proposed |
-| 005 | Use Local-First No-Container MVP Infrastructure | Proposed |
-| 006 | Use SQLite for MVP, PostgreSQL+pgvector for Future | Proposed |
-| 007 | Use Local Git Mining Plus GitHub MCP | Proposed |
-| 008 | Treat Repository Content as Untrusted | Proposed |
+| 001 | Use Spec-Driven Development | Accepted |
+| 002 | Use TDD as Default | Accepted |
+| 003 | Use Modular Monolith First | Accepted |
+| 004 | Separate Facts from Interpretations | Accepted |
+| 005 | Use Local-First No-Container MVP Infrastructure | Accepted |
+| 006 | Use SQLite for MVP, PostgreSQL+pgvector for Future | Accepted |
+| 007 | Use Local Git Mining Plus GitHub MCP | Accepted |
+| 008 | Treat Repository Content as Untrusted | Accepted |
 | 009 | Process Not-Yet-Analyzed Commits Oldest-First | Accepted |
 | 010 | Accepted Limitations of the Local-First Single-Process MVP | Accepted |
 | 011 | Expose the Git It Domain as a Read-Only MCP Server | Accepted |
