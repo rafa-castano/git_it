@@ -105,3 +105,4 @@ One file per batch, organized by feature area.
 ## UI
 - [Batch 76 — Extract CSS and JS from index.html to static files](ui/batch-76-frontend-split.md)
 - [Batch 81 — Tab hierarchy flatten and Timeline merge into Commits](frontend/batch-81-tab-restructure.md)
+- [Batch 84 — Remove pattern tags from homepage repo cards](ui/batch-84-remove-homepage-pattern-tags.md)

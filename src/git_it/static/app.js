@@ -321,7 +321,7 @@ async function loadRepos() {
 /* =========================================================
    Home screen
    ========================================================= */
-async function renderRepoCards() {
+function renderRepoCards() {
   const grid = document.getElementById('repo-cards-grid');
   const countEl = document.getElementById('repos-count');
   if (reposCache.length === 0) {
@@ -330,39 +330,21 @@ async function renderRepoCards() {
     return;
   }
   countEl.textContent = reposCache.length;
-  grid.innerHTML = '<div class="loading-spinner" style="padding:2rem;grid-column:1/-1" role="status" aria-label="Loading repositories…"><div class="spinner" aria-hidden="true"></div></div>';
-
-  const patternResults = await Promise.allSettled(
-    reposCache.map(r => apiFetch(`/api/repos/${encodeURIComponent(r.repository_id)}/patterns`))
-  );
-
   grid.innerHTML = '';
-  reposCache.forEach((repo, i) => {
-    const patterns = patternResults[i].status === 'fulfilled' ? patternResults[i].value : null;
-    grid.appendChild(_buildRepoCard(repo, patterns));
+  reposCache.forEach(repo => {
+    grid.appendChild(_buildRepoCard(repo));
   });
 }
 
 const _GH_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
 
-function _buildRepoCard(repo, patterns) {
+function _buildRepoCard(repo) {
   const short = repoShortName(repo.canonical_url);
   const card = document.createElement('div');
   card.className = 'repo-card';
   card.setAttribute('tabindex', '0');
   card.setAttribute('role', 'listitem');
   card.setAttribute('aria-label', `${short} — ${repo.commit_count} commits, ${repo.analysis_count} analyzed, status: ${repo.status}`);
-
-  const signals = [];
-  if (patterns?.refactor_wave)
-    signals.push(`<span class="dna-pill orange" style="font-size:11px;padding:.2rem .55rem" data-tip="sigRefactor">⚡ Refactor Wave</span>`);
-  if ((patterns?.revert_signal?.commit_count || 0) > 0)
-    signals.push(`<span class="dna-pill red" style="font-size:11px;padding:.2rem .55rem" data-tip="sigRevert">↩️ Reverts</span>`);
-  if (patterns?.test_growth_signal)
-    signals.push(`<span class="dna-pill green" style="font-size:11px;padding:.2rem .55rem" data-tip="sigTest">🧪 Test Growth</span>`);
-  const hotCount = (patterns?.hotspots || []).filter(h => (h.confidence || 0) >= 0.7).length;
-  if (hotCount > 0)
-    signals.push(`<span class="dna-pill blue" style="font-size:11px;padding:.2rem .55rem" data-tip="tlHotspot">🔥 ${hotCount} hotspot${hotCount !== 1 ? 's' : ''}</span>`);
 
   const { label: statusLabel, cls: statusCls } = _repoStatusLabel(repo);
   const ghUrl = repo.canonical_url && repo.canonical_url.includes('github.com') ? repo.canonical_url : null;
@@ -375,7 +357,6 @@ function _buildRepoCard(repo, patterns) {
       <span class="rc-stat"><strong>${repo.analysis_count}</strong> analyzed</span>
       ${repo.has_case_study ? '<span style="color:var(--green);font-size:12px">✓ Case study</span>' : ''}
     </div>
-    <div class="rc-patterns">${signals.join('')}</div>
     <div class="rc-footer">
       <span class="rc-status ${statusCls}" aria-label="Status: ${esc(statusLabel)}">${esc(statusLabel)}</span>
       <div style="display:flex;align-items:center;gap:0.5rem">

@@ -91,7 +91,6 @@ header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: 
 .rc-stats { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 13px; color: var(--muted); }
 .rc-stat { white-space: nowrap; }
 .rc-stat strong { color: var(--text); }
-.rc-patterns { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 1.5rem; }
 .rc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 0.5rem; }
 .rc-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .rc-status.completed { color: var(--green); }
