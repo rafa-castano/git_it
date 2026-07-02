@@ -318,7 +318,7 @@ tr:last-child td { border-bottom: none; }
 tr.clickable-row { cursor: pointer; }
 
 /* ── Tooltip ── */
-#global-tip { position: fixed; display: none; z-index: 9999; max-width: 280px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 11px; font-size: 13px; line-height: 1.55; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.5); font-family: 'Inter', system-ui, sans-serif; }
+#global-tip { position: fixed; display: none; z-index: 9999; max-width: 280px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 11px; font-size: 13px; line-height: 1.55; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.5); font-family: 'Inter', system-ui, sans-serif; white-space: pre-line; }
 html.tips-enabled [data-tip] { cursor: help; }
 
 /* ── Date inputs ── */

@@ -91,7 +91,11 @@ let _tipTarget = null;
 function _showTip(el) {
   const key = el.dataset.tip;
   if (!key) return;
-  const text = TIPS[key] || key;
+  let text = TIPS[key] || key;
+  // Elements that also act as a click target (and no longer carry a native
+  // title=, to avoid a double tooltip) can append a click-action hint here
+  // without mutating the shared TIPS entry used by non-interactive contexts.
+  if (el.dataset.tipSuffix) text += '\n' + el.dataset.tipSuffix;
   _tipEl.textContent = text;
   _tipEl.style.display = 'block';
   const r = el.getBoundingClientRect();
@@ -951,8 +955,8 @@ async function loadOverview(repoId) {
     });
     const legendEl = document.getElementById('donut-legend-custom');
     if (legendEl) legendEl.innerHTML = catCounts.map(c =>
-      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" tabindex="0" role="listitem"
-        style="cursor:pointer" title="View ${esc(c.category)} commits"
+      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" data-tip-suffix="(Click to view ${esc(c.category.toLowerCase())} commits)" tabindex="0" role="listitem"
+        style="cursor:pointer"
         onclick="switchTab('commits');var s=document.getElementById('cat-filter');if(s){s.value='${esc(c.category.toUpperCase())}';_applyTimelineFilters();}"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
         <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
