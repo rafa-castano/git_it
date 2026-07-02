@@ -1394,9 +1394,22 @@ async function loadCaseStudy(repoId) {
       loadCaseStudy(repoId);
       return;
     }
-    el.innerHTML = e.status === 404
-      ? '<div class="empty-state">No case study generated yet. Run analysis first.</div>'
-      : '<div class="empty-state" role="alert">Error loading case study.</div>';
+    if (e.status !== 404) {
+      el.innerHTML = '<div class="empty-state" role="alert">Error loading case study.</div>';
+      return;
+    }
+    // No narrative yet. If commits have already been analyzed, the case-study-only
+    // regenerate endpoint can build a narrative without re-running commit analysis —
+    // offer that instead of just telling the user to "run analysis first".
+    const hasAnalyzedCommits = !!(currentRepoMeta && currentRepoMeta.analysis_count > 0);
+    el.innerHTML = hasAnalyzedCommits
+      ? `<div class="empty-state">
+          <p>No case study generated yet.</p>
+          <button class="analyze-btn" id="cs-generate-btn" style="margin-top:0.75rem;margin-left:0"
+            onclick="_generateCaseStudy('${esc(repoId)}')" aria-label="Generate case study"
+            title="Generate a case study narrative from the commits already analyzed">Generate case study</button>
+        </div>`
+      : '<div class="empty-state">No case study generated yet. Run analysis first.</div>';
     return;
   }
   const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : data.repository_id;
@@ -1445,6 +1458,32 @@ async function loadCaseStudy(repoId) {
     </div>
     ${sections.length > 0 ? `<div class="cs-tabs" role="tablist" aria-label="Case study sections">${tabBtns}</div>` : ''}
     ${linkedTabPanels}`;
+}
+
+/** Triggered by the empty Case Study tab's "Generate case study" button (shown
+ * only when the repo has analyzed commits but no narrative yet). Calls the
+ * case-study-only regenerate endpoint — no commit re-analysis — then reuses
+ * the existing _pollRegenStatus polling loop, same as audience switching. */
+async function _generateCaseStudy(repoId) {
+  const el = document.getElementById('case-study-content');
+  const audience = localStorage.getItem('cs-audience') || 'beginner';
+  el.innerHTML = `<div class="empty-state">${spinner()}<p style="color:var(--yellow);margin-top:0.5rem">Generating case study… this may take a minute.</p></div>`;
+  let regenRes;
+  try {
+    regenRes = await fetch(`/api/repos/${encodeURIComponent(repoId)}/case-study/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audience }),
+    });
+  } catch {
+    el.innerHTML = '<div class="empty-state" role="alert">Failed to start generation — check that the server is running.</div>';
+    return;
+  }
+  if (!regenRes.ok) {
+    el.innerHTML = `<div class="empty-state" role="alert">Generation failed (HTTP ${regenRes.status}). Try again.</div>`;
+    return;
+  }
+  _pollRegenStatus(repoId, audience);
 }
 
 async function _setCsAudience(value) {
