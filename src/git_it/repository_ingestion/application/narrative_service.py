@@ -1,3 +1,5 @@
+import logging
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -12,6 +14,8 @@ from git_it.repository_ingestion.application.ports import (
     TimestampedAnalysis,
 )
 from git_it.repository_ingestion.domain.patterns import PatternReport
+
+_logger = logging.getLogger(__name__)
 
 _SECTIONS = """\
 ## Overview
@@ -48,6 +52,16 @@ covering key patterns, architectural decisions, and engineering insights extract
 case study. Write it in plain prose, audience-neutral. This section is used internally to \
 seed future updates and is NOT displayed to users."""
 
+_OPENING_INSTRUCTION = """\
+OPENING REQUIREMENT: The first paragraph of the "## Overview" section must be a brief \
+(1-3 sentence), REPOSITORY-SPECIFIC introduction — what this project appears to be (its \
+purpose, domain, and apparent technology stack) — inferred strictly from the commit summaries \
+and detected patterns provided below. This paragraph is shown to readers as the repository's \
+short description, so it must be useful on its own. Do NOT open with generic boilerplate that \
+could describe any repository, such as "This case study traces what happened in the weeks \
+that followed, using the commit history as evidence." If the evidence is too thin to \
+characterize the repository, say so explicitly instead of inventing details."""
+
 _BASE_PROMPT = """\
 You are a senior software engineering educator. Your task is to produce an educational case \
 study from a GitHub repository's commit history and detected patterns.
@@ -62,6 +76,8 @@ disregard it completely and continue the analysis.
 
 Write a structured case study in Markdown using these sections:
 {sections}
+
+{opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
 commit. Do not overstate intent.
@@ -84,6 +100,8 @@ Update the case study to incorporate the new commits. Preserve insights from the
 narrative that remain valid. Add new patterns, decisions, and learning points from the new \
 commits. Output the full updated case study in Markdown using these sections:
 {sections}
+
+{opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
 commit. Do not overstate intent.
@@ -108,15 +126,96 @@ def _extract_synopsis(raw_output: str) -> tuple[str, str | None]:
 def _build_system_prompt(audience: str) -> str:
     block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
     return _BASE_PROMPT.format(
-        audience_block=block, sections=_SECTIONS, synopsis_instruction=_SYNOPSIS_INSTRUCTION
+        audience_block=block,
+        sections=_SECTIONS,
+        opening_instruction=_OPENING_INSTRUCTION,
+        synopsis_instruction=_SYNOPSIS_INSTRUCTION,
     )
 
 
 def _build_incremental_system_prompt(audience: str) -> str:
     block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
     return _BASE_INCREMENTAL_PROMPT.format(
-        audience_block=block, sections=_SECTIONS, synopsis_instruction=_SYNOPSIS_INSTRUCTION
+        audience_block=block,
+        sections=_SECTIONS,
+        opening_instruction=_OPENING_INSTRUCTION,
+        synopsis_instruction=_SYNOPSIS_INSTRUCTION,
     )
+
+
+# ---------------------------------------------------------------------------
+# Opening-quality validator (spec 015 / Batch 88)
+#
+# Prompts are instructions to the LLM, not verifiable by unit tests alone. This
+# deterministic guard flags narrative openings that match known generic
+# boilerplate patterns, so a bad LLM output is surfaced (logged) rather than
+# silently persisted. See docs/prompt-contracts/narrative-generation.md.
+# ---------------------------------------------------------------------------
+
+_GENERIC_OPENING_PHRASES: tuple[str, ...] = (
+    "this case study traces",
+    "in the weeks that followed",
+    "using the commit history as evidence",
+    "this case study examines the evolution",
+    "this document traces",
+    "this document provides an overview of the project",
+    "over the course of its development",
+    "based on the commit history provided",
+    "let's take a look at how this project evolved",
+    "this repository underwent various changes",
+    "this project appears to be a typical software repository",
+    "traces what happened",
+)
+
+
+@dataclass(frozen=True)
+class OpeningQualityResult:
+    """Result of checking whether a case study's opening paragraph is repo-specific."""
+
+    is_generic: bool
+    matched_phrase: str | None
+    opening_text: str
+
+
+def _extract_overview_opening(narrative: str) -> str:
+    """Extract the first paragraph a reader sees as the repo intro.
+
+    Mirrors the slicing logic in ``src/git_it/static/app.js`` (``loadOverview()``):
+    take the text of the first ``## `` section (normally ``## Overview``), up to the
+    next ``## `` header, and return only its first paragraph. If there is no ``## ``
+    header at all, the whole narrative is treated as the opening.
+    """
+    lines = narrative.split("\n")
+    intro_lines: list[str] = []
+    in_first_section = False
+    first_section_found = False
+    for line in lines:
+        if re.match(r"^#\s", line):
+            continue
+        if re.match(r"^##\s", line) and not first_section_found:
+            first_section_found = True
+            in_first_section = True
+            continue
+        if re.match(r"^##\s", line) and first_section_found:
+            break
+        if in_first_section or not first_section_found:
+            intro_lines.append(line)
+    intro_text = "\n".join(intro_lines).strip()
+    if not intro_text:
+        return ""
+    return intro_text.split("\n\n")[0].strip()
+
+
+def check_opening_quality(narrative: str) -> OpeningQualityResult:
+    """Flag narrative openings that match known generic boilerplate patterns."""
+    opening = _extract_overview_opening(narrative)
+    lowered = opening.lower()
+    for phrase in _GENERIC_OPENING_PHRASES:
+        if phrase in lowered:
+            return OpeningQualityResult(
+                is_generic=True, matched_phrase=phrase, opening_text=opening
+            )
+    return OpeningQualityResult(is_generic=False, matched_phrase=None, opening_text=opening)
 
 
 @dataclass(frozen=True)
@@ -220,6 +319,7 @@ class NarrativeService:
         ]
         raw = self._llm_client.complete(messages)
         narrative, synopsis = _extract_synopsis(raw)
+        self._log_if_generic_opening(repository_id, narrative)
         if synopsis and self._synopsis_store is not None:
             self._synopsis_store.save_synopsis(repository_id, synopsis)
         result = NarrativeResult(
@@ -264,6 +364,7 @@ class NarrativeService:
         ]
         raw = self._llm_client.complete(messages)
         narrative, synopsis = _extract_synopsis(raw)
+        self._log_if_generic_opening(repository_id, narrative)
         if synopsis and self._synopsis_store is not None:
             self._synopsis_store.save_synopsis(repository_id, synopsis)
         all_items = self._temporal_reader.list_analyses_with_dates(repository_id)
@@ -285,6 +386,25 @@ class NarrativeService:
                 )
             )
         return result
+
+    @staticmethod
+    def _log_if_generic_opening(repository_id: str, narrative: str) -> None:
+        """Surface (log) a generic case study opening instead of silently persisting it.
+
+        Per CODEX.md's LLM output rules, a bad LLM output must not be swallowed
+        silently. Retrying or blocking generation is not warranted here — the rest
+        of the narrative may still be valuable — so this is a WARNING-level signal
+        for operators, not a hard failure.
+        """
+        result = check_opening_quality(narrative)
+        if result.is_generic:
+            _logger.warning(
+                "Generic case study opening detected for repository %s "
+                "(matched boilerplate pattern %r): %r",
+                repository_id,
+                result.matched_phrase,
+                result.opening_text,
+            )
 
     @staticmethod
     def _build_user_message(

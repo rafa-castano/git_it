@@ -7,6 +7,10 @@ Behavior:
 - Existing case study, no new analyses → skip LLM entirely, return existing
 """
 
+import logging
+
+import pytest
+
 from git_it.repository_ingestion.application.narrative_service import (
     NarrativeResult,
     NarrativeService,
@@ -372,6 +376,30 @@ def test_force_flag_sends_all_analyses_ignoring_cache() -> None:
     # Both must appear (all_items, not just new_items)
     assert "sha1" in combined
     assert "sha2" in combined
+
+
+def test_incremental_update_logs_warning_for_generic_opening(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The anti-generic-opening check (Batch 88 / spec 015) also runs on incremental
+    updates, since those also regenerate the full narrative including ## Overview."""
+    caplog.set_level(logging.WARNING)
+    existing = _case_study_record(narrative="# Old\n\ncontent")
+    service, _, _ = _make_service(
+        all_items=[_item("old1"), _item("new1")],
+        new_items=[_item("new1")],
+        existing=existing,
+        response=(
+            "## Overview\n"
+            "This case study traces what happened in the weeks that followed, using "
+            "the commit history as evidence.\n\n"
+            "## Timeline\ncontent"
+        ),
+    )
+
+    service.generate("repo-1")
+
+    assert any("generic" in record.message.lower() for record in caplog.records)
 
 
 def test_incremental_result_has_updated_commit_count() -> None:

@@ -1,6 +1,12 @@
+import logging
+
+import pytest
+
 from git_it.repository_ingestion.application.narrative_service import (
     NarrativeResult,
     NarrativeService,
+    OpeningQualityResult,
+    check_opening_quality,
 )
 from git_it.repository_ingestion.application.ports import LLMMessage, TimestampedAnalysis
 from git_it.repository_ingestion.domain.analysis import (
@@ -299,3 +305,101 @@ def test_generate_does_not_include_removed_sections() -> None:
     system_text = next(m.content for m in client.calls[0] if m.role == "system")
     assert "Evidence Index" not in system_text
     assert "## Limitations" not in system_text
+
+
+# ---------------------------------------------------------------------------
+# Anti-generic-opening validator (Batch 88 / spec 015)
+# ---------------------------------------------------------------------------
+
+
+def test_check_opening_quality_flags_known_generic_boilerplate() -> None:
+    narrative = (
+        "## Overview\n"
+        "This case study traces what happened in the weeks that followed, using the "
+        "commit history as evidence.\n\n"
+        "## Timeline\n"
+        "Some timeline content."
+    )
+    result = check_opening_quality(narrative)
+    assert isinstance(result, OpeningQualityResult)
+    assert result.is_generic is True
+    assert result.matched_phrase is not None
+
+
+def test_check_opening_quality_passes_repo_specific_opening() -> None:
+    narrative = (
+        "## Overview\n"
+        "Git It is a Python FastAPI service that mines GitHub repositories with "
+        "PyDriller and turns commit history into LLM-generated case studies.\n\n"
+        "## Timeline\n"
+        "Some timeline content."
+    )
+    result = check_opening_quality(narrative)
+    assert result.is_generic is False
+    assert result.matched_phrase is None
+
+
+def test_check_opening_quality_handles_empty_narrative() -> None:
+    result = check_opening_quality("")
+    assert result.is_generic is False
+    assert result.opening_text == ""
+
+
+def test_check_opening_quality_handles_narrative_without_section_header() -> None:
+    narrative = "This case study traces what happened in the weeks that followed."
+    result = check_opening_quality(narrative)
+    assert result.is_generic is True
+
+
+def test_check_opening_quality_only_inspects_first_paragraph() -> None:
+    narrative = (
+        "## Overview\n"
+        "Git It mines GitHub repositories and turns commit history into case studies.\n\n"
+        "This case study traces what happened in the weeks that followed, but this is a "
+        "second paragraph and should not be inspected."
+    )
+    result = check_opening_quality(narrative)
+    assert result.is_generic is False
+
+
+def test_generate_logs_warning_when_narrative_opening_is_generic(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+    service, _ = _make_service(
+        items=[_make_item()],
+        response=(
+            "## Overview\n"
+            "This case study traces what happened in the weeks that followed, using "
+            "the commit history as evidence.\n\n"
+            "## Timeline\nsome content"
+        ),
+    )
+    service.generate("repo-1")
+    assert any("generic" in record.message.lower() for record in caplog.records)
+
+
+def test_generate_does_not_log_warning_for_repo_specific_opening(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+    service, _ = _make_service(
+        items=[_make_item()],
+        response=(
+            "## Overview\n"
+            "Git It mines GitHub repositories and turns commit history into "
+            "educational case studies.\n\n"
+            "## Timeline\nsome content"
+        ),
+    )
+    service.generate("repo-1")
+    assert not any("generic" in record.message.lower() for record in caplog.records)
+
+
+def test_system_prompt_instructs_against_generic_opening() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    lowered = system_text.lower()
+    assert "repository-specific" in lowered or "repo-specific" in lowered
+    assert "this case study traces" in lowered
