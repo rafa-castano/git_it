@@ -231,10 +231,35 @@ function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+/* Spec 016: deterministic answer-formatting safety net, mirrored exactly from
+   `normalize_answer_text()` in src/git_it/chat/service.py. Fixes two LLM
+   answer defects before markdown parsing: (1) a missing space after a
+   sentence-ending period/question mark/exclamation mark when immediately
+   followed by an uppercase letter (e.g. "evidence.The next" -> "evidence. The
+   next"), and (2) three-or-more consecutive newlines collapsed to one blank
+   line. Conservative by design: rule 1 only fires when the character before
+   the punctuation is a lowercase letter, which naturally spares decimals
+   (3.12), ellipses (...), and most abbreviations/URLs. Text inside fenced
+   code blocks (```...```) is never rewritten by either rule.
+   These two implementations (this one and the Python one) MUST stay in sync —
+   if one changes, update the other. */
+function normalizeAnswerText(text) {
+  const body = text || '';
+  if (!body) return '';
+  const parts = body.split(/(```[\s\S]*?```)/);
+  return parts
+    .map((part, i) => {
+      if (i % 2 === 1) return part; // fenced code block, verbatim
+      return part
+        .replace(/([a-z])([.?!])([A-Z])/g, '$1$2 $3')
+        .replace(/\n{3,}/g, '\n\n');
+    })
+    .join('');
+}
 /* ADR 013: the one path that renders LLM-generated Markdown. Fails safe (escaped
    plain text), never open (unsanitized HTML), if marked/DOMPurify fail to load. */
 function renderMarkdown(text, fallbackTag) {
-  const body = text || '';
+  const body = normalizeAnswerText(text || '');
   if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
     const tag = fallbackTag || 'pre';
     return `<${tag}>${esc(body)}</${tag}>`;

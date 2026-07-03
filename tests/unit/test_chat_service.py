@@ -19,6 +19,7 @@ from git_it.chat.service import (
     LLMTurn,
     StreamPart,
     ToolCall,
+    normalize_answer_text,
 )
 from tests.unit.test_mcp_tools import (
     _db_path,
@@ -361,3 +362,46 @@ def test_system_prompt_hardens_and_injected_instruction_is_data(tmp_path: Path) 
     tool_msgs = llm.tool_messages(1)
     assert any(injected in str(m.get("content")) for m in tool_msgs)
     assert result.cap_reached is False
+
+
+# ---------------------------------------------------------------------------
+# Spec 016 — Ask tab answer formatting
+# ---------------------------------------------------------------------------
+
+
+def test_system_prompt_requires_sentence_spacing_and_short_paragraphs() -> None:
+    lowered = SYSTEM_PROMPT.lower()
+    assert "space" in lowered
+    assert "blank line" in lowered
+    assert "short paragraph" in lowered or "markdown list" in lowered
+
+
+def test_chat_normalizes_run_on_sentences_in_final_reply(tmp_path: Path) -> None:
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+
+    llm = _ScriptedLLM(
+        [LLMTurn(text="This is backed by evidence.The next commit introduced tests.")]
+    )
+    service = ChatService(llm=llm, project_root=tmp_path)
+
+    result = service.chat(repository_id="repo-abc", message="what happened?")
+
+    assert result.reply == normalize_answer_text(
+        "This is backed by evidence.The next commit introduced tests."
+    )
+    assert "evidence. The next commit" in result.reply
+
+
+def test_chat_collapses_excess_blank_lines_in_final_reply(tmp_path: Path) -> None:
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+
+    llm = _ScriptedLLM([LLMTurn(text="First paragraph.\n\n\n\nSecond paragraph.")])
+    service = ChatService(llm=llm, project_root=tmp_path)
+
+    result = service.chat(repository_id="repo-abc", message="what happened?")
+
+    assert result.reply == "First paragraph.\n\nSecond paragraph."

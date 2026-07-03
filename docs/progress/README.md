@@ -90,6 +90,7 @@ One file per batch, organized by feature area.
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
 - [Batch 88 — Repo-specific case study opening (spec 015)](analysis/batch-88-repo-specific-case-study-opening.md)
+- [Batch 89 — Ask tab answer formatting (spec 016)](analysis/batch-89-ask-tab-answer-formatting.md)
 
 ## Evals
 - [Batch 61 — Evaluation harness for LLM commit classification accuracy](evals/batch-61-evaluation-harness.md)
