@@ -294,26 +294,149 @@ function _extractIsoDate(text) {
   return null;
 }
 
-function bestGranularity(commits) {
-  const months = new Set(commits.map(c => (c.committed_at || '').slice(0, 7)).filter(Boolean));
-  const unique = new Set(commits.map(c => (c.committed_at || '').slice(0, 10)).filter(Boolean));
-  if (unique.size <= 1) return 'hour';
-  if (months.size <= 2) return 'day';
-  return 'month';
+/* Activity chart zoom ladder (spec 017): ordered coarsest -> finest scales,
+   used by bucketKey()/buildActivityData() for bucketing and by
+   scaleCoarser()/scaleFiner() to step the manual zoom controls. */
+const ACTIVITY_SCALES = ['year', 'month', 'week', 'day', 'hour'];
+
+/** One step coarser than `scale` (more zoomed out), or null at the coarsest
+ *  scale ('year') or an unrecognized scale. */
+function scaleCoarser(scale) {
+  const i = ACTIVITY_SCALES.indexOf(scale);
+  return i > 0 ? ACTIVITY_SCALES[i - 1] : null;
 }
-function buildActivityData(commits) {
-  const g = bestGranularity(commits);
+
+/** One step finer than `scale` (more zoomed in), or null at the finest scale
+ *  ('hour') or an unrecognized scale. */
+function scaleFiner(scale) {
+  const i = ACTIVITY_SCALES.indexOf(scale);
+  return i !== -1 && i < ACTIVITY_SCALES.length - 1 ? ACTIVITY_SCALES[i + 1] : null;
+}
+
+function _parseYMD(dateStr) {
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+  return { y, m, d };
+}
+function _fmtYMD(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+/** ISO-8601 week key ("YYYY-Www", Monday-start, week 1 = the week containing
+ *  the year's first Thursday). Computed via UTC calendar arithmetic on the
+ *  date-only (Y-M-D) portion of the input -- never via local-timezone Date
+ *  parsing -- to match this file's existing convention of slicing
+ *  committed_at strings directly rather than round-tripping them through a
+ *  timezone-sensitive Date. */
+function isoWeekKey(dateStr) {
+  const { y, m, d } = _parseYMD(dateStr);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dayNum = date.getUTCDay() || 7; // Mon=1..Sun=7
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum); // Thursday of the same ISO week
+  const isoYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  return `${isoYear}-W${String(week).padStart(2, '0')}`;
+}
+
+/** Inverse of isoWeekKey: the Monday (as a UTC Date) that starts ISO week `key`. */
+function isoWeekStart(key) {
+  const [yearStr, weekStr] = key.split('-W');
+  const isoYear = Number(yearStr);
+  const week = Number(weekStr);
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+  return monday;
+}
+
+/** The bucket key for one commit at a given scale. The hour format
+ *  ("YYYY-MM-DD HHh") is unchanged from the pre-zoom-ladder format so the
+ *  existing Commits-tab hour cross-link (_tlHourFilter) keeps matching
+ *  without modification. */
+function bucketKey(committedAt, scale) {
+  switch (scale) {
+    case 'year': return committedAt.slice(0, 4);
+    case 'month': return committedAt.slice(0, 7);
+    case 'week': return isoWeekKey(committedAt.slice(0, 10));
+    case 'hour': return committedAt.slice(0, 13).replace('T', ' ') + 'h';
+    case 'day':
+    default: return committedAt.slice(0, 10);
+  }
+}
+
+/** The full calendar span { from, to } (inclusive, "YYYY-MM-DD") covered by
+ *  one bucket key at `scale`. Used both to scope a drill-down (click a
+ *  column) and to widen the drilled span when zooming out (see
+ *  alignSpanToScale). */
+function spanForColumn(key, scale) {
+  if (scale === 'year') {
+    return { from: `${key}-01-01`, to: `${key}-12-31` };
+  }
+  if (scale === 'month') {
+    const [y, m] = key.split('-').map(Number);
+    return { from: `${key}-01`, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) };
+  }
+  if (scale === 'week') {
+    const monday = isoWeekStart(key);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    return { from: _fmtYMD(monday), to: _fmtYMD(sunday) };
+  }
+  if (scale === 'hour') {
+    const day = key.slice(0, 10);
+    return { from: day, to: day };
+  }
+  // 'day'
+  return { from: key, to: key };
+}
+
+/** Widen (or realign) an existing drilled span to the natural bucket
+ *  boundaries of a new (coarser) scale -- e.g. a one-week span becomes the
+ *  whole containing month when zooming out from 'week' to 'month'. */
+function alignSpanToScale(span, scale) {
+  if (!span) return null;
+  const fromSpan = spanForColumn(bucketKey(span.from + 'T00:00:00', scale), scale);
+  const toSpan = spanForColumn(bucketKey(span.to + 'T00:00:00', scale), scale);
+  return { from: fromSpan.from, to: toSpan.to };
+}
+
+/** Restricts `commits` to those whose committed_at date falls within `span`
+ *  (inclusive). A null span means "no restriction" (the full commit set). */
+function commitsInSpan(commits, span) {
+  if (!span) return commits;
+  return commits.filter(c => {
+    const d = (c.committed_at || '').slice(0, 10);
+    return !!d && d >= span.from && d <= span.to;
+  });
+}
+
+/** Picks a sensible initial zoom-ladder scale from the spread of `commits`'
+ *  committed_at dates. Never auto-selects 'week' -- that rung is reachable
+ *  only via drill-down or the manual zoom controls. */
+function bestScale(commits) {
+  const years = new Set(commits.map(c => (c.committed_at || '').slice(0, 4)).filter(Boolean));
+  const months = new Set(commits.map(c => (c.committed_at || '').slice(0, 7)).filter(Boolean));
+  const days = new Set(commits.map(c => (c.committed_at || '').slice(0, 10)).filter(Boolean));
+  if (days.size <= 1) return 'hour';
+  if (months.size <= 2) return 'day';
+  if (years.size <= 1) return 'month';
+  return 'year';
+}
+
+/** Buckets `commits` at `scale` (defaults to bestScale(commits) when omitted). */
+function buildActivityData(commits, scale) {
+  const g = scale || bestScale(commits);
   const map = {};
   commits.forEach(c => {
     if (!c.committed_at) return;
-    let key;
-    if (g === 'hour') key = c.committed_at.slice(0, 13).replace('T', ' ') + 'h';
-    else if (g === 'day') key = c.committed_at.slice(0, 10);
-    else key = c.committed_at.slice(0, 7);
+    const key = bucketKey(c.committed_at, g);
     map[key] = (map[key] || 0) + 1;
   });
   const labels = Object.keys(map).sort();
-  return { labels, data: labels.map(k => map[k]), granularity: g };
+  return { labels, data: labels.map(k => map[k]), scale: g };
 }
 
 /* =========================================================
@@ -886,6 +1009,15 @@ document.querySelectorAll('.tab-btn').forEach(btn =>
 /* =========================================================
    Overview
    ========================================================= */
+/* Activity chart zoom-ladder state (spec 017): current scale and -- when the
+ * user has drilled into a column -- the calendar span that scopes the chart.
+ * Reset to an auto-picked scale (bestScale) with no span every time a repo's
+ * Overview is (re)loaded. Persists across the activity-date-from/to date-box
+ * filter, which narrows the commit set the zoom operates on rather than
+ * resetting the zoom (see spec 017 Domain concepts). */
+let _actScale = null;
+let _actSpan = null;
+
 async function loadOverview(repoId) {
   const el = document.getElementById('overview-content');
   el.innerHTML = spinner();
@@ -951,9 +1083,21 @@ async function loadOverview(repoId) {
         <div id="donut-legend-custom" class="donut-legend" role="list" aria-label="Category legend"></div>
       </div>
       <div class="chart-box">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;flex-wrap:wrap">
           <h3 style="margin:0">Commit Activity</h3>
-          <div style="display:flex;gap:0.35rem;align-items:center">
+          <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;gap:0.2rem;align-items:center" role="group" aria-label="Activity chart zoom">
+              <button id="activity-scale-coarser" onclick="_activityScaleCoarser()" title="Zoom out (coarser)"
+                aria-label="Zoom out to a coarser time scale"
+                style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">−</button>
+              <span id="activity-scale-label" style="font-size:10px;color:var(--muted);min-width:44px;text-align:center;text-transform:capitalize"></span>
+              <button id="activity-scale-finer" onclick="_activityScaleFiner()" title="Zoom in (finer)"
+                aria-label="Zoom in to a finer time scale"
+                style="padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">+</button>
+              <button id="activity-scale-reset" onclick="_activityResetZoom()" title="Reset zoom to the full range"
+                aria-label="Reset zoom to the full range"
+                style="display:none;padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">⤢</button>
+            </div>
             <input type="date" id="activity-date-from" aria-label="Activity chart from date"
               style="padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:11px;font-family:inherit;color-scheme:dark"
               oninput="_rebuildActivityChart()" title="From date">
@@ -1015,7 +1159,9 @@ async function loadOverview(repoId) {
   window._activityAllCommits = commitList;
 
   function _buildActivityChart(filteredCommits) {
-    const { labels: actLabels, data: actData } = buildActivityData(filteredCommits);
+    if (!_actScale) _actScale = bestScale(filteredCommits);
+    _updateActivityScaleControls();
+    const { labels: actLabels, data: actData } = buildActivityData(filteredCommits, _actScale);
     const container = document.getElementById('chart-activity-container');
     if (!actLabels.length) {
       destroyChart('activity');
@@ -1031,59 +1177,77 @@ async function loadOverview(repoId) {
       container.innerHTML = '<canvas id="chart-activity" aria-label="Bar chart showing commit activity over time"></canvas>';
     }
     destroyChart('activity');
+    const isFinestScale = _actScale === 'hour';
     _charts['activity'] = new Chart(document.getElementById('chart-activity'), {
       type: 'bar',
       data: { labels: actLabels, datasets: [{ label: 'Commits', data: actData, backgroundColor: '#6366f1', borderRadius: 3 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { footer: () => 'Click to view in Commits' } } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { footer: () => isFinestScale ? 'Click to view in Commits' : 'Click to zoom in' } },
+        },
         scales: { x: { ticks: { color: _tc(), font: { size: 10 }, maxRotation: 45 }, grid: { color: _gc() } }, y: { ticks: { color: _tc(), font: { size: 10 } }, grid: { color: _gc() } } },
         onClick(evt, els) {
           if (!els.length) return;
-          const period = actLabels[els[0].index];
-          if (!period) return;
-          switchTab('commits');
-          setTimeout(() => {
-            let fromDate, toDate;
-            _tlHourFilter = null;
-            if (period.length === 7) {
-              // Month granularity: "2024-06"
-              const [y, m] = period.split('-').map(Number);
-              fromDate = `${period}-01`;
-              toDate = new Date(y, m, 0).toISOString().slice(0, 10);
-            } else if (period.length > 10) {
-              // Hour granularity: "2024-06-01 10h" — period is built by
-              // c.committed_at.slice(0,13).replace('T',' ')+'h', so we reverse
-              // that to get the hour prefix used as the chart key
-              const day = period.slice(0, 10);
-              fromDate = day;
-              toDate = day;
-              // hourPrefix matches what buildActivityData uses as key prefix
-              const hourPrefix = period.slice(0, 13); // "2024-06-01 10"
-              _tlHourFilter = { hourPrefix };
-            } else {
-              // Day granularity: "2024-06-01"
-              fromDate = period;
-              toDate = period;
-            }
-            const fromEl = document.getElementById('tl-date-from');
-            const toEl = document.getElementById('tl-date-to');
-            if (fromEl) fromEl.value = fromDate;
-            if (toEl) toEl.value = toDate;
-            _applyTimelineFilters();
-          }, 300);
+          const key = actLabels[els[0].index];
+          if (!key) return;
+          if (_actScale === 'hour') {
+            // Finest scale: no finer drill exists, so keep the pre-existing
+            // behavior of cross-linking to the Commits tab filtered to this
+            // specific hour (spec 017 AC-05).
+            switchTab('commits');
+            setTimeout(() => {
+              const day = key.slice(0, 10);
+              // hourPrefix matches what bucketKey('hour') / _applyTimelineFilters
+              // use as the key prefix: "YYYY-MM-DD HH"
+              _tlHourFilter = { hourPrefix: key.slice(0, 13) };
+              const fromEl = document.getElementById('tl-date-from');
+              const toEl = document.getElementById('tl-date-to');
+              if (fromEl) fromEl.value = day;
+              if (toEl) toEl.value = day;
+              _applyTimelineFilters();
+            }, 300);
+            return;
+          }
+          // All other scales: drill one level finer within the chart itself
+          // (spec 017 AC-04) instead of jumping to the Commits tab.
+          const finer = scaleFiner(_actScale);
+          if (!finer) return;
+          _actSpan = spanForColumn(key, _actScale);
+          _actScale = finer;
+          _rebuildActivityChartAtScale();
         },
       },
     });
   }
 
-  window._rebuildActivityChart = function() {
+  function _activityFilteredCommits() {
     const from = document.getElementById('activity-date-from')?.value;
     const to = document.getElementById('activity-date-to')?.value;
     let commits = window._activityAllCommits || [];
     if (from) commits = commits.filter(c => (c.committed_at || '') >= from);
     if (to) commits = commits.filter(c => (c.committed_at || '') <= to + 'T23:59:59');
-    _buildActivityChart(commits);
+    return commitsInSpan(commits, _actSpan);
+  }
+
+  function _rebuildActivityChartAtScale() {
+    _buildActivityChart(_activityFilteredCommits());
+  }
+
+  function _updateActivityScaleControls() {
+    const coarserBtn = document.getElementById('activity-scale-coarser');
+    const finerBtn = document.getElementById('activity-scale-finer');
+    const label = document.getElementById('activity-scale-label');
+    const resetBtn = document.getElementById('activity-scale-reset');
+    if (coarserBtn) coarserBtn.disabled = !scaleCoarser(_actScale);
+    if (finerBtn) finerBtn.disabled = !scaleFiner(_actScale);
+    if (label) label.textContent = _actScale ? _actScale.charAt(0).toUpperCase() + _actScale.slice(1) : '';
+    if (resetBtn) resetBtn.style.display = _actSpan ? 'inline-flex' : 'none';
+  }
+
+  window._rebuildActivityChart = function() {
+    _buildActivityChart(_activityFilteredCommits());
   };
 
   window._clearActivityDateFilter = function() {
@@ -1091,9 +1255,32 @@ async function loadOverview(repoId) {
     const t = document.getElementById('activity-date-to');
     if (f) f.value = '';
     if (t) t.value = '';
-    _buildActivityChart(window._activityAllCommits || []);
+    _buildActivityChart(commitsInSpan(window._activityAllCommits || [], _actSpan));
   };
 
+  window._activityScaleCoarser = function() {
+    const coarser = scaleCoarser(_actScale);
+    if (!coarser) return;
+    _actSpan = _actSpan ? alignSpanToScale(_actSpan, coarser) : null;
+    _actScale = coarser;
+    _rebuildActivityChartAtScale();
+  };
+
+  window._activityScaleFiner = function() {
+    const finer = scaleFiner(_actScale);
+    if (!finer) return;
+    _actScale = finer;
+    _rebuildActivityChartAtScale();
+  };
+
+  window._activityResetZoom = function() {
+    _actSpan = null;
+    _actScale = bestScale(window._activityAllCommits || []);
+    _rebuildActivityChartAtScale();
+  };
+
+  _actScale = bestScale(commitList);
+  _actSpan = null;
   _buildActivityChart(commitList);
 
   const top5 = hotspots.slice(0, 5);

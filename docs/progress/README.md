@@ -111,3 +111,4 @@ One file per batch, organized by feature area.
 - [Batch 85 — Unify tooltips (kill the double-tooltip)](ui/batch-85-unify-tooltips.md)
 - [Batch 86 — "Clear filters" button in the Commits tab](ui/batch-86-clear-filters-button.md)
 - [Batch 87 — "Generate case study" button in the empty Case Study tab](ui/batch-87-generate-case-study-button.md)
+- [Batch 90 — Activity chart zoom ladder (spec 017)](ui/batch-90-activity-chart-zoom-ladder.md)
