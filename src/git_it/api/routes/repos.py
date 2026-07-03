@@ -94,6 +94,26 @@ def _canonical_repo_id(canonical_url: str) -> str:
     return "repo-" + hashlib.sha256(canonical_url.encode()).hexdigest()[:12]
 
 
+def _require_repository_exists(repository_id: str, project_root: Path) -> None:
+    """Raise 404 unless ``repository_id`` is a known repository (spec 008 AC).
+
+    A repository is "known" if it has at least one ingestion run recorded —
+    the same source of truth ``delete_repo`` already uses to verify a
+    repository exists before deleting it. This is backend-aware (honors
+    DATABASE_URL) via ``build_ingestion_run_store``.
+
+    A known repository with no analyzed commits or detected patterns yet is
+    NOT unknown — callers should only invoke this to gate on existence, then
+    let the handler return its normal 200-empty result for real emptiness.
+    """
+    if not database_is_provisioned(project_root=project_root):
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    store = build_ingestion_run_store(project_root=project_root)
+    runs = store.list_ingestion_runs_for_repository(repository_id)
+    if not runs:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+
+
 def _normalize_url(raw: str) -> str:
     raw = raw.strip()
     if re.match(r"^[\w.\-]+/[\w.\-]+$", raw):
@@ -296,6 +316,8 @@ def get_patterns(
 ) -> PatternReportResponse:
     from git_it.repository_ingestion.composition import build_pattern_detection_service
 
+    _require_repository_exists(repository_id, project_root)
+
     service = build_pattern_detection_service(project_root=project_root)
     report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
     return map_pattern_report(report)
@@ -314,8 +336,7 @@ def get_commits(
     order: Literal["newest", "oldest"] = "newest",
     category: str | None = None,
 ) -> CommitsResponse:
-    if not database_is_provisioned(project_root=project_root):
-        return CommitsResponse(repository_id=repository_id, commits=[], total=0)
+    _require_repository_exists(repository_id, project_root)
 
     reader = build_commit_with_analysis_reader(project_root=project_root)
     total = reader.count_commits_with_analyses(repository_id, category=category)
@@ -438,8 +459,7 @@ def estimate_analyze(
     limit: int = 20,
     model: str = DEFAULT_MODEL,
 ) -> AnalyzeEstimateResponse:
-    if not database_is_provisioned(project_root=project_root):
-        raise HTTPException(status_code=404, detail="Repository not found.")
+    _require_repository_exists(repository_id, project_root)
     count_reader = build_commit_count_reader(project_root=project_root)
     total_commits = count_reader.count_commits(repository_id)
     analyzed_commits = count_reader.count_analyses(repository_id)
@@ -624,14 +644,7 @@ def delete_repo(
     project_root: ProjectRoot,
     _: None = Depends(require_api_key),
 ) -> DeleteRepoResponse:
-    if not database_is_provisioned(project_root=project_root):
-        raise HTTPException(status_code=404, detail="Repository not found.")
-
-    # Verify the repository exists
-    store = build_ingestion_run_store(project_root=project_root)
-    runs = store.list_ingestion_runs_for_repository(repository_id)
-    if not runs:
-        raise HTTPException(status_code=404, detail="Repository not found.")
+    _require_repository_exists(repository_id, project_root)
 
     # Block deletion while an analysis is in progress
     with _analyze_progress_lock:

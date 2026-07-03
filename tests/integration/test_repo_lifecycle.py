@@ -239,13 +239,11 @@ def test_delete_removes_all_data(integration_client: TestClient) -> None:
     - ``GET .../case-study`` — 404, same as ``test_404_on_unknown_repo``.
       (This repo never had a narrative generated, so it was already 404
       before delete too — the assertion still documents the contract.)
-    - ``GET .../commits`` and ``GET .../patterns`` — these handlers do not
-      404 on an unknown/deleted repository_id; they return 200 with empty
-      results (0 commits, no hotspots) once ``database_is_provisioned`` is
-      True, matching the "empty but structurally valid" behavior already
-      exercised by ``test_commits_after_ingest`` / ``test_patterns_after_ingest``.
-      This test asserts that actual (empty, not 404) contract rather than the
-      404 the spec prose describes for these two routes.
+    - ``GET .../commits`` and ``GET .../patterns`` — 404, per spec 008's
+      "Successful hard delete via API" acceptance criteria. A deleted
+      repository_id is no longer a known repository (no ``ingestion_runs``
+      row survives the delete), so these handlers now raise 404 instead of
+      returning a 200-empty result. See batch 99.
 
     There is no dedicated single-repo "detail/summary" GET endpoint distinct
     from the list — `GET /api/repos` is the only repo-summary read surface.
@@ -281,11 +279,7 @@ def test_delete_removes_all_data(integration_client: TestClient) -> None:
     assert case_study_after.status_code == 404
 
     commits_after = integration_client.get(f"/api/repos/{_REPO_ID}/commits")
-    assert commits_after.status_code == 200
-    assert commits_after.json()["total"] == 0
+    assert commits_after.status_code == 404
 
     patterns_after = integration_client.get(f"/api/repos/{_REPO_ID}/patterns")
-    assert patterns_after.status_code == 200
-    patterns_body = patterns_after.json()
-    assert patterns_body["hotspots"] == []
-    assert patterns_body["bugfix_recurrences"] == []
+    assert patterns_after.status_code == 404

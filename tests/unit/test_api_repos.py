@@ -611,6 +611,25 @@ def test_get_commits_includes_analysis_data(tmp_path: Path) -> None:
     assert commit["summary"] == "Fixed null pointer"
 
 
+def test_get_commits_404_for_unknown_repo_on_populated_db(client_empty: TestClient) -> None:
+    """Spec 008 AC: an unknown repository_id must 404, even when the database
+    itself is provisioned (other repositories may already exist in it)."""
+    response = client_empty.get("/api/repos/repo-does-not-exist/commits")
+    assert response.status_code == 404
+
+
+def test_get_commits_returns_200_empty_for_known_repo_with_no_data(
+    client_with_repo: TestClient,
+) -> None:
+    """A known repository (has an ingestion run) with no commits yet must stay
+    200-empty — the 404 guard is only for unknown repositories."""
+    response = client_with_repo.get("/api/repos/repo-abc/commits")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["commits"] == []
+    assert body["total"] == 0
+
+
 # ---------------------------------------------------------------------------
 # GET /api/repos/{id}/patterns
 # ---------------------------------------------------------------------------
@@ -670,3 +689,21 @@ def test_get_patterns_returns_hotspot_when_file_exceeds_threshold(tmp_path: Path
     assert top["file_path"] == "src/hotfile.py"
     assert top["commit_count"] == 10
     assert top["churn"] == 80  # 10 commits × (5 insertions + 3 deletions)
+
+
+def test_get_patterns_404_for_unknown_repo_on_populated_db(client_empty: TestClient) -> None:
+    """Spec 008 AC: an unknown repository_id must 404, even when the database
+    itself is provisioned (other repositories may already exist in it)."""
+    response = client_empty.get("/api/repos/repo-does-not-exist/patterns")
+    assert response.status_code == 404
+
+
+def test_get_patterns_returns_200_empty_for_known_repo_with_no_data(
+    client_with_repo: TestClient,
+) -> None:
+    """A known repository (has an ingestion run) with no commit data yet must
+    stay 200-empty — the 404 guard is only for unknown repositories."""
+    response = client_with_repo.get("/api/repos/repo-abc/patterns")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hotspots"] == []

@@ -34,6 +34,22 @@ def _init_db(db: Path) -> None:
     with sqlite3.connect(db) as conn:
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS ingestion_runs (
+                run_id TEXT PRIMARY KEY,
+                repository_id TEXT NOT NULL,
+                canonical_url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                error_code TEXT,
+                error_stage TEXT,
+                retryable INTEGER,
+                safe_message TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS commit_facts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 repository_id TEXT NOT NULL,
@@ -110,6 +126,22 @@ def _insert_analysis(
         )
 
 
+def _insert_ingestion_run(
+    db: Path,
+    *,
+    run_id: str = "run-1",
+    repository_id: str = "repo-abc",
+    canonical_url: str = "https://github.com/test/repo",
+    status: str = "COMPLETED",
+) -> None:
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO ingestion_runs (run_id, repository_id, canonical_url, status, started_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (run_id, repository_id, canonical_url, status, "2024-01-01T00:00:00"),
+        )
+
+
 def _canonical_repo_id(canonical_url: str) -> str:
     return "repo-" + hashlib.sha256(canonical_url.encode()).hexdigest()[:12]
 
@@ -128,11 +160,27 @@ def test_estimate_returns_404_when_db_missing(tmp_path: Path) -> None:
     assert response.status_code == 404
 
 
+def test_estimate_404_for_unknown_repo_on_populated_db(tmp_path: Path) -> None:
+    """Spec 008 AC: an unknown repository_id must 404 even when the database
+    is provisioned and already holds data for other repositories."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-known")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-does-not-exist/analyze/estimate")
+    assert response.status_code == 404
+
+
 def test_estimate_returns_correct_counts(tmp_path: Path) -> None:
     from git_it.api.app import create_app
 
     db = _db_path(tmp_path)
     _init_db(db)
+    _insert_ingestion_run(db)
     for i in range(5):
         _insert_commit(db, sha=f"sha{i:04d}", committed_at=f"2024-01-{i + 1:02d}T10:00:00")
     # Analyze only 2 of the 5
@@ -155,6 +203,7 @@ def test_estimate_cost_proportional_to_llm_calls(tmp_path: Path) -> None:
 
     db = _db_path(tmp_path)
     _init_db(db)
+    _insert_ingestion_run(db)
     # Insert commits with messages that the pre-classifier won't skip
     for i in range(3):
         _insert_commit(
@@ -185,6 +234,8 @@ def test_estimate_narrative_cost_scales_with_commits(tmp_path: Path) -> None:
     db_large = _db_path(tmp_path / "large")
     _init_db(db_small)
     _init_db(db_large)
+    _insert_ingestion_run(db_small)
+    _insert_ingestion_run(db_large)
     _insert_commit(db_small, sha="sha0000", message="feat: a")
     for i in range(20):
         _insert_commit(db_large, sha=f"sha{i:04d}", message=f"feat: {i}")
@@ -204,7 +255,9 @@ def test_estimate_narrative_cost_scales_with_commits(tmp_path: Path) -> None:
 def test_estimate_narrative_cost_zero_when_no_commits(tmp_path: Path) -> None:
     from git_it.api.app import create_app
 
-    _init_db(_db_path(tmp_path))
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db)
     client = TestClient(create_app(project_root=tmp_path))
     body = client.get("/api/repos/repo-abc/analyze/estimate").json()
     assert body["estimated_narrative_cost_usd"] == 0.0
@@ -215,6 +268,7 @@ def test_estimate_zero_calls_when_all_analyzed(tmp_path: Path) -> None:
 
     db = _db_path(tmp_path)
     _init_db(db)
+    _insert_ingestion_run(db)
     _insert_commit(db, sha="sha0000")
     _insert_analysis(db, commit_sha="sha0000")
 
