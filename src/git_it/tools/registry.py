@@ -8,6 +8,7 @@ PostgreSQL is selected via ``DATABASE_URL``.
 """
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,7 @@ from git_it.api.schemas import (
 )
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
-    build_case_study_store,
+    build_case_study_reader,
     build_commit_with_analysis_reader,
     build_contributor_reader,
     build_pattern_detection_service,
@@ -119,9 +120,12 @@ def get_case_study(
     )
     if not database_is_provisioned(project_root=project_root):
         return empty
-    store = build_case_study_store(project_root=project_root)
-    record = store.get_case_study(repository_id, audience)
-    available = store.list_available_audiences(repository_id)
+    store = build_case_study_reader(project_root=project_root)
+    try:
+        record = store.get_case_study(repository_id, audience)
+        available = store.list_available_audiences(repository_id)
+    except sqlite3.OperationalError:
+        return empty
     if record is None:
         empty.available_audiences = available
         return empty

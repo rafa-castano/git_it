@@ -125,6 +125,24 @@ def build_case_study_store(
     return store
 
 
+def build_case_study_reader(
+    *,
+    project_root: Path,
+) -> SqliteCaseStudyStore | PostgresCaseStudyStore:
+    """Backend-aware, read-only case study accessor.
+
+    Unlike ``build_case_study_store``, this never calls ``initialize()``.
+    Read-only callers (e.g. the MCP server) must not create the
+    ``case_studies`` table as a side effect of a read; a missing table means
+    "no case study yet," not "provision it now."
+    """
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresCaseStudyStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    return SqliteCaseStudyStore(db_path)
+
+
 def build_repo_metadata_store(
     *,
     project_root: Path,

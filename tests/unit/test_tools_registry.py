@@ -202,7 +202,7 @@ def test_registry_delegates_reads_to_backend_aware_builders(tmp_path: Path, monk
         registry, "build_repository_list_reader", lambda *, project_root: RepoReader()
     )
     monkeypatch.setattr(
-        registry, "build_case_study_store", lambda *, project_root: CaseStudyStore()
+        registry, "build_case_study_reader", lambda *, project_root: CaseStudyStore()
     )
     monkeypatch.setattr(
         registry, "build_commit_with_analysis_reader", lambda *, project_root: CommitReader()
