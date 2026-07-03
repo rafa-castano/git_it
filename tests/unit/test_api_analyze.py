@@ -295,8 +295,19 @@ def test_analyze_returns_404_when_db_missing(tmp_path: Path) -> None:
     assert response.status_code == 404
 
 
-def test_analyze_returns_analyzing_status(tmp_path: Path) -> None:
+def test_analyze_returns_analyzing_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import git_it.api.routes.repos as repos_module
     from git_it.api.app import create_app
+
+    # POSTing to /analyze spawns a real background thread that runs
+    # `_analyze_bg`, which mutates the module-level `_analyze_progress` dict
+    # (setting running=True). Nothing in that flow ever resets it, so a
+    # leaked entry can bleed into other tests (e.g. the delete-repo suite)
+    # that share the default "repo-abc" id. This test only cares about the
+    # endpoint's immediate response, so replace the background worker with
+    # a no-op — the thread still spawns (matching production wiring) but
+    # never touches shared state.
+    monkeypatch.setattr(repos_module, "_analyze_bg", lambda *args, **kwargs: None)
 
     db = _db_path(tmp_path)
     _init_db(db)
@@ -311,8 +322,12 @@ def test_analyze_returns_analyzing_status(tmp_path: Path) -> None:
     assert body["status"] == "ANALYZING"
 
 
-def test_analyze_accepts_any_litellm_model(tmp_path: Path) -> None:
+def test_analyze_accepts_any_litellm_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import git_it.api.routes.repos as repos_module
     from git_it.api.app import create_app
+
+    # Same background-thread leak concern as above — no-op the worker.
+    monkeypatch.setattr(repos_module, "_analyze_bg", lambda *args, **kwargs: None)
 
     db = _db_path(tmp_path)
     _init_db(db)
@@ -343,7 +358,11 @@ def test_analyze_requires_auth_when_api_key_set(
 
 
 def test_analyze_accepts_valid_auth(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import git_it.api.routes.repos as repos_module
     from git_it.api.app import create_app
+
+    # Same background-thread leak concern as the tests above — no-op the worker.
+    monkeypatch.setattr(repos_module, "_analyze_bg", lambda *args, **kwargs: None)
 
     monkeypatch.setenv("GIT_IT_API_KEY", "secret")
     db = _db_path(tmp_path)

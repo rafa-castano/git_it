@@ -92,6 +92,7 @@ One file per batch, organized by feature area.
 - [Bug fix — MCP read-only tool `get_patterns` created the `commit_analyses` table on read](api/bugfix-mcp-get-patterns-read-only.md)
 - [Batch 98 — Spec 008 closure (repository deletion integration test)](api/batch-98-spec-008-closure.md)
 - [Batch 99 — Read endpoints must 404 for unknown repositories (spec 008 AC alignment)](api/batch-99-read-endpoint-404-unknown-repo.md)
+- [Batch 100 — Fix `_analyze_progress` test-isolation flake between analyze and delete tests](api/batch-100-analyze-delete-test-isolation.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
