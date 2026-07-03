@@ -1,6 +1,6 @@
 # Feature Spec: Repository Deletion
 
-**Status:** Draft
+**Status:** Implemented
 **Spec number:** 008
 **Author:** Rafael Castaño
 **Date:** 2026-06-29

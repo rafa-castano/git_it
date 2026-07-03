@@ -215,3 +215,77 @@ def test_404_on_unknown_repo(tmp_path: Path) -> None:
     client = TestClient(app, raise_server_exceptions=True)
     resp = client.get("/api/repos/nonexistent-id/analyze/estimate")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 8. test_delete_removes_all_data
+# ---------------------------------------------------------------------------
+
+
+def test_delete_removes_all_data(integration_client: TestClient) -> None:
+    """Full flow: ingest → confirm present → DELETE → confirm gone everywhere.
+
+    Spec 008 (repository deletion) is implemented but had no integration-level
+    regression test proving deletion actually removes data across the full
+    read surface. This test closes that gap.
+
+    Read-surface behavior after delete (verified against the real handlers in
+    ``src/git_it/api/routes/repos.py``, not assumed from the spec prose):
+
+    - ``GET /api/repos`` — the repo_id is simply absent from the list.
+    - ``GET .../contributors`` — 404, because the handler explicitly raises
+      404 when the contributor reader finds no rows (and ``commit_facts``
+      rows are deleted by ``SqliteRepositoryDeleter``).
+    - ``GET .../case-study`` — 404, same as ``test_404_on_unknown_repo``.
+      (This repo never had a narrative generated, so it was already 404
+      before delete too — the assertion still documents the contract.)
+    - ``GET .../commits`` and ``GET .../patterns`` — these handlers do not
+      404 on an unknown/deleted repository_id; they return 200 with empty
+      results (0 commits, no hotspots) once ``database_is_provisioned`` is
+      True, matching the "empty but structurally valid" behavior already
+      exercised by ``test_commits_after_ingest`` / ``test_patterns_after_ingest``.
+      This test asserts that actual (empty, not 404) contract rather than the
+      404 the spec prose describes for these two routes.
+
+    There is no dedicated single-repo "detail/summary" GET endpoint distinct
+    from the list — `GET /api/repos` is the only repo-summary read surface.
+    """
+    # 1. Ingest and confirm present.
+    ingest_resp = integration_client.post("/api/repos/ingest", json={"url": _INGEST_URL})
+    assert ingest_resp.status_code == 200
+
+    list_before = integration_client.get("/api/repos")
+    assert list_before.status_code == 200
+    assert _REPO_ID in [r["repository_id"] for r in list_before.json()["repos"]]
+
+    contributors_before = integration_client.get(f"/api/repos/{_REPO_ID}/contributors")
+    assert contributors_before.status_code == 200
+    assert len(contributors_before.json()["contributors"]) >= 1  # Alice and Bob
+
+    # 2. Delete.
+    delete_resp = integration_client.delete(f"/api/repos/{_REPO_ID}")
+    assert delete_resp.status_code == 200
+    delete_body = delete_resp.json()
+    assert delete_body["deleted"] is True
+    assert delete_body["repository_id"] == _REPO_ID
+
+    # 3. Confirm gone across the read surface.
+    list_after = integration_client.get("/api/repos")
+    assert list_after.status_code == 200
+    assert _REPO_ID not in [r["repository_id"] for r in list_after.json()["repos"]]
+
+    contributors_after = integration_client.get(f"/api/repos/{_REPO_ID}/contributors")
+    assert contributors_after.status_code == 404
+
+    case_study_after = integration_client.get(f"/api/repos/{_REPO_ID}/case-study")
+    assert case_study_after.status_code == 404
+
+    commits_after = integration_client.get(f"/api/repos/{_REPO_ID}/commits")
+    assert commits_after.status_code == 200
+    assert commits_after.json()["total"] == 0
+
+    patterns_after = integration_client.get(f"/api/repos/{_REPO_ID}/patterns")
+    assert patterns_after.status_code == 200
+    patterns_body = patterns_after.json()
+    assert patterns_body["hotspots"] == []
+    assert patterns_body["bugfix_recurrences"] == []

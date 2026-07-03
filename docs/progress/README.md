@@ -90,6 +90,7 @@ One file per batch, organized by feature area.
 - [Batch 94 — GitHub stars + language breakdown (spec 019)](api/batch-94-github-stars-languages.md)
 - [Bug fix — MCP read-only tool created the `case_studies` table on read](api/bugfix-mcp-read-only-table-creation.md)
 - [Bug fix — MCP read-only tool `get_patterns` created the `commit_analyses` table on read](api/bugfix-mcp-get-patterns-read-only.md)
+- [Batch 98 — Spec 008 closure (repository deletion integration test)](api/batch-98-spec-008-closure.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)
