@@ -179,4 +179,4 @@ explicit reviewer sign-off; easy to remove if deemed unnecessary scope.
 
 ## Commits
 
-- `feat: add zoom ladder (year-hour) to activity chart with drill and controls`
+- `feat: add zoom ladder (year-hour) to activity chart with drill and controls` — `786b125`
