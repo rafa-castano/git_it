@@ -143,4 +143,4 @@ still uses it there.
 
 ## Commits
 
-- `feat: replace donut category cross-link with local multi-select` — pending
+- `feat: replace donut category cross-link with local multi-select` — `c60a29d`
