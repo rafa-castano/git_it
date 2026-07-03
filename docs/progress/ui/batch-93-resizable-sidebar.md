@@ -114,4 +114,4 @@ principle. Verification is manual/Playwright-driven (see below).
 
 ## Commits
 
-- `feat: add drag-to-resize handle to repo sidebar` — pending
+- `feat: add drag-to-resize handle to repo sidebar` — `df7ba0f`
