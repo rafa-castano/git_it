@@ -204,6 +204,27 @@ function catTipKey(category) {
   if (c === 'build' || c === 'chore' || c === 'ci') return 'catChore';
   return 'catUnknown';
 }
+/* Commit-categories donut multi-select (spec 018): clicking a donut slice or
+   legend item toggles that category in/out of a selected set; the donut
+   shows only the selected categories (all, when the set is empty). These two
+   functions are pure/DOM-free so the selection logic is reviewable and
+   testable in principle -- see spec 018 AC-01/AC-02/AC-03. */
+/** Returns a NEW Set with `cat` toggled in/out of `set` (added if absent,
+ *  removed if present). Does not mutate `set`. */
+function toggleSelection(set, cat) {
+  const next = new Set(set);
+  if (next.has(cat)) next.delete(cat); else next.add(cat);
+  return next;
+}
+
+/** Returns the subset of `catCounts` (`{category, count}` entries) whose
+ *  upper-cased category is in `selected`. When `selected` is empty/falsy,
+ *  returns `catCounts` unchanged (the default show-all view). */
+function visibleCategories(catCounts, selected) {
+  if (!selected || selected.size === 0) return catCounts;
+  return catCounts.filter(c => selected.has((c.category || '').toUpperCase()));
+}
+
 function riskTipKey(level) {
   const l = (level || '').toLowerCase();
   if (l === 'high') return 'riskHigh';
@@ -1018,6 +1039,12 @@ document.querySelectorAll('.tab-btn').forEach(btn =>
 let _actScale = null;
 let _actSpan = null;
 
+/* Commit-categories donut multi-select (spec 018): categories currently
+ * toggled into the donut's selection (upper-cased, e.g. "BUGFIX"). Empty
+ * means "show all" (the default). Reset to a new empty Set every time a
+ * repo's Overview is (re)loaded -- same lifecycle as _actScale/_actSpan. */
+let _donutSelected = new Set();
+
 async function loadOverview(repoId) {
   const el = document.getElementById('overview-content');
   el.innerHTML = spinner();
@@ -1078,7 +1105,12 @@ async function loadOverview(repoId) {
   el.innerHTML = `${overviewIntroHtml}
     <div class="charts-row">
       <div class="chart-box">
-        <h3>Commit Categories</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.75rem">
+          <h3 style="margin:0">Commit Categories</h3>
+          <button id="donut-clear-selection" onclick="_clearDonutSelection()" title="Clear category selection"
+            aria-label="Clear category selection and show all categories"
+            style="display:none;padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">Clear</button>
+        </div>
         <div class="chart-container" style="height:170px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution"></canvas></div>
         <div id="donut-legend-custom" class="donut-legend" role="list" aria-label="Category legend"></div>
       </div>
@@ -1123,34 +1155,70 @@ async function loadOverview(repoId) {
   const _tcy = () => getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e2e8f0';
   const _gc = () => getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2d3148';
 
-  if (catCounts.length > 0) {
+  /* Commit-categories donut multi-select (spec 018): _donutSelected drives
+   * both the rendered slices (visibleCategories) and the legend's
+   * selected/dimmed styling. Reset per-load below, alongside _actScale/
+   * _actSpan. onClick/legend clicks route through the same
+   * window._toggleDonutCategory() handler so chart-click and legend-click
+   * stay in sync. */
+  function _rebuildDonutChart() {
+    const visible = visibleCategories(catCounts, _donutSelected);
     destroyChart('donut');
+    if (visible.length === 0) {
+      document.getElementById('chart-donut').parentElement.innerHTML = '<div class="empty-state" style="padding:1rem">No category data</div>';
+      _updateDonutLegend();
+      return;
+    }
     _charts['donut'] = new Chart(document.getElementById('chart-donut'), {
       type: 'doughnut',
-      data: { labels: catCounts.map(c => c.category), datasets: [{ data: catCounts.map(c => c.count), backgroundColor: catCounts.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }] },
+      data: { labels: visible.map(c => c.category), datasets: [{ data: visible.map(c => c.count), backgroundColor: visible.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         onClick(evt, els) {
           if (!els.length) return;
-          const cat = catCounts[els[0].index]?.category;
+          const cat = visible[els[0].index]?.category;
           if (!cat) return;
-          switchTab('commits');
-          const sel = document.getElementById('cat-filter');
-          if (sel) { sel.value = cat.toUpperCase(); _applyTimelineFilters(); }
+          window._toggleDonutCategory(cat);
         },
       },
     });
+    _updateDonutLegend();
+  }
+
+  function _updateDonutLegend() {
     const legendEl = document.getElementById('donut-legend-custom');
-    if (legendEl) legendEl.innerHTML = catCounts.map(c =>
-      `<span class="donut-legend-item" data-tip="${catTipKey(c.category)}" data-tip-suffix="(Click to view ${esc(c.category.toLowerCase())} commits)" tabindex="0" role="listitem"
+    if (legendEl) legendEl.innerHTML = catCounts.map(c => {
+      const upper = (c.category || '').toUpperCase();
+      const isSelected = _donutSelected.has(upper);
+      const isDimmed = _donutSelected.size > 0 && !isSelected;
+      const cls = ['donut-legend-item', isSelected ? 'selected' : '', isDimmed ? 'dimmed' : ''].filter(Boolean).join(' ');
+      return `<span class="${cls}" data-tip="${catTipKey(c.category)}" data-tip-suffix="(Click to toggle)" tabindex="0" role="listitem" aria-pressed="${isSelected}"
         style="cursor:pointer"
-        onclick="switchTab('commits');var s=document.getElementById('cat-filter');if(s){s.value='${esc(c.category.toUpperCase())}';_applyTimelineFilters();}"
+        onclick="_toggleDonutCategory('${esc(c.category)}')"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
         <span class="donut-legend-dot" style="background:${catColor(c.category)}" aria-hidden="true"></span>
         ${esc(c.category.toLowerCase())}
-      </span>`
-    ).join('');
+      </span>`;
+    }).join('');
+    const clearBtn = document.getElementById('donut-clear-selection');
+    if (clearBtn) clearBtn.style.display = _donutSelected.size > 0 ? 'inline-flex' : 'none';
+  }
+
+  window._toggleDonutCategory = function(cat) {
+    if (!cat) return;
+    _donutSelected = toggleSelection(_donutSelected, cat.toUpperCase());
+    _rebuildDonutChart();
+  };
+
+  window._clearDonutSelection = function() {
+    _donutSelected = new Set();
+    _rebuildDonutChart();
+  };
+
+  _donutSelected = new Set();
+  if (catCounts.length > 0) {
+    _rebuildDonutChart();
   } else {
     document.getElementById('chart-donut').parentElement.innerHTML = '<div class="empty-state" style="padding:1rem">No category data</div>';
   }
