@@ -263,17 +263,23 @@ def get_case_study(
 
 def _regen_bg(repository_id: str, audience: str, model: str, project_root: Path) -> None:
     with _regen_progress_lock:
-        _regen_progress[repository_id] = {"running": True, "audience": audience}
+        _regen_progress[repository_id] = {"running": True, "audience": audience, "error": None}
+    error_type: str | None = None
     try:
         narrative_svc = build_narrative_service(project_root=project_root, model=model)
         narrative_svc.generate(repository_id, force=True, audience=audience)
     except Exception as e:
+        error_type = type(e).__name__
         _logger.warning(
-            "case study regen failed: %s", type(e).__name__, extra={"repository_id": repository_id}
+            "case study regen failed: %s", error_type, extra={"repository_id": repository_id}
         )
     finally:
         with _regen_progress_lock:
-            _regen_progress[repository_id] = {"running": False, "audience": audience}
+            _regen_progress[repository_id] = {
+                "running": False,
+                "audience": audience,
+                "error": error_type,
+            }
 
 
 @router.post("/{repository_id}/case-study/regenerate", response_model=RegenStatusResponse)
@@ -300,7 +306,11 @@ def regenerate_case_study(
 def get_regen_status(repository_id: str) -> RegenStatusResponse:
     with _regen_progress_lock:
         state = _regen_progress.get(repository_id, {"running": False, "audience": DEFAULT_AUDIENCE})
-    return RegenStatusResponse(running=bool(state["running"]), audience=str(state["audience"]))
+    return RegenStatusResponse(
+        running=bool(state["running"]),
+        audience=str(state["audience"]),
+        error=state.get("error"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +415,8 @@ def _analyze_bg(
 ) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
-        _analyze_progress[repository_id] = {"running": True, "done": 0, "total": 0}
+        _analyze_progress[repository_id] = {"running": True, "done": 0, "total": 0, "error": None}
+    error_type: str | None = None
 
     def _on_progress(done: int, total: int) -> None:
         with _analyze_progress_lock:
@@ -437,9 +448,8 @@ def _analyze_bg(
                 extra={"repository_id": repository_id},
             )
     except Exception as e:
-        _logger.warning(
-            "analysis failed: %s", type(e).__name__, extra={"repository_id": repository_id}
-        )
+        error_type = type(e).__name__
+        _logger.warning("analysis failed: %s", error_type, extra={"repository_id": repository_id})
     finally:
         with _analyze_progress_lock:
             prev = _analyze_progress.get(repository_id, {})
@@ -447,6 +457,7 @@ def _analyze_bg(
                 "running": False,
                 "done": prev.get("done", 0),
                 "total": prev.get("total", 0),
+                "error": error_type,
             }
 
 
@@ -507,7 +518,9 @@ def get_analyze_status(repository_id: str) -> AnalyzeStatusResponse:
     total = p["total"]
     done = p["done"]
     pct = round(done / total * 100) if total > 0 else 0
-    return AnalyzeStatusResponse(running=p["running"], done=done, total=total, pct=pct)
+    return AnalyzeStatusResponse(
+        running=p["running"], done=done, total=total, pct=pct, error=p.get("error")
+    )
 
 
 # ---------------------------------------------------------------------------

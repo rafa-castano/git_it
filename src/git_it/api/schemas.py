@@ -192,6 +192,7 @@ class AnalyzeStatusResponse(BaseModel):
     done: int
     total: int
     pct: int
+    error: str | None = None
 
 
 class RegenerateRequest(BaseModel):
@@ -201,6 +202,7 @@ class RegenerateRequest(BaseModel):
 class RegenStatusResponse(BaseModel):
     running: bool
     audience: str
+    error: str | None = None
 
 
 class ContributorItem(BaseModel):

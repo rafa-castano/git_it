@@ -455,6 +455,143 @@ def test_analyze_status_pct_100_when_complete(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/repos/{repository_id}/analyze/status -- fail-loud (spec 021)
+# ---------------------------------------------------------------------------
+
+
+def test_analyze_status_error_is_none_by_default(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-test123/analyze/status")
+
+    assert response.status_code == 200
+    assert response.json()["error"] is None
+
+
+def test_analyze_status_error_is_none_when_progress_has_no_error_key(tmp_path: Path) -> None:
+    """Backward compatibility: entries seeded without an 'error' key (as several
+    pre-existing tests in this file do) must not crash and must report error: None."""
+    from git_it.api.app import create_app
+    from git_it.api.routes.repos import _analyze_progress
+
+    repo_id = "repo-legacy-progress"
+    _analyze_progress[repo_id] = {"running": False, "done": 10, "total": 10}
+    try:
+        app = create_app(project_root=tmp_path)
+        client = TestClient(app)
+        response = client.get(f"/api/repos/{repo_id}/analyze/status")
+
+        assert response.status_code == 200
+        assert response.json()["error"] is None
+    finally:
+        _analyze_progress.pop(repo_id, None)
+
+
+def test_analyze_bg_failure_surfaces_sanitized_error_type_in_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Spec 021: a background analysis failure must be visible via the status
+    endpoint as running=False + error=<ExceptionTypeName>, instead of being
+    silently swallowed."""
+    import git_it.api.routes.repos as repos_module
+    from git_it.api.app import create_app
+
+    class _BoomAnalysisError(Exception):
+        pass
+
+    def _raise(*args: object, **kwargs: object) -> None:
+        raise _BoomAnalysisError("connection string: postgres://user:sk-SECRET123@host/db")
+
+    monkeypatch.setattr(repos_module, "build_commit_analysis_service", _raise)
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(db, sha="aaa111")
+
+    # Call the background worker synchronously -- no real thread needed here.
+    repos_module._analyze_bg("repo-abc", 10, "gpt-4o-mini", tmp_path)
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/analyze/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["running"] is False
+    assert body["error"] == "_BoomAnalysisError"
+
+
+def test_analyze_bg_failure_never_leaks_raw_exception_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Security regression (CODEX): the raw exception message may carry provider
+    API keys, connection strings, or file paths -- only the sanitized type name
+    may ever reach the API response."""
+    import git_it.api.routes.repos as repos_module
+    from git_it.api.app import create_app
+
+    secret = "sk-SECRET123"
+
+    def _raise(*args: object, **kwargs: object) -> None:
+        raise RuntimeError(f"leaked provider key: {secret}")
+
+    monkeypatch.setattr(repos_module, "build_commit_analysis_service", _raise)
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(db, sha="aaa111")
+
+    repos_module._analyze_bg("repo-abc", 10, "gpt-4o-mini", tmp_path)
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/analyze/status")
+
+    assert response.status_code == 200
+    assert secret not in response.text
+    assert response.json()["error"] == "RuntimeError"
+
+
+def test_analyze_bg_success_leaves_error_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Success path must not set an error, even after a prior failure occupied
+    the same progress-dict slot."""
+    import git_it.api.routes.repos as repos_module
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(db, sha="aaa111")
+
+    class _FakeAnalysisService:
+        def analyze_commits(self, *args: object, **kwargs: object) -> None:
+            return None
+
+    class _FakeNarrativeService:
+        def generate(self, *args: object, **kwargs: object) -> None:
+            return None
+
+    monkeypatch.setattr(
+        repos_module, "build_commit_analysis_service", lambda **kwargs: _FakeAnalysisService()
+    )
+    monkeypatch.setattr(
+        repos_module, "build_narrative_service", lambda **kwargs: _FakeNarrativeService()
+    )
+
+    repos_module._analyze_bg("repo-abc", 10, "gpt-4o-mini", tmp_path)
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/analyze/status")
+
+    assert response.status_code == 200
+    assert response.json()["error"] is None
+
+
+# ---------------------------------------------------------------------------
 # POST /api/repos/ingest
 # ---------------------------------------------------------------------------
 

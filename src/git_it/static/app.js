@@ -2001,11 +2001,24 @@ async function _setCsAudience(value) {
 
 function _pollRegenStatus(repoId, audience) {
   const el = document.getElementById('case-study-content');
+  // spec 021: surface a background regen failure instead of silently reloading as
+  // if it had succeeded.
+  let failedError = null;
   pollUntilDone({
     url: `/api/repos/${encodeURIComponent(repoId)}/case-study/regen-status`,
     interval: 2000,
-    onTick: (s) => !s.running,
-    onDone: () => loadCaseStudy(repoId),
+    onTick: (s) => {
+      if (s.running) return false;
+      if (s.error) failedError = s.error;  // job stopped with a failure
+      return true;
+    },
+    onDone: () => {
+      if (failedError) {
+        if (el) el.innerHTML = `<div class="empty-state" role="alert">Case study generation failed (${esc(failedError)}). Check the server logs and try again.</div>`;
+        return;
+      }
+      loadCaseStudy(repoId);
+    },
     onError: () => {
       if (el) el.innerHTML = '<div class="empty-state" role="alert">Regeneration status unknown.</div>';
     },
@@ -2348,6 +2361,9 @@ async function _doAnalyze(limit) {
 
 function _pollAnalyzeStatus(repoId) {
   const btn = document.getElementById('sh-analyze-btn');
+  // spec 021: a background job that stops with a non-null error must surface as a
+  // FAILED state, not be silently treated as success. Captured here across ticks.
+  let failedError = null;
   pollUntilDone({
     url: `/api/repos/${encodeURIComponent(repoId)}/analyze/status`,
     interval: 2000,
@@ -2363,10 +2379,21 @@ function _pollAnalyzeStatus(repoId) {
         }
         return false;
       }
+      if (s.error) failedError = s.error;  // job stopped with a failure
       return true;
     },
     onDone: async () => {
       if (!btn) return;  // guard: button removed while polling
+      if (failedError) {
+        btn.textContent = 'Analysis failed';
+        btn.style.color = 'var(--red)';
+        btn.disabled = false;
+        btn.title = `Analysis failed (${failedError}). Check the server logs and try again.`;
+        setTimeout(() => {
+          if (btn) { btn.textContent = '+ Analyze'; btn.style.color = ''; btn.title = ''; }
+        }, 6000);
+        return;
+      }
       btn.textContent = '✓ Done!';
       btn.style.color = 'var(--green)';
       btn.disabled = false;
