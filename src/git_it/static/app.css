@@ -9,12 +9,26 @@
   --muted: #c1c9d6;
   --green: #22c55e; --yellow: #eab308; --red: #ef4444;
   --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
+  /* Spec 019: dedicated 8-slot categorical palette for the repo-card language
+     bar — NOT the same as --blue/--green/--red/etc above, which already carry
+     fixed status meaning (completed/error/in-progress) elsewhere in this app.
+     Validated via the dataviz skill's validate_palette.js against this app's
+     own dark --surface (#1a1d27): lightness band + chroma floor + contrast
+     PASS, worst adjacent CVD ∆E in the floor band (mitigated by the always-
+     present legend). Order is the CVD-safety mechanism — do not reshuffle.
+     A 9th+ language folds into "Other" (rendered in --muted), never a 9th hue. */
+  --lang-1: #3987e5; --lang-2: #199e70; --lang-3: #c98500; --lang-4: #008300;
+  --lang-5: #9085e9; --lang-6: #e66767; --lang-7: #d55181; --lang-8: #d95926;
 }
 [data-theme="light"] {
   --bg: #f1f5f9; --surface: #ffffff; --border: #cbd5e1;
   --accent: #4f46e5; --text: #0f172a; --muted: #475569;
   --green: #16a34a; --yellow: #b45309; --red: #dc2626;
   --blue: #2563eb; --orange: #c2410c; --purple: #7c3aed;
+  /* Same 8-slot palette, light-mode steps — validated against this app's
+     light --surface (#ffffff): see the dark-mode comment above. */
+  --lang-1: #2a78d6; --lang-2: #1baf7a; --lang-3: #eda100; --lang-4: #008300;
+  --lang-5: #4a3aa7; --lang-6: #e34948; --lang-7: #e87ba4; --lang-8: #eb6834;
 }
 /* --accent (#6366f1 dark / #4f46e5 light) is reserved for backgrounds,
    borders, and underlines, where it already passes the 3:1 UI-component
@@ -91,6 +105,16 @@ header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: 
 .rc-stats { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 13px; color: var(--muted); }
 .rc-stat { white-space: nowrap; }
 .rc-stat strong { color: var(--text); }
+/* Spec 019: GitHub-style stacked language bar + legend. Thin mark (8px, per
+   the dataviz skill's bar spec), 4px rounded ends on the whole bar (not each
+   segment), 2px surface gap between segments so adjacent hues stay visually
+   distinct without a border stroke. */
+.rc-lang-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--border); }
+.rc-lang-seg { display: inline-block; height: 100%; min-width: 2px; box-shadow: 1px 0 0 var(--surface); }
+.rc-lang-seg:last-child { box-shadow: none; }
+.rc-lang-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.85rem; font-size: 11px; color: var(--muted); }
+.rc-lang-legend-item { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.rc-lang-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .rc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 0.5rem; }
 .rc-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .rc-status.completed { color: var(--green); }

@@ -12,6 +12,7 @@ import urllib.request
 from typing import Protocol
 
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 
 _logger = logging.getLogger(__name__)
 
@@ -155,6 +156,87 @@ class GithubContextFetcher:
         req.add_header("User-Agent", "git-it/1.0")
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # type: ignore[arg-type]
             return json.loads(resp.read())  # type: ignore[no-any-return]
+
+
+class GithubRepoMetadataFetcher:
+    """Fetches repository-level GitHub metadata: star count and language breakdown.
+
+    Independent of GithubContextFetcher (per-commit PR/issue enrichment) — this
+    class is called at most once per ingestion, not once per commit, so it has no
+    cache. Best-effort: returns None whenever the token is absent, the URL isn't
+    GitHub, or the stars call fails — ingestion must never hard-fail because of
+    this. A languages-call failure alone only empties the languages field; stars
+    is the headline value this feature exists to show (see spec 019).
+    """
+
+    def __init__(self, *, token: str | None = None) -> None:
+        self._token = token
+
+    def fetch_repo_metadata(self, canonical_url: str) -> RepoMetadata | None:
+        if self._token is None:
+            _logger.debug("repo metadata fetch skipped: no token")
+            return None
+
+        parsed = _parse_owner_repo(canonical_url)
+        if parsed is None:
+            _logger.debug("repo metadata fetch skipped: not a GitHub URL (%s)", canonical_url)
+            return None
+        owner, repo = parsed
+
+        stars = self._fetch_stars(owner, repo)
+        if stars is None:
+            return None
+        languages = self._fetch_languages(owner, repo)
+        return RepoMetadata(stars=stars, languages=languages)
+
+    def _fetch_stars(self, owner: str, repo: str) -> int | None:
+        url = f"https://api.github.com/repos/{owner}/{repo}"
+        data = self._api_get_dict(url)
+        if data is None:
+            return None
+        raw = data.get("stargazers_count")
+        if not isinstance(raw, int) or isinstance(raw, bool):
+            _logger.warning("github repo metadata: stargazers_count missing or invalid")
+            return None
+        return raw
+
+    def _fetch_languages(self, owner: str, repo: str) -> tuple[LanguageBreakdown, ...]:
+        url = f"https://api.github.com/repos/{owner}/{repo}/languages"
+        data = self._api_get_dict(url)
+        if data is None:
+            return ()
+        breakdown: list[LanguageBreakdown] = []
+        for name, raw_bytes in data.items():
+            if not isinstance(name, str):
+                continue
+            if isinstance(raw_bytes, bool) or not isinstance(raw_bytes, int):
+                continue
+            if raw_bytes < 0:
+                continue
+            breakdown.append(LanguageBreakdown(language=name, bytes=raw_bytes))
+        return tuple(breakdown)
+
+    def _api_get_dict(self, url: str) -> dict[str, object] | None:
+        req = urllib.request.Request(url)
+        req.add_header("Accept", "application/vnd.github+json")
+        req.add_header("Authorization", f"Bearer {self._token}")
+        req.add_header("User-Agent", "git-it/1.0")
+        try:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # type: ignore[arg-type]
+                raw = json.loads(resp.read())
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:
+            _logger.warning("github repo metadata api error for %s: %s", url, type(exc).__name__)
+            return None
+        if not isinstance(raw, dict):
+            _logger.warning("github repo metadata api returned non-object payload for %s", url)
+            return None
+        return raw
 
 
 # ---------------------------------------------------------------------------

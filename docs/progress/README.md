@@ -86,6 +86,7 @@ One file per batch, organized by feature area.
 - [Batch 78 — Repository deletion endpoint and UI](api/batch-78-repository-deletion.md)
 - [Batch 80 — Delete bug fix and commit count alignment](api/batch-80-delete-fix-and-commit-count.md)
 - [Batch 82 — PostgreSQL read layer for the API (spec 014)](api/batch-82-postgres-read-layer.md)
+- [Batch 94 — GitHub stars + language breakdown (spec 019)](api/batch-94-github-stars-languages.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

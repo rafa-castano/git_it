@@ -20,6 +20,7 @@ from git_it.repository_ingestion.application.ports import (
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 
 
 class SqliteIngestionRunStore:
@@ -1074,6 +1075,66 @@ class SqliteSynopsisStore:
         return str(row[0]) if row else None
 
 
+class SqliteRepoMetadataStore:
+    """Persists one GitHub stars + language-breakdown row per repository.
+
+    Fetched at most once per ingestion (see GithubRepoMetadataFetcher) — this
+    store has no cache-miss/negative-cache distinction like SqliteGithubContextCache;
+    a missing row simply means "never fetched" (no token, non-GitHub URL, fetch
+    failure, or pre-existing repo ingested before this feature shipped).
+    """
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS repo_metadata (
+                    repository_id TEXT PRIMARY KEY,
+                    stars         INTEGER NOT NULL,
+                    languages     TEXT NOT NULL DEFAULT '[]',
+                    updated_at    TEXT NOT NULL
+                )
+                """
+            )
+            conn.commit()
+
+    def save_repo_metadata(self, repository_id: str, metadata: RepoMetadata) -> None:
+        languages_json = json.dumps(
+            [{"language": lang.language, "bytes": lang.bytes} for lang in metadata.languages]
+        )
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO repo_metadata (repository_id, stars, languages, updated_at)
+                VALUES (?, ?, ?, datetime('now'))
+                ON CONFLICT(repository_id) DO UPDATE SET
+                    stars      = excluded.stars,
+                    languages  = excluded.languages,
+                    updated_at = excluded.updated_at
+                """,
+                (repository_id, metadata.stars, languages_json),
+            )
+            conn.commit()
+
+    def get_repo_metadata(self, repository_id: str) -> RepoMetadata | None:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT stars, languages FROM repo_metadata WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        languages = tuple(
+            LanguageBreakdown(language=str(item["language"]), bytes=int(item["bytes"]))
+            for item in json.loads(str(row[1]))
+        )
+        return RepoMetadata(stars=int(row[0]), languages=languages)
+
+
 class SqliteRepositoryDeleter:
     """Hard-deletes all data for a repository from every table that holds its data.
 
@@ -1101,6 +1162,7 @@ class SqliteRepositoryDeleter:
                 "commit_facts",
                 "case_studies",
                 "repository_synopsis",
+                "repo_metadata",
                 "ingestion_runs",
             ):
                 if table in existing_tables:

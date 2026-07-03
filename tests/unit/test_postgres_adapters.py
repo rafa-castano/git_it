@@ -19,6 +19,7 @@ from git_it.repository_ingestion.application.ports import (
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
@@ -27,6 +28,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     initialize,
 )
@@ -334,3 +336,43 @@ def test_postgres_repository_deleter_removes_all_repository_rows(conninfo: str) 
     assert run_store.list_ingestion_runs_for_repository("pg-repo-12") == []
     reader = PostgresCommitWithAnalysisReader(conninfo)
     assert reader.count_commits_with_analyses("pg-repo-12") == 0
+
+
+# ---------------------------------------------------------------------------
+# Spec 019 — GitHub stars + language breakdown repo-metadata store
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_repo_metadata_store_returns_none_when_absent(conninfo: str) -> None:
+    store = PostgresRepoMetadataStore(conninfo)
+    assert store.get_repo_metadata("pg-repo-13") is None
+
+
+def test_postgres_repo_metadata_store_roundtrips_stars_and_languages(conninfo: str) -> None:
+    store = PostgresRepoMetadataStore(conninfo)
+    metadata = RepoMetadata(
+        stars=1234,
+        languages=(
+            LanguageBreakdown(language="Python", bytes=300),
+            LanguageBreakdown(language="HTML", bytes=100),
+        ),
+    )
+
+    store.save_repo_metadata("pg-repo-14", metadata)
+    retrieved = store.get_repo_metadata("pg-repo-14")
+
+    assert retrieved == metadata
+
+
+def test_postgres_repo_metadata_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresRepoMetadataStore(conninfo)
+    store.save_repo_metadata("pg-repo-15", RepoMetadata(stars=1, languages=()))
+
+    store.save_repo_metadata(
+        "pg-repo-15",
+        RepoMetadata(stars=99, languages=(LanguageBreakdown(language="Go", bytes=50),)),
+    )
+
+    assert store.get_repo_metadata("pg-repo-15") == RepoMetadata(
+        stars=99, languages=(LanguageBreakdown(language="Go", bytes=50),)
+    )

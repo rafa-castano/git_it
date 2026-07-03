@@ -587,6 +587,39 @@ function renderRepoCards() {
 
 const _GH_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
 
+// Spec 019: fixed-order categorical palette for the language bar, validated
+// (lightness band, CVD-adjacency, contrast) against this app's own --surface
+// values via the dataviz skill's validate_palette.js — see
+// specs/019-github-stars-languages.md § Domain concepts for why this is a
+// dedicated palette rather than a reuse of --blue/--green/--red/etc (those
+// already carry fixed status meaning elsewhere in the app). Order is the
+// CVD-safety mechanism — do not reshuffle without re-validating.
+const _LANG_COLOR_VARS = [
+  '--lang-1', '--lang-2', '--lang-3', '--lang-4',
+  '--lang-5', '--lang-6', '--lang-7', '--lang-8',
+];
+const _LANG_BAR_MAX_SEGMENTS = 8;
+
+function _buildLanguageBar(languages) {
+  if (!languages || languages.length === 0) return '';
+  let shown = languages.slice(0, _LANG_BAR_MAX_SEGMENTS);
+  const rest = languages.slice(_LANG_BAR_MAX_SEGMENTS);
+  if (rest.length > 0) {
+    const otherBytes = rest.reduce((sum, l) => sum + l.bytes, 0);
+    const otherPercent = Math.round(rest.reduce((sum, l) => sum + l.percent, 0) * 10) / 10;
+    shown = shown.concat([{ language: 'Other', bytes: otherBytes, percent: otherPercent }]);
+  }
+  const colorFor = (lang, i) => lang === 'Other' ? 'var(--muted)' : `var(${_LANG_COLOR_VARS[i % _LANG_COLOR_VARS.length]})`;
+  const segments = shown.map((l, i) => {
+    const tip = `${l.language}: ${l.percent}%`;
+    return `<span class="rc-lang-seg" style="width:${l.percent}%;background:${colorFor(l.language, i)}" data-tip="${esc(tip)}" tabindex="0" role="img" aria-label="${esc(tip)}"></span>`;
+  }).join('');
+  const legend = shown.map((l, i) =>
+    `<span class="rc-lang-legend-item"><span class="rc-lang-swatch" style="background:${colorFor(l.language, i)}" aria-hidden="true"></span>${esc(l.language)} ${l.percent}%</span>`
+  ).join('');
+  return `<div class="rc-lang-bar" role="img" aria-label="Language breakdown">${segments}</div><div class="rc-lang-legend">${legend}</div>`;
+}
+
 function _buildRepoCard(repo) {
   const short = repoShortName(repo.canonical_url);
   const card = document.createElement('div');
@@ -597,6 +630,10 @@ function _buildRepoCard(repo) {
 
   const { label: statusLabel, cls: statusCls } = _repoStatusLabel(repo);
   const ghUrl = repo.canonical_url && repo.canonical_url.includes('github.com') ? repo.canonical_url : null;
+  const starsHtml = (repo.stars !== null && repo.stars !== undefined)
+    ? `<span class="rc-stat" data-tip="${repo.stars.toLocaleString()} GitHub stars" tabindex="0">⭐ ${repo.stars.toLocaleString()}</span>`
+    : '';
+  const langBarHtml = _buildLanguageBar(repo.languages);
   card.innerHTML = `
     <div class="rc-accent" aria-hidden="true"></div>
     <div class="rc-name">${esc(short)}</div>
@@ -604,8 +641,10 @@ function _buildRepoCard(repo) {
     <div class="rc-stats">
       <span class="rc-stat"><strong>${repo.commit_count}</strong> commits</span>
       <span class="rc-stat"><strong>${repo.analysis_count}</strong> analyzed</span>
+      ${starsHtml}
       ${repo.has_case_study ? '<span style="color:var(--green);font-size:12px">✓ Case study</span>' : ''}
     </div>
+    ${langBarHtml}
     <div class="rc-footer">
       <span class="rc-status ${statusCls}" aria-label="Status: ${esc(statusLabel)}">${esc(statusLabel)}</span>
       <div style="display:flex;align-items:center;gap:0.5rem">

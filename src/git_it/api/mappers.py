@@ -7,6 +7,7 @@ from git_it.api.schemas import (
     CommitTestGrowthSignalSchema,
     DependencyMigrationSchema,
     HotspotItem,
+    LanguageItem,
     OwnershipConcentrationSchema,
     PatternExplanationSchema,
     PatternReportResponse,
@@ -14,6 +15,27 @@ from git_it.api.schemas import (
     RevertSignalSchema,
 )
 from git_it.repository_ingestion.domain.patterns import PatternReport
+from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown
+
+
+def map_languages(languages: tuple[LanguageBreakdown, ...]) -> list[LanguageItem]:
+    """Convert a language byte-breakdown into percent-annotated API items.
+
+    Returns [] for an empty input (avoids a division by zero). Order is
+    preserved from the input (GitHub's API already returns languages ordered
+    by byte count descending; this function does not re-sort).
+    """
+    total = sum(lang.bytes for lang in languages)
+    if total <= 0:
+        return []
+    return [
+        LanguageItem(
+            language=lang.language,
+            bytes=lang.bytes,
+            percent=round(lang.bytes / total * 100, 1),
+        )
+        for lang in languages
+    ]
 
 
 def map_pattern_report(report: PatternReport) -> PatternReportResponse:

@@ -28,6 +28,7 @@ from git_it.repository_ingestion.application.ports import (
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 
 
 def initialize(conninfo: str) -> None:
@@ -942,6 +943,45 @@ class PostgresSynopsisStore:
 # ---------------------------------------------------------------------------
 
 
+class PostgresRepoMetadataStore:
+    """Persists one GitHub stars + language-breakdown row per repository (PostgreSQL)."""
+
+    def __init__(self, conninfo: str) -> None:
+        self._conninfo = conninfo
+
+    def save_repo_metadata(self, repository_id: str, metadata: RepoMetadata) -> None:
+        languages_json = json.dumps(
+            [{"language": lang.language, "bytes": lang.bytes} for lang in metadata.languages]
+        )
+        with psycopg.connect(self._conninfo) as conn:
+            conn.execute(
+                """
+                INSERT INTO repo_metadata (repository_id, stars, languages, updated_at)
+                VALUES (%s, %s, %s, NOW())
+                ON CONFLICT (repository_id) DO UPDATE SET
+                    stars      = EXCLUDED.stars,
+                    languages  = EXCLUDED.languages,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (repository_id, metadata.stars, languages_json),
+            )
+            conn.commit()
+
+    def get_repo_metadata(self, repository_id: str) -> RepoMetadata | None:
+        with psycopg.connect(self._conninfo) as conn:
+            row = conn.execute(
+                "SELECT stars, languages FROM repo_metadata WHERE repository_id = %s",
+                (repository_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        languages = tuple(
+            LanguageBreakdown(language=str(item["language"]), bytes=int(item["bytes"]))
+            for item in json.loads(str(row[1]))
+        )
+        return RepoMetadata(stars=int(row[0]), languages=languages)
+
+
 class PostgresRepositoryDeleter:
     """Hard-deletes all data for a repository from every table that holds its data.
 
@@ -969,6 +1009,7 @@ class PostgresRepositoryDeleter:
                 "commit_facts",
                 "case_studies",
                 "repository_synopsis",
+                "repo_metadata",
                 "ingestion_runs",
             ):
                 if table in existing_tables:

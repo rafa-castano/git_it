@@ -8,6 +8,12 @@ from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 # ---------------------------------------------------------------------------
 
 
+class LanguageItem(BaseModel):
+    language: str
+    bytes: int
+    percent: float
+
+
 class RepoSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -17,6 +23,8 @@ class RepoSummary(BaseModel):
     commit_count: int
     analysis_count: int
     has_case_study: bool
+    stars: int | None = None
+    languages: list[LanguageItem] = []
 
 
 class RepoListResponse(BaseModel):

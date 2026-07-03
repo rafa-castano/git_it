@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import os
 import re
 import threading
 from collections.abc import Iterator
@@ -14,7 +15,7 @@ from git_it.api.auth import require_api_key
 from git_it.api.cost import LLM_COST_PER_CALL_USD, estimate_narrative_cost
 from git_it.api.deps import get_chat_service, get_project_root
 from git_it.api.limiter import limiter
-from git_it.api.mappers import map_pattern_report
+from git_it.api.mappers import map_languages, map_pattern_report
 from git_it.api.schemas import (
     MAX_CHAT_HISTORY,
     AnalyzeEstimateResponse,
@@ -47,6 +48,7 @@ from git_it.repository_ingestion.composition import (
     build_contributor_reader,
     build_ingestion_run_store,
     build_narrative_service,
+    build_repo_metadata_store,
     build_repository_deleter,
     build_repository_ingestion_service,
     build_repository_list_reader,
@@ -56,6 +58,7 @@ from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )
+from git_it.repository_ingestion.infrastructure.github import GithubRepoMetadataFetcher
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 
 router = APIRouter(prefix="/api/repos", tags=["repos"])
@@ -97,6 +100,33 @@ def _normalize_url(raw: str) -> str:
     return raw
 
 
+def _fetch_and_store_repo_metadata(
+    *, repository_id: str, canonical_url: str, project_root: Path
+) -> None:
+    """Best-effort GitHub stars/languages fetch, run once after a successful ingest.
+
+    Never raises: any failure (no token, non-GitHub URL, HTTP error, malformed
+    payload) degrades to "no metadata stored" — the API/UI simply show nothing
+    extra for this repository (spec 019).
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return
+    try:
+        fetcher = GithubRepoMetadataFetcher(token=token)
+        metadata = fetcher.fetch_repo_metadata(canonical_url)
+        if metadata is None:
+            return
+        store = build_repo_metadata_store(project_root=project_root)
+        store.save_repo_metadata(repository_id, metadata)
+    except Exception as e:
+        _logger.warning(
+            "repo metadata fetch failed: %s",
+            type(e).__name__,
+            extra={"repository_id": repository_id},
+        )
+
+
 def _ingest_bg(url: str, project_root: Path) -> None:
     _logger.info("ingestion started", extra={"url": url})
     try:
@@ -106,8 +136,14 @@ def _ingest_bg(url: str, project_root: Path) -> None:
             project_root=project_root,
             repository_id=repository_id,
         )
-        svc.ingest(url)
+        result = svc.ingest(url)
         _logger.info("ingestion completed", extra={"repository_id": repository_id})
+        if result.status == "COMPLETED":
+            _fetch_and_store_repo_metadata(
+                repository_id=repository_id,
+                canonical_url=parsed.canonical_url,
+                project_root=project_root,
+            )
     except Exception as e:
         _logger.warning("ingestion failed: %s", type(e).__name__, extra={"url": url})
 
@@ -152,18 +188,23 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
         return RepoListResponse(repos=[], total=0)
 
     reader = build_repository_list_reader(project_root=project_root)
+    metadata_store = build_repo_metadata_store(project_root=project_root)
     records = reader.list_repositories()
-    repos = [
-        RepoSummary(
-            repository_id=r.repository_id,
-            canonical_url=r.canonical_url,
-            status=r.status,
-            commit_count=r.commit_count,
-            analysis_count=r.analysis_count,
-            has_case_study=r.has_case_study,
+    repos = []
+    for r in records:
+        metadata = metadata_store.get_repo_metadata(r.repository_id)
+        repos.append(
+            RepoSummary(
+                repository_id=r.repository_id,
+                canonical_url=r.canonical_url,
+                status=r.status,
+                commit_count=r.commit_count,
+                analysis_count=r.analysis_count,
+                has_case_study=r.has_case_study,
+                stars=metadata.stars if metadata is not None else None,
+                languages=map_languages(metadata.languages) if metadata is not None else [],
+            )
         )
-        for r in records
-    ]
     return RepoListResponse(repos=repos, total=len(repos))
 
 

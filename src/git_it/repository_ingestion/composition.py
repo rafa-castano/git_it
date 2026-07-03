@@ -44,6 +44,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     PostgresRepositoryListReader,
     PostgresSynopsisStore,
@@ -63,6 +64,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteFileFactStore,
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
+    SqliteRepoMetadataStore,
     SqliteRepositoryDeleter,
     SqliteRepositoryListReader,
     SqliteSynopsisStore,
@@ -118,6 +120,19 @@ def build_case_study_store(
         return PostgresCaseStudyStore(conninfo)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteCaseStudyStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_repo_metadata_store(
+    *,
+    project_root: Path,
+) -> SqliteRepoMetadataStore | PostgresRepoMetadataStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresRepoMetadataStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteRepoMetadataStore(db_path)
     store.initialize()
     return store
 

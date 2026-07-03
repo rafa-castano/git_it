@@ -75,3 +75,10 @@ CREATE TABLE IF NOT EXISTS github_context (
     fetched_at      TEXT NOT NULL,
     PRIMARY KEY (repository_id, commit_sha)
 );
+
+CREATE TABLE IF NOT EXISTS repo_metadata (
+    repository_id TEXT PRIMARY KEY,
+    stars         INTEGER NOT NULL,
+    languages     TEXT NOT NULL DEFAULT '[]',
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

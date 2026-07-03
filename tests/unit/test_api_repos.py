@@ -8,6 +8,7 @@ import json
 import sqlite3
 import time
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -343,6 +344,113 @@ def test_list_repos_stays_fast_with_many_commits_and_analyses(tmp_path: Path) ->
         f"GET /api/repos took {elapsed:.2f}s for {n} commits/analyses — "
         "check for a commit_facts x commit_analyses JOIN fan-out regression"
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/repos — stars + languages (spec 019)
+# ---------------------------------------------------------------------------
+
+
+def test_list_repos_no_metadata_returns_none_and_empty_languages(
+    client_with_repo: TestClient,
+) -> None:
+    response = client_with_repo.get("/api/repos")
+    repo = response.json()["repos"][0]
+    assert repo["stars"] is None
+    assert repo["languages"] == []
+
+
+def test_list_repos_includes_stars_and_languages_when_stored(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteRepoMetadataStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    metadata_store = SqliteRepoMetadataStore(db)
+    metadata_store.initialize()
+    metadata_store.save_repo_metadata(
+        "repo-abc",
+        RepoMetadata(
+            stars=1234,
+            languages=(
+                LanguageBreakdown(language="Python", bytes=300),
+                LanguageBreakdown(language="HTML", bytes=100),
+            ),
+        ),
+    )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos")
+
+    assert response.status_code == 200
+    repo = response.json()["repos"][0]
+    assert repo["stars"] == 1234
+    assert repo["languages"] == [
+        {"language": "Python", "bytes": 300, "percent": 75.0},
+        {"language": "HTML", "bytes": 100, "percent": 25.0},
+    ]
+
+
+# ---------------------------------------------------------------------------
+# _fetch_and_store_repo_metadata — ingestion-time fetch helper (spec 019)
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_and_store_repo_metadata_skips_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_repo_metadata
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with mock.patch("git_it.api.routes.repos.GithubRepoMetadataFetcher") as mock_fetcher_cls:
+        _fetch_and_store_repo_metadata(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_fetcher_cls.assert_not_called()
+
+
+def test_fetch_and_store_repo_metadata_stores_result_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_repo_metadata
+    from git_it.repository_ingestion.composition import build_repo_metadata_store
+    from git_it.repository_ingestion.domain.repo_metadata import RepoMetadata
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with mock.patch("git_it.api.routes.repos.GithubRepoMetadataFetcher") as mock_fetcher_cls:
+        mock_fetcher_cls.return_value.fetch_repo_metadata.return_value = RepoMetadata(
+            stars=42, languages=()
+        )
+        _fetch_and_store_repo_metadata(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    store = build_repo_metadata_store(project_root=tmp_path)
+    assert store.get_repo_metadata("repo-abc") == RepoMetadata(stars=42, languages=())
+
+
+def test_fetch_and_store_repo_metadata_noop_when_fetch_returns_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_repo_metadata
+    from git_it.repository_ingestion.composition import build_repo_metadata_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with mock.patch("git_it.api.routes.repos.GithubRepoMetadataFetcher") as mock_fetcher_cls:
+        mock_fetcher_cls.return_value.fetch_repo_metadata.return_value = None
+        _fetch_and_store_repo_metadata(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    store = build_repo_metadata_store(project_root=tmp_path)
+    assert store.get_repo_metadata("repo-abc") is None
 
 
 # ---------------------------------------------------------------------------
