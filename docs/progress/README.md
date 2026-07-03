@@ -113,3 +113,4 @@ One file per batch, organized by feature area.
 - [Batch 87 — "Generate case study" button in the empty Case Study tab](ui/batch-87-generate-case-study-button.md)
 - [Batch 90 — Activity chart zoom ladder (spec 017)](ui/batch-90-activity-chart-zoom-ladder.md)
 - [Batch 92 — Commit-categories donut multi-select (spec 018)](ui/batch-92-donut-category-multi-select.md)
+- [Batch 93 — Resizable repo sidebar (drag-to-resize)](ui/batch-93-resizable-sidebar.md)

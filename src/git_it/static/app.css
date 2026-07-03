@@ -108,7 +108,13 @@ header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: 
 #repo-view { display: none; flex: 1; overflow: hidden; }
 #repo-view.visible { display: flex; }
 .layout { display: flex; flex: 1; overflow: hidden; }
-aside { width: 210px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+aside { width: var(--sidebar-width, 210px); min-width: 150px; max-width: 480px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+/* Drag handle sits between aside and main as a flex sibling (not absolutely
+   positioned) so it always tracks the sidebar's right edge without JS having
+   to sync a position — and it never overlaps the aside's overflow-y:auto content. */
+.sidebar-resize-handle { width: 6px; flex-shrink: 0; cursor: col-resize; background: transparent; transition: background 0.15s; }
+.sidebar-resize-handle:hover, .sidebar-resize-handle.dragging { background: var(--accent); }
+.sidebar-resize-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent); }
 .rv-back-row { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .rv-back-btn { font-size: 13px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; transition: color 0.1s; display: flex; align-items: center; gap: 0.3rem; }
 .rv-back-btn:hover { color: var(--text); }

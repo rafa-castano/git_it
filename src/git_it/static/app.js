@@ -35,6 +35,82 @@ function debounce(fn, ms) {
 const _debouncedTimelineFilter = debounce(_applyTimelineFilters, 150);
 
 /* =========================================================
+   Resizable sidebar (drag-to-resize)
+   ========================================================= */
+const SIDEBAR_MIN_WIDTH = 150;
+const SIDEBAR_MAX_WIDTH = 480;
+const SIDEBAR_ARROW_STEP = 10;
+const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width';
+
+/**
+ * Pure clamp so the sidebar can never collapse to nothing or eat the screen.
+ * No DOM access here on purpose — keeps this reviewable/testable in isolation.
+ */
+function clampSidebarWidth(px, min = SIDEBAR_MIN_WIDTH, max = SIDEBAR_MAX_WIDTH) {
+  const n = Number(px);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(Math.max(n, min), max);
+}
+
+function _setSidebarWidth(px) {
+  const clamped = clampSidebarWidth(px);
+  document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
+  localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(clamped));
+  const handle = document.getElementById('sidebar-resize-handle');
+  if (handle) handle.setAttribute('aria-valuenow', String(clamped));
+  return clamped;
+}
+
+function _initSidebarResize() {
+  const handle = document.getElementById('sidebar-resize-handle');
+  const aside = document.querySelector('#repo-view aside');
+  if (!handle || !aside) return;
+
+  // Restore persisted width (falls back to the CSS default when unset/invalid).
+  const stored = parseInt(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY), 10);
+  if (Number.isFinite(stored)) _setSidebarWidth(stored);
+
+  let dragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    _setSidebarWidth(startWidth + (e.clientX - startX));
+  };
+  const stopDragging = () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('mouseup', stopDragging);
+  };
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = aside.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', stopDragging);
+    e.preventDefault();
+  });
+
+  handle.addEventListener('keydown', (e) => {
+    const current = aside.getBoundingClientRect().width;
+    if (e.key === 'ArrowLeft') {
+      _setSidebarWidth(current - SIDEBAR_ARROW_STEP);
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight') {
+      _setSidebarWidth(current + SIDEBAR_ARROW_STEP);
+      e.preventDefault();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', _initSidebarResize);
+
+/* =========================================================
    Tooltip engine
    ========================================================= */
 const TIPS = {
