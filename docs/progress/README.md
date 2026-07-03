@@ -114,6 +114,7 @@ One file per batch, organized by feature area.
 - [Batch 95 — Persistence backend seam for CLI and MCP tools](infrastructure/batch-95-persistence-backend-seam.md)
 - [Bug fix — PostgresSynopsisStore migrated from psycopg2 to psycopg v3](infrastructure/bugfix-postgres-synopsis-store-psycopg-v3.md)
 - [Batch 103 — Split SQLite infrastructure into a cohesive package](infrastructure/batch-103-split-sqlite-infrastructure.md)
+- [Batch 104 — Split PostgreSQL infrastructure into a cohesive package](infrastructure/batch-104-split-postgres-infrastructure.md)
 
 ## UI
 - [Batch 76 — Extract CSS and JS from index.html to static files](ui/batch-76-frontend-split.md)
