@@ -15,6 +15,13 @@ from git_it.api.schemas import (
     PatternReportResponse,
     RepoListResponse,
 )
+from git_it.repository_ingestion.application.ports import (
+    CaseStudyRecord,
+    CommitWithAnalysisRecord,
+    ContributorRecord,
+    RepositoryRecord,
+)
+from git_it.repository_ingestion.domain.patterns import CategoryCount, PatternReport
 from tests.unit.test_mcp_tools import (
     _db_path,
     _init_db,
@@ -99,3 +106,125 @@ def test_get_contributors_unknown_repo_is_empty(tmp_path: Path) -> None:
     assert isinstance(result, ContributorsResponse)
     assert result.contributors == []
     assert result.total == 0
+
+
+def test_registry_delegates_reads_to_backend_aware_builders(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from git_it.tools import registry
+
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        registry,
+        "database_is_provisioned",
+        lambda *, project_root: True,
+    )
+
+    class RepoReader:
+        def list_repositories(self) -> list[RepositoryRecord]:
+            calls.append("repositories")
+            return [
+                RepositoryRecord(
+                    repository_id="repo-1",
+                    canonical_url="https://github.com/acme/repo",
+                    status="COMPLETED",
+                    commit_count=1,
+                    analysis_count=1,
+                    has_case_study=True,
+                )
+            ]
+
+    class CaseStudyStore:
+        def get_case_study(
+            self, repository_id: str, audience: str = "beginner"
+        ) -> CaseStudyRecord | None:
+            calls.append("case-study")
+            return CaseStudyRecord(
+                repository_id=repository_id,
+                narrative="Narrative",
+                commit_count=1,
+                hotspot_count=0,
+                audience=audience,
+            )
+
+        def list_available_audiences(self, repository_id: str) -> list[str]:
+            return ["beginner"]
+
+    class CommitReader:
+        def count_commits_with_analyses(self, repository_id: str, *, category: str | None) -> int:
+            calls.append("commit-count")
+            return 1
+
+        def list_commits_with_analyses(
+            self,
+            repository_id: str,
+            *,
+            limit: int,
+            order: str = "newest",
+            category: str | None = None,
+        ) -> list[CommitWithAnalysisRecord]:
+            calls.append("commits")
+            return [
+                CommitWithAnalysisRecord(
+                    sha="abc123",
+                    message="feat: test",
+                    committed_at="2024-01-01T00:00:00",
+                    analysis_data='{"category": "feature", "risk_level": "low"}',
+                )
+            ]
+
+    class ContributorReader:
+        def list_contributors(self, repository_id: str) -> list[ContributorRecord]:
+            calls.append("contributors")
+            return [
+                ContributorRecord(
+                    author_name="Alice",
+                    commit_count=1,
+                    first_commit="2024-01-01T00:00:00",
+                    last_commit="2024-01-01T00:00:00",
+                    is_bot=False,
+                    active_days=1,
+                    github_username=None,
+                    category_counts={"feature": 1},
+                    top_files=["src/app.py"],
+                )
+            ]
+
+    class PatternService:
+        def detect(self, repository_id: str, *, hotspot_threshold: int = 10) -> PatternReport:
+            calls.append("patterns")
+            return PatternReport(
+                repository_id=repository_id,
+                hotspots=[],
+                category_counts=[CategoryCount(category="feature", count=1)],
+            )
+
+    monkeypatch.setattr(
+        registry, "build_repository_list_reader", lambda *, project_root: RepoReader()
+    )
+    monkeypatch.setattr(
+        registry, "build_case_study_store", lambda *, project_root: CaseStudyStore()
+    )
+    monkeypatch.setattr(
+        registry, "build_commit_with_analysis_reader", lambda *, project_root: CommitReader()
+    )
+    monkeypatch.setattr(
+        registry, "build_contributor_reader", lambda *, project_root: ContributorReader()
+    )
+    monkeypatch.setattr(
+        registry, "build_pattern_detection_service", lambda *, project_root: PatternService()
+    )
+
+    assert registry.list_repositories(tmp_path).total == 1
+    assert registry.get_case_study(tmp_path, "repo-1").narrative == "Narrative"
+    assert registry.search_commits(tmp_path, "repo-1").total == 1
+    assert registry.get_contributors(tmp_path, "repo-1").total == 1
+    assert registry.get_patterns(tmp_path, "repo-1").category_counts[0].category == "feature"
+
+    assert calls == [
+        "repositories",
+        "case-study",
+        "commit-count",
+        "commits",
+        "contributors",
+        "patterns",
+    ]

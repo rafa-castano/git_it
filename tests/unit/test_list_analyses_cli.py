@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import git_it.repository_ingestion.interfaces.cli as cli_module
 from git_it.repository_ingestion.domain.analysis import (
     CommitAnalysis,
     CommitCategory,
@@ -106,3 +107,24 @@ def test_list_analyses_respects_limit_flag(tmp_path: Path) -> None:
         list_analyses_factory=factory,
     )
     assert received == [3]
+
+
+def test_list_analyses_default_factory_uses_backend_aware_builder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FakeAnalysisStore()
+    received_roots: list[Path] = []
+
+    def fake_builder(*, project_root: Path) -> FakeAnalysisStore:
+        received_roots.append(project_root)
+        return store
+
+    monkeypatch.setattr(cli_module, "build_commit_analysis_reader", fake_builder)
+
+    code = cli_module.main(
+        ["list-analyses", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+    )
+
+    assert code == 0
+    assert received_roots == [tmp_path]

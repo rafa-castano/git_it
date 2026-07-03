@@ -103,6 +103,7 @@ One file per batch, organized by feature area.
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
 - [Batch 79 — Publish readiness: paths, hygiene, docs](infrastructure/batch-79-publish-readiness.md)
+- [Batch 95 — Persistence backend seam for CLI and MCP tools](infrastructure/batch-95-persistence-backend-seam.md)
 - [Bug fix — PostgresSynopsisStore migrated from psycopg2 to psycopg v3](infrastructure/bugfix-postgres-synopsis-store-psycopg-v3.md)
 
 ## UI

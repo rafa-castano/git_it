@@ -2,13 +2,12 @@
 
 These plain functions are the single source of truth for the five read-only
 operations. `git_it.mcp.server` wraps them as MCP tools; the chat service
-(GitItGPT) calls them directly. Each resolves the SQLite DB from ``project_root``
-and delegates to the same reader/query classes the REST API uses. Read-only: no
-write adapter is imported and no ``initialize()``/``save_*`` path is called.
+(GitItGPT) calls them directly. Each delegates backend selection to the same
+composition seam the REST API uses, so SQLite remains the local default while
+PostgreSQL is selected via ``DATABASE_URL``.
 """
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -24,17 +23,14 @@ from git_it.api.schemas import (
     RepoSummary,
 )
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
-from git_it.repository_ingestion.infrastructure.sqlite import (
-    SqliteCaseStudyStore,
-    SqliteCommitWithAnalysisReader,
-    SqliteContributorReader,
-    SqliteRepositoryListReader,
+from git_it.repository_ingestion.composition import (
+    build_case_study_store,
+    build_commit_with_analysis_reader,
+    build_contributor_reader,
+    build_pattern_detection_service,
+    build_repository_list_reader,
+    database_is_provisioned,
 )
-from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
-
-
-def db_path_for(project_root: Path) -> Path:
-    return ingestion_workspace_root(project_root) / "git-it.sqlite3"
 
 
 def _empty_patterns(repository_id: str) -> PatternReportResponse:
@@ -91,10 +87,9 @@ def _commit_item(record: Any) -> CommitSummaryItem:
 
 def list_repositories(project_root: Path) -> RepoListResponse:
     """List analyzed repositories with id, canonical URL, status, and counts."""
-    db_path = db_path_for(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return RepoListResponse(repos=[], total=0)
-    reader = SqliteRepositoryListReader(db_path)
+    reader = build_repository_list_reader(project_root=project_root)
     repos = [
         RepoSummary(
             repository_id=r.repository_id,
@@ -114,7 +109,6 @@ def get_case_study(
 ) -> CaseStudyResponse:
     """Return the stored case study narrative and the available audiences for a
     repository. Read-only: an unavailable audience is reported, never generated."""
-    db_path = db_path_for(project_root)
     empty = CaseStudyResponse(
         repository_id=repository_id,
         narrative="",
@@ -123,14 +117,11 @@ def get_case_study(
         generated_at=None,
         available_audiences=[],
     )
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return empty
-    store = SqliteCaseStudyStore(db_path)
-    try:
-        record = store.get_case_study(repository_id, audience)
-        available = store.list_available_audiences(repository_id)
-    except sqlite3.OperationalError:
-        return empty
+    store = build_case_study_store(project_root=project_root)
+    record = store.get_case_study(repository_id, audience)
+    available = store.list_available_audiences(repository_id)
     if record is None:
         empty.available_audiences = available
         return empty
@@ -148,10 +139,7 @@ def get_patterns(
     project_root: Path, repository_id: str, hotspot_threshold: int = 10
 ) -> PatternReportResponse:
     """Return detected patterns with their evidence commit SHAs and time ranges."""
-    from git_it.repository_ingestion.composition import build_pattern_detection_service
-
-    db_path = db_path_for(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return _empty_patterns(repository_id)
     service = build_pattern_detection_service(project_root=project_root)
     report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
@@ -168,10 +156,9 @@ def search_commits(
     """Search a repository's analyzed commits by category/order/limit."""
     if order not in ("newest", "oldest"):
         order = "newest"
-    db_path = db_path_for(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return CommitsResponse(repository_id=repository_id, commits=[], total=0)
-    reader = SqliteCommitWithAnalysisReader(db_path)
+    reader = build_commit_with_analysis_reader(project_root=project_root)
     total = reader.count_commits_with_analyses(repository_id, category=category)
     records = reader.list_commits_with_analyses(
         repository_id, limit=limit, order=order, category=category
@@ -182,10 +169,9 @@ def search_commits(
 
 def get_contributors(project_root: Path, repository_id: str) -> ContributorsResponse:
     """Return per-author contribution stats; an unknown repository is empty."""
-    db_path = db_path_for(project_root)
-    if not db_path.exists():
+    if not database_is_provisioned(project_root=project_root):
         return ContributorsResponse(repository_id=repository_id, contributors=[], total=0)
-    reader = SqliteContributorReader(db_path)
+    reader = build_contributor_reader(project_root=project_root)
     records = reader.list_contributors(repository_id)
     contributors = [
         ContributorItem(

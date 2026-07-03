@@ -26,7 +26,6 @@ Because the reference Filesystem MCP server grants access by allowed directory r
 
 Instead, configure only explicit non-secret workspace subdirectories:
 
-- `.agents`
 - `.claude`
 - `.codex`
 - `.prompts`

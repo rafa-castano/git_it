@@ -12,6 +12,7 @@ from git_it.repository_ingestion.application.pattern_detection_service import (
 )
 from git_it.repository_ingestion.application.ports import (
     CommitAnalysisClient,
+    CommitAnalysisReader,
     CommitExtractor,
     CommitFactWriter,
     FileFactWriter,
@@ -271,6 +272,20 @@ def build_repository_analysis_service(
         reader=SqliteCommitReader(db_path),
         llm_client=client,
     )
+
+
+def build_commit_analysis_reader(
+    *,
+    project_root: Path,
+) -> CommitAnalysisReader:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        postgres_initialize(conninfo)
+        return PostgresCommitAnalysisStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteCommitAnalysisStore(db_path)
+    store.initialize()
+    return store
 
 
 def build_commit_analysis_service(

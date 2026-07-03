@@ -1,6 +1,6 @@
 # Architecture
 
-Git It follows **hexagonal (ports and adapters) architecture** organized as a modular monolith. The domain logic has no framework dependencies — FastAPI, SQLite, LiteLLM, and GitPython are all adapters wired in at composition time.
+Git It follows **hexagonal (ports and adapters) architecture** organized as a modular monolith. The domain logic has no framework dependencies — FastAPI, SQLite, PostgreSQL, LiteLLM, and GitPython are all adapters wired in at composition time.
 
 ## Layer overview
 
@@ -17,7 +17,7 @@ Git It follows **hexagonal (ports and adapters) architecture** organized as a mo
 │  CaseStudy   │  IngestionRun    │  url_contract     │
 ├─────────────────────────────────────────────────────┤
 │               Infrastructure                        │  ← Driven adapters
-│  SQLite  │  GitPython  │  LiteLLM  │  GitHub API   │
+│  SQLite/PostgreSQL  │  GitPython  │  LiteLLM  │  GitHub API │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -38,16 +38,16 @@ Git It follows **hexagonal (ports and adapters) architecture** organized as a mo
 ingest(url)
   → clone/fetch via GitPython
   → extract CommitFacts
-  → persist to SQLite
+  → persist through the configured repository store
 
 analyze(repository_id)
-  → load CommitFacts from SQLite
+  → load CommitFacts through the configured repository reader
   → enrich with GitHub context (optional)
   → classify via LiteLLM (CommitAnalysisClient)
   → persist CommitAnalysis records
 
 patterns(repository_id)
-  → load CommitFacts + CommitAnalysis from SQLite
+  → load CommitFacts + CommitAnalysis through configured readers
   → rule-based detection (hotspots, revert signals, etc.)
   → LLM pattern synthesis (optional)
   → return PatternReport
@@ -58,7 +58,7 @@ case-study(repository_id)
   → persist CaseStudy
 
 API / Dashboard
-  → read from SQLite via query readers
+  → read through configured query readers
   → serve JSON via FastAPI
   → render in Chart.js dashboard
 ```
@@ -66,6 +66,13 @@ API / Dashboard
 ## Composition
 
 All wiring happens in `src/git_it/repository_ingestion/composition.py`. Application services receive their dependencies as constructor arguments — no service locator, no global state.
+
+Persistence backend selection is centralized at this composition seam:
+
+- no `DATABASE_URL` or a non-PostgreSQL URL → SQLite at `.data/git-it/ingestion/git-it.sqlite3`;
+- `DATABASE_URL=postgresql://...` or `postgres://...` → PostgreSQL via psycopg.
+
+Driving adapters such as the API, CLI, MCP server, and chat tools must request readers/stores from composition instead of importing concrete SQLite or PostgreSQL adapters directly. Concrete database imports belong in infrastructure adapters, composition wiring, or adapter-specific tests.
 
 ## Architectural decisions
 
@@ -92,7 +99,9 @@ MVP. Two remain open; one has since been resolved:
   Resolved 2026-07-02 by `specs/014-postgres-read-layer.md`, which introduced
   a PostgreSQL-backed read layer
   (`src/git_it/repository_ingestion/infrastructure/postgres.py`) selected via
-  `DATABASE_URL`.
+  `DATABASE_URL`. CLI `list-analyses` and the shared MCP/chat tool registry
+  also route read-side persistence through composition, so driving adapters no
+  longer select SQLite directly.
 
 See `ADR/010-local-first-mvp-accepted-limitations.md` for full detail on all
 three.

@@ -15,6 +15,7 @@ from git_it.repository_ingestion.application.commit_query_service import (
 from git_it.repository_ingestion.application.narrative_service import NarrativeResult
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
+    build_commit_analysis_reader,
     build_commit_analysis_service,
     build_narrative_service,
     build_pattern_detection_service,
@@ -210,13 +211,7 @@ def _default_narrative_factory(
 def _default_list_analyses_factory(
     *, project_root: Path, repository_id: str
 ) -> "AnalysisStoreReader":
-    from git_it.repository_ingestion.infrastructure.sqlite import SqliteCommitAnalysisStore
-    from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
-
-    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
-    store = SqliteCommitAnalysisStore(db_path)
-    store.initialize()
-    return store
+    return build_commit_analysis_reader(project_root=project_root)
 
 
 def main(

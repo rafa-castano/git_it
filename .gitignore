@@ -2,7 +2,8 @@
 .env
 .env.*
 !.env.example
-.codex/secrets.toml
+.codex/config.toml
+.github/workflows/
 
 # Python bytecode and caches
 __pycache__/
