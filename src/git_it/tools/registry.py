@@ -28,7 +28,7 @@ from git_it.repository_ingestion.composition import (
     build_case_study_reader,
     build_commit_with_analysis_reader,
     build_contributor_reader,
-    build_pattern_detection_service,
+    build_pattern_detection_service_reader,
     build_repository_list_reader,
     database_is_provisioned,
 )
@@ -145,8 +145,11 @@ def get_patterns(
     """Return detected patterns with their evidence commit SHAs and time ranges."""
     if not database_is_provisioned(project_root=project_root):
         return _empty_patterns(repository_id)
-    service = build_pattern_detection_service(project_root=project_root)
-    report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
+    service = build_pattern_detection_service_reader(project_root=project_root)
+    try:
+        report = service.detect(repository_id, hotspot_threshold=hotspot_threshold)
+    except sqlite3.OperationalError:
+        return _empty_patterns(repository_id)
     return map_pattern_report(report)
 
 

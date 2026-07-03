@@ -99,6 +99,50 @@ async def test_case_study_tool_does_not_create_missing_table(tmp_path: Path) -> 
 
 
 # ---------------------------------------------------------------------------
+# AC-5 — patterns tool does not create a missing table (no initialize() write)
+# ---------------------------------------------------------------------------
+
+
+async def test_patterns_tool_does_not_create_missing_table(tmp_path: Path) -> None:
+    from git_it.mcp.server import build_server
+
+    db = _db_path(tmp_path)
+    # Minimal DB with the tables pattern detection reads before analyses
+    # (commit_facts, file_facts), but WITHOUT the commit_analyses table.
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE ingestion_runs (run_id TEXT PRIMARY KEY, repository_id TEXT,"
+            " canonical_url TEXT, status TEXT, started_at TEXT, completed_at TEXT,"
+            " error_code TEXT, error_stage TEXT, retryable INTEGER, safe_message TEXT)"
+        )
+        conn.execute(
+            "CREATE TABLE commit_facts (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " repository_id TEXT NOT NULL, sha TEXT NOT NULL, committed_at TEXT NOT NULL,"
+            " message TEXT NOT NULL, author_name TEXT NOT NULL, committer_name TEXT NOT NULL,"
+            " parent_shas TEXT NOT NULL, author_email TEXT NOT NULL DEFAULT '',"
+            " UNIQUE(repository_id, sha))"
+        )
+        conn.execute(
+            "CREATE TABLE file_facts (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " repository_id TEXT NOT NULL, commit_sha TEXT NOT NULL, file_path TEXT NOT NULL,"
+            " insertions INTEGER NOT NULL, deletions INTEGER NOT NULL,"
+            " UNIQUE(repository_id, commit_sha, file_path))"
+        )
+
+    server = build_server(tmp_path)
+    async with _connect(server._mcp_server) as session:
+        result = await session.call_tool("get_patterns", {"repository_id": "repo-x"})
+        assert result.isError is False
+
+    with sqlite3.connect(db) as conn:
+        tables = {
+            r[0]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    assert "commit_analyses" not in tables
+
+
+# ---------------------------------------------------------------------------
 # AC-5 — static guard: server module imports no write-capable symbols
 # ---------------------------------------------------------------------------
 

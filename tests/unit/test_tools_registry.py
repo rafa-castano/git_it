@@ -211,7 +211,7 @@ def test_registry_delegates_reads_to_backend_aware_builders(tmp_path: Path, monk
         registry, "build_contributor_reader", lambda *, project_root: ContributorReader()
     )
     monkeypatch.setattr(
-        registry, "build_pattern_detection_service", lambda *, project_root: PatternService()
+        registry, "build_pattern_detection_service_reader", lambda *, project_root: PatternService()
     )
 
     assert registry.list_repositories(tmp_path).total == 1

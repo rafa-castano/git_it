@@ -404,6 +404,50 @@ def build_pattern_detection_service(
     )
 
 
+def build_pattern_detection_service_reader(
+    *, project_root: Path, model: str | None = None
+) -> PatternDetectionService:
+    """Backend-aware, read-only pattern detection service.
+
+    Unlike ``build_pattern_detection_service``, this never calls
+    ``initialize()``/``postgres_initialize()`` on the analysis store.
+    Read-only callers (e.g. the MCP server) must not create the
+    ``commit_analyses`` table (or the wider PostgreSQL schema) as a side
+    effect of a read; a missing table means "no analyses yet," not
+    "provision it now."
+    """
+    backend, conninfo = _get_db_backend()
+    synthesis_client = InstructorPatternSynthesisAdapter(model=model) if model is not None else None
+
+    if backend == "postgres":
+        pg_analysis_store = PostgresCommitAnalysisStore(conninfo)
+        pg_file_reader = PostgresFileFactReader(conninfo)
+        pg_commit_reader = PostgresCommitReader(conninfo)
+        return PatternDetectionService(
+            reader=pg_file_reader,
+            analysis_reader=pg_analysis_store,
+            ownership_reader=pg_file_reader,
+            commit_summary_reader=pg_commit_reader,
+            commit_date_reader=pg_commit_reader,
+            file_evidence_reader=pg_file_reader,
+            synthesis_client=synthesis_client,
+        )
+
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    analysis_store = SqliteCommitAnalysisStore(db_path)
+    file_fact_reader = SqliteFileFactReader(db_path)
+    commit_reader = SqliteCommitReader(db_path)
+    return PatternDetectionService(
+        reader=file_fact_reader,
+        analysis_reader=analysis_store,
+        ownership_reader=file_fact_reader,
+        commit_summary_reader=commit_reader,
+        commit_date_reader=commit_reader,
+        file_evidence_reader=file_fact_reader,
+        synthesis_client=synthesis_client,
+    )
+
+
 def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
     backend, conninfo = _get_db_backend()
 
