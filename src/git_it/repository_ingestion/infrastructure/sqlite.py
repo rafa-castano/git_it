@@ -1135,6 +1135,60 @@ class SqliteRepoMetadataStore:
         return RepoMetadata(stars=int(row[0]), languages=languages)
 
 
+class SqliteDefaultBranchStore:
+    """Persists the default branch captured from a repository's local clone (spec 020).
+
+    Deliberately a new, independent table from ``repo_metadata`` (spec 019's
+    stars/languages store): that table's ``stars`` column is NOT NULL because
+    it is only ever written together with a successful, token-gated GitHub
+    stars fetch. Default-branch capture must work with GITHUB_TOKEN unset, so
+    it gets its own table rather than forcing a NOT NULL relaxation onto an
+    already-shipped, unrelated contract. A missing row means "not yet
+    captured" (pre-existing repository, or HEAD could not be resolved at
+    ingestion time) — the frontend simply does not linkify paths for that
+    repository.
+    """
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def initialize(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS default_branch_metadata (
+                    repository_id  TEXT PRIMARY KEY,
+                    default_branch TEXT NOT NULL,
+                    updated_at     TEXT NOT NULL
+                )
+                """
+            )
+            conn.commit()
+
+    def save_default_branch(self, repository_id: str, default_branch: str) -> None:
+        with sqlite3.connect(self._database_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO default_branch_metadata (repository_id, default_branch, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(repository_id) DO UPDATE SET
+                    default_branch = excluded.default_branch,
+                    updated_at     = excluded.updated_at
+                """,
+                (repository_id, default_branch),
+            )
+            conn.commit()
+
+    def get_default_branch(self, repository_id: str) -> str | None:
+        with sqlite3.connect(self._database_path) as conn:
+            row = conn.execute(
+                "SELECT default_branch FROM default_branch_metadata WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchone()
+        return str(row[0]) if row is not None else None
+
+
 class SqliteRepositoryDeleter:
     """Hard-deletes all data for a repository from every table that holds its data.
 
@@ -1163,6 +1217,7 @@ class SqliteRepositoryDeleter:
                 "case_studies",
                 "repository_synopsis",
                 "repo_metadata",
+                "default_branch_metadata",
                 "ingestion_runs",
             ):
                 if table in existing_tables:

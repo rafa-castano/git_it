@@ -25,6 +25,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCommitAnalysisStore,
     PostgresCommitStore,
     PostgresCommitWithAnalysisReader,
+    PostgresDefaultBranchStore,
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
@@ -376,3 +377,26 @@ def test_postgres_repo_metadata_store_upsert_overwrites(conninfo: str) -> None:
     assert store.get_repo_metadata("pg-repo-15") == RepoMetadata(
         stars=99, languages=(LanguageBreakdown(language="Go", bytes=50),)
     )
+
+
+# ---------------------------------------------------------------------------
+# Spec 020 — default branch store
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_default_branch_store_returns_none_when_absent(conninfo: str) -> None:
+    store = PostgresDefaultBranchStore(conninfo)
+    assert store.get_default_branch("pg-repo-16") is None
+
+
+def test_postgres_default_branch_store_roundtrips(conninfo: str) -> None:
+    store = PostgresDefaultBranchStore(conninfo)
+    store.save_default_branch("pg-repo-17", "main")
+    assert store.get_default_branch("pg-repo-17") == "main"
+
+
+def test_postgres_default_branch_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresDefaultBranchStore(conninfo)
+    store.save_default_branch("pg-repo-18", "main")
+    store.save_default_branch("pg-repo-18", "develop")
+    assert store.get_default_branch("pg-repo-18") == "develop"

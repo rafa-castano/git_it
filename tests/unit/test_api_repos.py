@@ -395,6 +395,37 @@ def test_list_repos_includes_stars_and_languages_when_stored(tmp_path: Path) -> 
 
 
 # ---------------------------------------------------------------------------
+# GET /api/repos — default_branch (spec 020)
+# ---------------------------------------------------------------------------
+
+
+def test_list_repos_no_default_branch_returns_none(client_with_repo: TestClient) -> None:
+    response = client_with_repo.get("/api/repos")
+    repo = response.json()["repos"][0]
+    assert repo["default_branch"] is None
+
+
+def test_list_repos_includes_default_branch_when_stored(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteDefaultBranchStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    branch_store = SqliteDefaultBranchStore(db)
+    branch_store.initialize()
+    branch_store.save_default_branch("repo-abc", "main")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos")
+
+    assert response.status_code == 200
+    repo = response.json()["repos"][0]
+    assert repo["default_branch"] == "main"
+
+
+# ---------------------------------------------------------------------------
 # _fetch_and_store_repo_metadata — ingestion-time fetch helper (spec 019)
 # ---------------------------------------------------------------------------
 

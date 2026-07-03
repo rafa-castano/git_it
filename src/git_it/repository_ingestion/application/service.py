@@ -6,6 +6,8 @@ from uuid import uuid4
 from git_it.repository_ingestion.application.ports import (
     CommitExtractor,
     CommitFactWriter,
+    DefaultBranchReader,
+    DefaultBranchWriter,
     FileFactWriter,
     GitGateway,
     GitGatewayError,
@@ -46,6 +48,8 @@ class RepositoryIngestionService:
         run_writer: IngestionRunWriter | None = None,
         run_id_factory: Callable[[], str] | None = None,
         clock: Callable[[], str] | None = None,
+        default_branch_reader: DefaultBranchReader | None = None,
+        default_branch_writer: DefaultBranchWriter | None = None,
     ) -> None:
         self._git_gateway = git_gateway
         self._commit_extractor = commit_extractor
@@ -55,6 +59,8 @@ class RepositoryIngestionService:
         self._run_writer = run_writer
         self._run_id_factory = run_id_factory or (lambda: f"run-{uuid4().hex}")
         self._clock = clock or (lambda: datetime.now(UTC).isoformat())
+        self._default_branch_reader = default_branch_reader
+        self._default_branch_writer = default_branch_writer
 
     def ingest(self, raw_url: str) -> IngestionResult:
         run_id = self._next_run_id()
@@ -99,6 +105,13 @@ class RepositoryIngestionService:
                 completed_at=self._clock(),
             )
             return result
+
+        if self._default_branch_reader is not None:
+            default_branch = self._default_branch_reader.read_default_branch()
+            if default_branch is not None and self._default_branch_writer is not None:
+                self._default_branch_writer.save_default_branch(
+                    self._repository_id or "", default_branch
+                )
 
         commits_inserted: int | None = None
         commits_reused: int | None = None

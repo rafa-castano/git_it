@@ -308,6 +308,26 @@ def test_delete_repo_is_rate_limited_at_10_per_minute() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_delete_repo_removes_default_branch_row(tmp_path: Path) -> None:
+    """DELETE removes the repository's default_branch_metadata row too (spec 020)."""
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteDefaultBranchStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db)
+    branch_store = SqliteDefaultBranchStore(db)
+    branch_store.initialize()
+    branch_store.save_default_branch("repo-abc", "main")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    response = client.delete("/api/repos/repo-abc")
+    assert response.status_code == 200
+    assert branch_store.get_default_branch("repo-abc") is None
+
+
 def test_delete_repo_with_minimal_db_succeeds(tmp_path: Path) -> None:
     """DELETE succeeds when only ingestion_runs exists (no optional tables).
 

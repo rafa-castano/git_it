@@ -46,6 +46,7 @@ from git_it.repository_ingestion.composition import (
     build_commit_count_reader,
     build_commit_with_analysis_reader,
     build_contributor_reader,
+    build_default_branch_store,
     build_ingestion_run_store,
     build_narrative_service,
     build_repo_metadata_store,
@@ -189,6 +190,7 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
 
     reader = build_repository_list_reader(project_root=project_root)
     metadata_store = build_repo_metadata_store(project_root=project_root)
+    branch_store = build_default_branch_store(project_root=project_root)
     records = reader.list_repositories()
     repos = []
     for r in records:
@@ -203,6 +205,7 @@ def list_repos(project_root: ProjectRoot) -> RepoListResponse:
                 has_case_study=r.has_case_study,
                 stars=metadata.stars if metadata is not None else None,
                 languages=map_languages(metadata.languages) if metadata is not None else [],
+                default_branch=branch_store.get_default_branch(r.repository_id),
             )
         )
     return RepoListResponse(repos=repos, total=len(repos))

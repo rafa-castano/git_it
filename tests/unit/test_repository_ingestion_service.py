@@ -355,6 +355,88 @@ def test_ingestion_service_does_not_report_file_counts_without_file_fact_writer(
     assert result.files_reused is None
 
 
+# ---------------------------------------------------------------------------
+# Default branch capture (spec 020)
+# ---------------------------------------------------------------------------
+
+
+class FakeDefaultBranchReader:
+    def __init__(self, *, branch: str | None) -> None:
+        self.branch = branch
+        self.call_count = 0
+
+    def read_default_branch(self) -> str | None:
+        self.call_count += 1
+        return self.branch
+
+
+class RecordingDefaultBranchWriter:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def save_default_branch(self, repository_id: str, default_branch: str) -> None:
+        self.calls.append((repository_id, default_branch))
+
+
+def test_ingestion_service_persists_default_branch_after_successful_clone() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeDefaultBranchReader(branch="main")
+    writer = RecordingDefaultBranchWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        default_branch_reader=reader,
+        default_branch_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.call_count == 1
+    assert writer.calls == [("repo-1", "main")]
+
+
+def test_ingestion_service_does_not_persist_default_branch_when_reader_returns_none() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeDefaultBranchReader(branch=None)
+    writer = RecordingDefaultBranchWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        default_branch_reader=reader,
+        default_branch_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert writer.calls == []
+
+
+def test_ingestion_service_skips_default_branch_reader_without_wiring() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway, repository_id="repo-1")
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.status == "COMPLETED"
+
+
+def test_ingestion_service_does_not_read_default_branch_on_gateway_failure() -> None:
+    git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
+    reader = FakeDefaultBranchReader(branch="main")
+    writer = RecordingDefaultBranchWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        default_branch_reader=reader,
+        default_branch_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.call_count == 0
+    assert writer.calls == []
+
+
 def test_ingestion_service_persists_git_gateway_failure() -> None:
     git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
     run_writer = RecordingIngestionRunWriter()

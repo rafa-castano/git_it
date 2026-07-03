@@ -982,6 +982,40 @@ class PostgresRepoMetadataStore:
         return RepoMetadata(stars=int(row[0]), languages=languages)
 
 
+class PostgresDefaultBranchStore:
+    """Persists the default branch captured from a repository's local clone (PostgreSQL, spec 020).
+
+    Deliberately a new, independent table from ``repo_metadata`` — see
+    ``SqliteDefaultBranchStore`` for the rationale (token-independent capture
+    vs. spec 019's NOT NULL, token-gated stars column).
+    """
+
+    def __init__(self, conninfo: str) -> None:
+        self._conninfo = conninfo
+
+    def save_default_branch(self, repository_id: str, default_branch: str) -> None:
+        with psycopg.connect(self._conninfo) as conn:
+            conn.execute(
+                """
+                INSERT INTO default_branch_metadata (repository_id, default_branch, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (repository_id) DO UPDATE SET
+                    default_branch = EXCLUDED.default_branch,
+                    updated_at     = EXCLUDED.updated_at
+                """,
+                (repository_id, default_branch),
+            )
+            conn.commit()
+
+    def get_default_branch(self, repository_id: str) -> str | None:
+        with psycopg.connect(self._conninfo) as conn:
+            row = conn.execute(
+                "SELECT default_branch FROM default_branch_metadata WHERE repository_id = %s",
+                (repository_id,),
+            ).fetchone()
+        return str(row[0]) if row is not None else None
+
+
 class PostgresRepositoryDeleter:
     """Hard-deletes all data for a repository from every table that holds its data.
 
@@ -1010,6 +1044,7 @@ class PostgresRepositoryDeleter:
                 "case_studies",
                 "repository_synopsis",
                 "repo_metadata",
+                "default_branch_metadata",
                 "ingestion_runs",
             ):
                 if table in existing_tables:

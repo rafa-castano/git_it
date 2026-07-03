@@ -27,6 +27,8 @@ __all__ = [
     "ContributorReader",
     "ContributorRecord",
     "DEFAULT_AUDIENCE",
+    "DefaultBranchReader",
+    "DefaultBranchWriter",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -107,6 +109,21 @@ class CommitExtractor(Protocol):
 
 class GitGateway(Protocol):
     def clone_or_fetch(self, canonical_url: str) -> None: ...
+
+
+class DefaultBranchReader(Protocol):
+    """Reads a repository's default branch from its local clone (spec 020).
+
+    Token-independent — implementations must never make a GitHub API call.
+    Every failure mode (detached HEAD, unresolvable/unsafe ref, missing
+    clone) degrades to ``None`` rather than raising.
+    """
+
+    def read_default_branch(self) -> str | None: ...
+
+
+class DefaultBranchWriter(Protocol):
+    def save_default_branch(self, repository_id: str, default_branch: str) -> None: ...
 
 
 @dataclass(frozen=True)

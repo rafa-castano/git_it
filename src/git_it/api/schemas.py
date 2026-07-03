@@ -25,6 +25,7 @@ class RepoSummary(BaseModel):
     has_case_study: bool
     stars: int | None = None
     languages: list[LanguageItem] = []
+    default_branch: str | None = None
 
 
 class RepoListResponse(BaseModel):

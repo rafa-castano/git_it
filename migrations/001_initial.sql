@@ -82,3 +82,9 @@ CREATE TABLE IF NOT EXISTS repo_metadata (
     languages     TEXT NOT NULL DEFAULT '[]',
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS default_branch_metadata (
+    repository_id  TEXT PRIMARY KEY,
+    default_branch TEXT NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

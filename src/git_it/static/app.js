@@ -1776,6 +1776,80 @@ function _linkifyCommitShas(html, canonicalUrl) {
   });
 }
 
+// Spec 020: file/folder path linking — safe charset shared by branch names and
+// path segments alike. Only alnum, '.', '_', '/', '-' are ever considered
+// safe; anything else (whitespace, quotes, control chars, URL schemes) is
+// rejected rather than escaped, since these strings are untrusted (LLM
+// narrative text / repository content per CODEX.md).
+const _PATH_SAFE_CHARSET = /^[A-Za-z0-9._/-]+$/;
+const _LINKABLE_EXTENSIONS = [
+  '.py', '.ts', '.tsx', '.js', '.md', '.json', '.toml', '.yml', '.yaml',
+  '.css', '.html', '.sql', '.txt', '.cfg', '.ini', '.sh'
+];
+
+function _isSafePathLikeString(text) {
+  if (!text) return false;
+  if (/\s/.test(text)) return false;
+  if (!_PATH_SAFE_CHARSET.test(text)) return false;
+  if (text.includes('..')) return false;
+  if (text.startsWith('/')) return false;
+  if (text.includes('://')) return false;
+  return true;
+}
+
+/** Predicate: is this backtick code-span text plausibly a repo file/folder path?
+ * Conservative on purpose (spec 020 locked decision): only backtick-wrapped
+ * spans are ever considered — no free-text path detection. */
+function isLinkablePath(text) {
+  if (!_isSafePathLikeString(text)) return false;
+  const hasSlash = text.includes('/');
+  const lower = text.toLowerCase();
+  const hasKnownExtension = _LINKABLE_EXTENSIONS.some(ext => lower.endsWith(ext));
+  return hasSlash || hasKnownExtension;
+}
+
+function _isFolderPath(text) {
+  if (text.endsWith('/')) return true;
+  const lower = text.toLowerCase();
+  return !_LINKABLE_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+/** Builds a GitHub blob/tree URL for a validated path-like string. Caller
+ * must have already checked isLinkablePath(path) and that branch is safe. */
+function _pathToGithubUrl(path, canonicalUrl, branch) {
+  const kind = _isFolderPath(path) ? 'tree' : 'blob';
+  const encodedPath = path
+    .split('/')
+    .filter(segment => segment.length > 0)
+    .map(encodeURIComponent)
+    .join('/');
+  return `${canonicalUrl}/${kind}/${encodeURIComponent(branch)}/${encodedPath}`;
+}
+
+/** Spec 020: rewrite backtick-wrapped, path-plausible inline <code> spans into
+ * links to the file/folder on GitHub. Must run AFTER _linkifyCommitShas on the
+ * same HTML (see spec 020 Security considerations) — running it first would
+ * let the SHA-linkifier's bare-hex regex match visible text nested inside an
+ * already-built <a href="...blob...">, producing a broken nested anchor.
+ * Running SHA-linking first means any code span the SHA pass already turned
+ * into a link contains a nested <a> tag, so this pass's `[^<]*` content-purity
+ * match naturally skips it — no double-processing, no corruption.
+ *
+ * Only bare `<code>` spans are matched (marked.js renders fenced blocks as
+ * `<pre><code ...>`), and the `(?<!<pre>)` guard excludes the one case where a
+ * fenced block with no language hint would otherwise look identical
+ * (`<pre><code>...</code></pre>`). */
+function _linkifyPaths(html, canonicalUrl, defaultBranch) {
+  if (!canonicalUrl || !canonicalUrl.includes('github.com')) return html;
+  if (!defaultBranch || !_isSafePathLikeString(defaultBranch)) return html;
+  return html.replace(/(?<!<pre>)<code>([^<]*)<\/code>/g, (match, text) => {
+    if (!isLinkablePath(text)) return match;
+    const url = _pathToGithubUrl(text, canonicalUrl, defaultBranch);
+    const kindLabel = _isFolderPath(text) ? 'folder' : 'file';
+    return `<a href="${url}" target="_blank" rel="noopener" title="View ${kindLabel} on GitHub" style="font-family:monospace">${esc(text)}</a>`;
+  });
+}
+
 async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
@@ -1843,7 +1917,14 @@ async function loadCaseStudy(repoId) {
   }
 
   // Fix 6: Linkify commit SHAs in the rendered panels
-  const linkedTabPanels = _linkifyCommitShas(tabPanels, canonicalUrl);
+  // Spec 020: linkify file/folder paths in <code> spans — must run AFTER SHA
+  // linking (see _linkifyPaths' doc comment for why the order matters).
+  const defaultBranch = currentRepoMeta ? currentRepoMeta.default_branch : null;
+  const linkedTabPanels = _linkifyPaths(
+    _linkifyCommitShas(tabPanels, canonicalUrl),
+    canonicalUrl,
+    defaultBranch
+  );
 
   el.innerHTML = `
     <div class="case-study-header">
