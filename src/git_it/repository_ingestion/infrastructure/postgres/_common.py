@@ -13,10 +13,20 @@ import psycopg
 from git_it.repository_ingestion.application.ports import IngestionRunRecord
 
 
+def _migrations_path() -> Path:
+    """Resolve the path to migrations/001_initial.sql at the repository root.
+
+    From this file (``.../src/git_it/repository_ingestion/infrastructure/postgres/_common.py``),
+    ``parents[5]`` is the repository root that contains the ``migrations`` directory.
+    Kept as a seam so the resolution can be regression-tested without a live
+    PostgreSQL connection (see test_postgres_migrations_path.py).
+    """
+    return Path(__file__).parents[5] / "migrations" / "001_initial.sql"
+
+
 def initialize(conninfo: str) -> None:
     """Run migrations/001_initial.sql against the given PostgreSQL connection string."""
-    migrations_path = Path(__file__).parents[6] / "migrations" / "001_initial.sql"
-    sql = migrations_path.read_text(encoding="utf-8")
+    sql = _migrations_path().read_text(encoding="utf-8")
     with psycopg.connect(conninfo) as conn:
         conn.execute(sql)
         conn.commit()
