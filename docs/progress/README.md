@@ -106,6 +106,7 @@ One file per batch, organized by feature area.
 ## Documentation
 - [Batch 62 — MkDocs Material documentation site with CI build check](docs/batch-62-documentation-engine.md)
 - [Batch 83 — Known Limitations, Roadmap, and stale doc-index correction](docs/batch-83-known-limitations-roadmap.md)
+- [Batch 102 — Formalize spec 006 (MCP strategy) into a governance spec](docs/batch-102-spec-006-mcp-formalization.md)
 
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
