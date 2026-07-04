@@ -47,6 +47,8 @@ from git_it.repository_ingestion.composition import (
     build_commit_with_analysis_reader,
     build_contributor_reader,
     build_default_branch_store,
+    build_discussion_evidence_store,
+    build_discussion_summarizer,
     build_ingestion_run_store,
     build_narrative_service,
     build_repo_metadata_store,
@@ -59,7 +61,10 @@ from git_it.repository_ingestion.domain.url_contract import (
     RepositoryUrlValidationError,
     parse_repository_url,
 )
-from git_it.repository_ingestion.infrastructure.github import GithubRepoMetadataFetcher
+from git_it.repository_ingestion.infrastructure.github import (
+    GithubDiscussionsFetcher,
+    GithubRepoMetadataFetcher,
+)
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 
 router = APIRouter(prefix="/api/repos", tags=["repos"])
@@ -148,6 +153,35 @@ def _fetch_and_store_repo_metadata(
         )
 
 
+def _fetch_and_store_discussion_evidence(
+    *, repository_id: str, canonical_url: str, project_root: Path
+) -> None:
+    """Best-effort GitHub Discussions fetch + LLM summarize + store, run once after a
+    successful ingest. Never raises: any failure degrades to 'no discussion evidence'
+    (spec 022). Raw discussion text is used only as summarizer LLM input — only the
+    validated DiscussionEvidence is persisted."""
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return
+    try:
+        fetcher = GithubDiscussionsFetcher(token=token)
+        discussions = fetcher.fetch_qualifying_discussions(canonical_url)
+        if not discussions:
+            return
+        summarizer = build_discussion_summarizer(model=DEFAULT_MODEL)
+        evidence = summarizer.summarize(discussions)
+        if not evidence:
+            return
+        store = build_discussion_evidence_store(project_root=project_root)
+        store.save_discussion_evidence(repository_id, evidence)
+    except Exception as e:
+        _logger.warning(
+            "discussion evidence fetch failed: %s",
+            type(e).__name__,
+            extra={"repository_id": repository_id},
+        )
+
+
 def _ingest_bg(url: str, project_root: Path) -> None:
     _logger.info("ingestion started", extra={"url": url})
     try:
@@ -161,6 +195,11 @@ def _ingest_bg(url: str, project_root: Path) -> None:
         _logger.info("ingestion completed", extra={"repository_id": repository_id})
         if result.status == "COMPLETED":
             _fetch_and_store_repo_metadata(
+                repository_id=repository_id,
+                canonical_url=parsed.canonical_url,
+                project_root=project_root,
+            )
+            _fetch_and_store_discussion_evidence(
                 repository_id=repository_id,
                 canonical_url=parsed.canonical_url,
                 project_root=project_root,

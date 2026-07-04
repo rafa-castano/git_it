@@ -96,6 +96,7 @@ One file per batch, organized by feature area.
 - [Batch 99 — Read endpoints must 404 for unknown repositories (spec 008 AC alignment)](api/batch-99-read-endpoint-404-unknown-repo.md)
 - [Batch 100 — Fix `_analyze_progress` test-isolation flake between analyze and delete tests](api/batch-100-analyze-delete-test-isolation.md)
 - [Batch 101 — Background-job fail-loud: surface analyze/regen failures via status endpoints (spec 021)](api/batch-101-background-job-fail-loud.md)
+- [Batch 111 — Fetch and summarize discussions at ingest time (spec 022, slice 5)](api/batch-111-discussion-ingest-wiring.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

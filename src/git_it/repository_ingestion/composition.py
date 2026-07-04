@@ -6,6 +6,7 @@ from git_it.repository_ingestion.application.commit_analysis_service import Comm
 from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
+from git_it.repository_ingestion.application.discussion_summarizer import DiscussionSummarizer
 from git_it.repository_ingestion.application.narrative_service import NarrativeService
 from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
@@ -497,6 +498,10 @@ def build_pattern_detection_service_reader(
     )
 
 
+def build_discussion_summarizer(*, model: str) -> DiscussionSummarizer:
+    return DiscussionSummarizer(LiteLLMLLMClient(model=model), model=model)
+
+
 def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
     backend, conninfo = _get_db_backend()
 
@@ -511,6 +516,7 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
             llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
             case_study_store=pg_case_study_store,
             synopsis_store=pg_synopsis_store,
+            discussion_reader=build_discussion_evidence_store(project_root=project_root),
         )
 
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -526,4 +532,5 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
         llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
         case_study_store=case_study_store,
         synopsis_store=synopsis_store,
+        discussion_reader=build_discussion_evidence_store(project_root=project_root),
     )

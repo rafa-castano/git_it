@@ -8,6 +8,7 @@ import json
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -482,6 +483,187 @@ def test_fetch_and_store_repo_metadata_noop_when_fetch_returns_none(
         )
     store = build_repo_metadata_store(project_root=tmp_path)
     assert store.get_repo_metadata("repo-abc") is None
+
+
+# ---------------------------------------------------------------------------
+# _fetch_and_store_discussion_evidence — ingestion-time fetch helper (spec 022)
+# ---------------------------------------------------------------------------
+
+
+def _make_discussion(discussion_id: str = "D_1") -> Any:
+    from git_it.repository_ingestion.domain.discussions import Discussion
+
+    return Discussion(
+        id=discussion_id,
+        url=f"https://github.com/owner/repo/discussions/{discussion_id[-1]}",
+        title="Why do we use X?",
+        body="Some design question.",
+        answer_body="Because of Y.",
+        category="Q&A",
+        is_answered=True,
+        upvote_count=5,
+        reaction_count=3,
+        comment_count=2,
+        updated_at="2024-01-01T00:00:00Z",
+    )
+
+
+def _make_discussion_evidence(discussion_id: str = "D_1") -> Any:
+    from datetime import UTC, datetime
+
+    from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
+
+    return DiscussionEvidence(
+        discussion_id=discussion_id,
+        discussion_url=f"https://github.com/owner/repo/discussions/{discussion_id[-1]}",
+        claim_type="design_rationale",
+        summary="The team chose X because of Y.",
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[discussion_id],
+        generated_at=datetime.now(UTC),
+        model="test-model",
+    )
+
+
+def test_fetch_and_store_discussion_evidence_skips_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls:
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_fetcher_cls.assert_not_called()
+
+
+def test_fetch_and_store_discussion_evidence_stores_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+    from git_it.repository_ingestion.composition import build_discussion_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    discussion = _make_discussion()
+    evidence = _make_discussion_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_discussion_summarizer",
+            return_value=stub_summarizer,
+        ) as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = [discussion]
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_called_once()
+    stub_summarizer.summarize.assert_called_once_with([discussion])
+    store = build_discussion_evidence_store(project_root=tmp_path)
+    assert store.get_discussion_evidence("repo-abc") == [evidence]
+
+
+def test_fetch_and_store_discussion_evidence_noop_when_no_discussions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+    from git_it.repository_ingestion.composition import build_discussion_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch("git_it.api.routes.repos.build_discussion_summarizer") as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = []
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_not_called()
+    store = build_discussion_evidence_store(project_root=tmp_path)
+    assert store.get_discussion_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_discussion_evidence_noop_when_summarizer_returns_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+    from git_it.repository_ingestion.composition import build_discussion_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    discussion = _make_discussion()
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = []
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_discussion_summarizer",
+            return_value=stub_summarizer,
+        ),
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = [discussion]
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    store = build_discussion_evidence_store(project_root=tmp_path)
+    assert store.get_discussion_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_discussion_evidence_swallows_exceptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls:
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.side_effect = RuntimeError(
+            "boom"
+        )
+        # Must not raise: any failure degrades to "no discussion evidence" (spec 022).
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Composition wiring — build_discussion_summarizer / build_narrative_service (spec 022)
+# ---------------------------------------------------------------------------
+
+
+def test_build_discussion_summarizer_returns_discussion_summarizer() -> None:
+    from git_it.repository_ingestion.application.discussion_summarizer import (
+        DiscussionSummarizer,
+    )
+    from git_it.repository_ingestion.composition import build_discussion_summarizer
+
+    summarizer = build_discussion_summarizer(model="test-model")
+    assert isinstance(summarizer, DiscussionSummarizer)
+
+
+def test_build_narrative_service_wires_discussion_reader(tmp_path: Path) -> None:
+    from git_it.repository_ingestion.composition import build_narrative_service
+
+    svc = build_narrative_service(project_root=tmp_path, model="test-model")
+    assert svc._discussion_reader is not None
 
 
 # ---------------------------------------------------------------------------
