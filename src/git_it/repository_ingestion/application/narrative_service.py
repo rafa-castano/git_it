@@ -7,12 +7,14 @@ from git_it.repository_ingestion.application.ports import (
     DEFAULT_AUDIENCE,
     CaseStudyRecord,
     CaseStudyStore,
+    DiscussionEvidenceReader,
     LLMClient,
     LLMMessage,
     SynopsisStore,
     TemporalAnalysisReader,
     TimestampedAnalysis,
 )
+from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.patterns import PatternReport
 
 _logger = logging.getLogger(__name__)
@@ -80,7 +82,9 @@ Write a structured case study in Markdown using these sections:
 {opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent.
+commit. Do not overstate intent. Any claim derived from the Discussion Evidence block must \
+repeat the exact `source:` URL given for that item, and you must not state a discussion-derived \
+claim for which no source URL was provided.
 
 {synopsis_instruction}"""
 
@@ -104,7 +108,9 @@ commits. Output the full updated case study in Markdown using these sections:
 {opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent.
+commit. Do not overstate intent. Any claim derived from the Discussion Evidence block must \
+repeat the exact `source:` URL given for that item, and you must not state a discussion-derived \
+claim for which no source URL was provided.
 
 {synopsis_instruction}"""
 
@@ -121,6 +127,22 @@ def _extract_synopsis(raw_output: str) -> tuple[str, str | None]:
         return raw_output, None
     narrative = raw_output[:idx].rstrip()
     return narrative, synopsis
+
+
+def _append_discussion_evidence_block(
+    lines: list[str], discussion_evidence: list[DiscussionEvidence]
+) -> None:
+    """Append a ``## Discussion Evidence`` block, or nothing when there is no evidence.
+
+    Only ``DiscussionEvidence`` fields are used — never raw ``Discussion`` text — so this
+    can never leak untrusted discussion body/title content into the prompt (spec 022).
+    """
+    if not discussion_evidence:
+        return
+    lines.append("")
+    lines.append("## Discussion Evidence")
+    for item in discussion_evidence:
+        lines.append(f"- [{item.claim_type}] {item.summary}  (source: {item.discussion_url})")
 
 
 def _build_system_prompt(audience: str) -> str:
@@ -239,12 +261,14 @@ class NarrativeService:
         llm_client: LLMClient,
         case_study_store: CaseStudyStore | None = None,
         synopsis_store: SynopsisStore | None = None,
+        discussion_reader: DiscussionEvidenceReader | None = None,
     ) -> None:
         self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
         self._llm_client = llm_client
         self._case_study_store = case_study_store
         self._synopsis_store = synopsis_store
+        self._discussion_reader = discussion_reader
 
     def generate(
         self,
@@ -312,7 +336,12 @@ class NarrativeService:
                 narrative="",
             )
         report = self._pattern_service.detect(repository_id)
-        user_content = self._build_user_message(items, report)
+        discussion_evidence = (
+            self._discussion_reader.get_discussion_evidence(repository_id)
+            if self._discussion_reader is not None
+            else []
+        )
+        user_content = self._build_user_message(items, report, discussion_evidence)
         messages = [
             LLMMessage(role="system", content=_build_system_prompt(audience)),
             LLMMessage(role="user", content=user_content),
@@ -352,11 +381,17 @@ class NarrativeService:
         report = self._pattern_service.detect(repository_id)
         prior_context = existing_synopsis if existing_synopsis else existing.narrative
         use_synopsis = existing_synopsis is not None
+        discussion_evidence = (
+            self._discussion_reader.get_discussion_evidence(repository_id)
+            if self._discussion_reader is not None
+            else []
+        )
         user_content = self._build_incremental_user_message(
             new_items=new_items,
             prior_context=prior_context,
             use_synopsis=use_synopsis,
             report=report,
+            discussion_evidence=discussion_evidence,
         )
         messages = [
             LLMMessage(role="system", content=_build_incremental_system_prompt(audience)),
@@ -410,6 +445,7 @@ class NarrativeService:
     def _build_user_message(
         items: list[TimestampedAnalysis],
         report: PatternReport,
+        discussion_evidence: list[DiscussionEvidence],
     ) -> str:
         lines = [
             f"Generate a case study for a repository with {len(items)} analyzed commits.\n",
@@ -471,6 +507,7 @@ class NarrativeService:
                 lines.append(
                     f"- {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})"
                 )
+        _append_discussion_evidence_block(lines, discussion_evidence)
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)
@@ -480,6 +517,7 @@ class NarrativeService:
         new_items: list[TimestampedAnalysis],
         prior_context: str,
         report: PatternReport,
+        discussion_evidence: list[DiscussionEvidence],
         use_synopsis: bool = False,
     ) -> str:
         context_label = "## Prior Summary" if use_synopsis else "## Existing Case Study"
@@ -508,6 +546,7 @@ class NarrativeService:
                     f"- {h.file_path}  (changed in {h.commit_count} commits,"
                     f" churn: +{h.total_insertions}/-{h.total_deletions})"
                 )
+        _append_discussion_evidence_block(lines, discussion_evidence)
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)

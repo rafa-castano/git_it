@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 
 import pytest
 
@@ -8,12 +9,17 @@ from git_it.repository_ingestion.application.narrative_service import (
     OpeningQualityResult,
     check_opening_quality,
 )
-from git_it.repository_ingestion.application.ports import LLMMessage, TimestampedAnalysis
+from git_it.repository_ingestion.application.ports import (
+    CaseStudyRecord,
+    LLMMessage,
+    TimestampedAnalysis,
+)
 from git_it.repository_ingestion.domain.analysis import (
     CommitAnalysis,
     CommitCategory,
     RiskLevel,
 )
+from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.patterns import (
     BugfixRecurrence,
     CategoryCount,
@@ -56,6 +62,25 @@ def _make_item(
     return TimestampedAnalysis(analysis=_make_analysis(sha, summary), committed_at=date)
 
 
+def _make_discussion_evidence(
+    discussion_id: str = "d1",
+    discussion_url: str = "https://github.com/owner/repo/discussions/1",
+    claim_type: str = "design_rationale",
+    summary: str = "The team chose SQLite for local dev simplicity.",
+) -> DiscussionEvidence:
+    return DiscussionEvidence(
+        discussion_id=discussion_id,
+        discussion_url=discussion_url,
+        claim_type=claim_type,
+        summary=summary,
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[discussion_id],
+        generated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        model="test-model",
+    )
+
+
 class FakeTemporalReader:
     def __init__(self, items: list[TimestampedAnalysis] | None = None) -> None:
         self._items = items or []
@@ -92,6 +117,14 @@ class FakeLLMClient:
     def complete(self, messages: list[LLMMessage]) -> str:
         self.calls.append(list(messages))
         return self._response
+
+
+class FakeDiscussionReader:
+    def __init__(self, evidence: list[DiscussionEvidence] | None = None) -> None:
+        self._evidence = evidence or []
+
+    def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]:
+        return list(self._evidence)
 
 
 def _make_service(
@@ -403,3 +436,166 @@ def test_system_prompt_instructs_against_generic_opening() -> None:
     lowered = system_text.lower()
     assert "repository-specific" in lowered or "repo-specific" in lowered
     assert "this case study traces" in lowered
+
+
+# ---------------------------------------------------------------------------
+# Discussion evidence integration (Batch 110 / spec 022)
+# ---------------------------------------------------------------------------
+
+
+def test_build_user_message_includes_discussion_evidence_block() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_discussion_evidence(
+            discussion_id="d1",
+            discussion_url="https://github.com/owner/repo/discussions/1",
+            claim_type="design_rationale",
+            summary="Chose SQLite for simplicity",
+        ),
+        _make_discussion_evidence(
+            discussion_id="d2",
+            discussion_url="https://github.com/owner/repo/discussions/2",
+            claim_type="pain_point",
+            summary="Users reported flaky CI on Windows",
+        ),
+    ]
+    message = NarrativeService._build_user_message(items, report, evidence)
+    assert "## Discussion Evidence" in message
+    assert "[design_rationale] Chose SQLite for simplicity" in message
+    assert "(source: https://github.com/owner/repo/discussions/1)" in message
+    assert "[pain_point] Users reported flaky CI on Windows" in message
+    assert "(source: https://github.com/owner/repo/discussions/2)" in message
+
+
+def test_build_user_message_omits_discussion_evidence_block_when_empty() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_user_message(items, report, [])
+    assert "## Discussion Evidence" not in message
+
+
+def test_build_incremental_user_message_includes_discussion_evidence_block() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_discussion_evidence(
+            discussion_id="d1",
+            discussion_url="https://github.com/owner/repo/discussions/1",
+            claim_type="design_rationale",
+            summary="Chose SQLite for simplicity",
+        )
+    ]
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=evidence,
+    )
+    assert "## Discussion Evidence" in message
+    assert "[design_rationale] Chose SQLite for simplicity" in message
+    assert "(source: https://github.com/owner/repo/discussions/1)" in message
+
+
+def test_build_incremental_user_message_omits_discussion_evidence_block_when_empty() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+    )
+    assert "## Discussion Evidence" not in message
+
+
+def test_generate_with_discussion_reader_includes_evidence_in_user_message() -> None:
+    evidence = [
+        _make_discussion_evidence(
+            discussion_id="d1",
+            discussion_url="https://github.com/owner/repo/discussions/1",
+            claim_type="design_rationale",
+            summary="Chose SQLite for simplicity",
+        )
+    ]
+    client = FakeLLMClient()
+    service = NarrativeService(
+        temporal_reader=FakeTemporalReader([_make_item()]),
+        pattern_service=FakePatternService(),
+        llm_client=client,
+        discussion_reader=FakeDiscussionReader(evidence),
+    )
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Discussion Evidence" in user_msgs[0].content
+    assert "Chose SQLite for simplicity" in user_msgs[0].content
+    assert "(source: https://github.com/owner/repo/discussions/1)" in user_msgs[0].content
+
+
+def test_generate_without_discussion_reader_omits_evidence_block() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Discussion Evidence" not in user_msgs[0].content
+
+
+def test_discussion_evidence_lines_use_only_evidence_fields_no_raw_discussion_text() -> None:
+    """The rendered line shape is exactly '[claim_type] summary  (source: url)' —
+    no raw Discussion title/body ever exists at this layer to leak."""
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_discussion_evidence(
+            discussion_id="d1",
+            discussion_url="https://github.com/owner/repo/discussions/1",
+            claim_type="pain_point",
+            summary="Windows CI is flaky",
+        )
+    ]
+    message = NarrativeService._build_user_message(items, report, evidence)
+    evidence_lines = [
+        line for line in message.splitlines() if line.strip().startswith("- [pain_point]")
+    ]
+    assert evidence_lines == [
+        "- [pain_point] Windows CI is flaky  (source: https://github.com/owner/repo/discussions/1)"
+    ]
+
+
+def test_both_system_prompts_instruct_discussion_source_url_fidelity() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    lowered = system_text.lower()
+    assert "discussion evidence" in lowered
+    assert "source" in lowered
+
+    incremental_client = FakeLLMClient()
+    incremental_service = NarrativeService(
+        temporal_reader=FakeTemporalReader(
+            [
+                _make_item(date="2024-01-01T00:00:00"),
+                _make_item(sha="def5678", date="2024-06-01T00:00:00"),
+            ]
+        ),
+        pattern_service=FakePatternService(),
+        llm_client=incremental_client,
+    )
+    existing = CaseStudyRecord(
+        repository_id="repo-1",
+        narrative="Existing narrative",
+        commit_count=1,
+        hotspot_count=0,
+        generated_at="2024-01-02T00:00:00",
+        audience="beginner",
+    )
+    incremental_service._generate_incremental(
+        "repo-1",
+        new_items=[_make_item(sha="def5678", date="2024-06-01T00:00:00")],
+        existing=existing,
+    )
+    incremental_system_text = next(
+        m.content for m in incremental_client.calls[0] if m.role == "system"
+    )
+    incremental_lowered = incremental_system_text.lower()
+    assert "discussion evidence" in incremental_lowered
+    assert "source" in incremental_lowered

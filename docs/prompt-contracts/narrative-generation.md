@@ -14,7 +14,9 @@ case study to incorporate new commits (incremental generation).
   refactor wave signal, revert signal, test growth signal, ownership concentrations,
 - audience level (`beginner` or `expert`; unknown values fall back to `beginner`),
 - for incremental generation only: prior context (a stored synopsis if available, otherwise the
-  full existing narrative) and only the new commits since the last generation.
+  full existing narrative) and only the new commits since the last generation,
+- optionally, schema-validated discussion evidence (`DiscussionEvidence`, spec 022) for the
+  repository — never the raw discussion text.
 
 ## Output schema
 
@@ -57,6 +59,30 @@ runs on every LLM output (full and incremental paths):
   `logging.getLogger(__name__)` in `narrative_service.py`. The narrative is still returned and
   persisted — this is a visibility signal, not a blocking gate or an auto-retry.
 - The check is best-effort: it catches known patterns, not all possible generic phrasing.
+
+## Discussion evidence block (spec 022, Batch 110)
+
+When `NarrativeService` is configured with a `discussion_reader`
+(`DiscussionEvidenceReader.get_discussion_evidence(repository_id)`), each stored
+`DiscussionEvidence` item is rendered as one line inside `[REPOSITORY DATA]`, immediately
+before the closing tag:
+
+```text
+## Discussion Evidence
+- [{claim_type}] {summary}  (source: {discussion_url})
+```
+
+Only `DiscussionEvidence` fields (`claim_type`, `summary`, `discussion_url`) are used — the
+raw `Discussion` (title/body/answer_body) never reaches this layer, so it cannot leak into
+the prompt. When there is no evidence (no reader configured, or the reader returns an empty
+list), the block is omitted entirely and the `[REPOSITORY DATA]` envelope is byte-identical
+to the pre-Batch-110 output.
+
+**Source-URL fidelity rule**: both `_BASE_PROMPT` and `_BASE_INCREMENTAL_PROMPT` instruct the
+model that any claim derived from the Discussion Evidence block must repeat the exact
+`source:` URL given for that item, and the model must not state a discussion-derived claim
+for which no source URL was provided. This extends the existing commit-citation rule to
+discussion-sourced claims.
 
 ## Rule
 
