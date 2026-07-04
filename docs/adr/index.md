@@ -24,6 +24,7 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 | 012 | Introduce In-Process Agentic Tool-Calling (GitItGPT) | Accepted |
 | 013 | Sanitize All Client-Side Markdown Rendering with DOMPurify | Accepted |
 | 014 | Stream the GitItGPT Final Answer over SSE | Accepted |
+| 015 | Use GraphQL for GitHub Discussions and Summarize Untrusted Text Before Use | Accepted |
 
 ## How to add a new ADR
 
