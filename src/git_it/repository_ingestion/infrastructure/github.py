@@ -6,11 +6,13 @@ The token is read from the caller; it is never logged.
 
 import json
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
 from typing import Protocol
 
+from git_it.repository_ingestion.domain.discussions import Discussion
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 
@@ -21,6 +23,42 @@ _MAX_PR_BODY_CHARS = 1000
 _MAX_ISSUE_BODY_CHARS = 500
 _MAX_ISSUES = 3
 _TIMEOUT = 10
+
+# Spec 022 (GitHub Discussions ingestion) config constants — env-var-backed,
+# following the batch-74 "named constant by canonical layer" convention.
+DISCUSSION_MIN_ENGAGEMENT_SCORE = int(os.environ.get("DISCUSSION_MIN_ENGAGEMENT_SCORE", "5"))
+DISCUSSION_MIN_REPLY_COUNT = int(os.environ.get("DISCUSSION_MIN_REPLY_COUNT", "3"))
+DISCUSSION_MAX_SUMMARIZED = int(os.environ.get("DISCUSSION_MAX_SUMMARIZED", "20"))
+DISCUSSION_PAGE_SIZE = int(os.environ.get("DISCUSSION_PAGE_SIZE", "50"))
+DISCUSSION_MAX_PAGES = int(os.environ.get("DISCUSSION_MAX_PAGES", "10"))
+
+_GRAPHQL_URL = "https://api.github.com/graphql"
+
+_DISCUSSIONS_QUERY = """
+query($owner: String!, $repo: String!, $first: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    discussions(first: $first, after: $cursor, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        number
+        url
+        title
+        body
+        category { name }
+        answerChosenAt
+        answer { body }
+        upvoteCount
+        reactions { totalCount }
+        comments { totalCount }
+        updatedAt
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+"""
 
 
 class GithubContextCache(Protocol):
@@ -239,9 +277,159 @@ class GithubRepoMetadataFetcher:
         return raw
 
 
+class GithubDiscussionsFetcher:
+    """Fetches a bounded, ranked subset of a repository's GitHub Discussions.
+
+    Performs an inline GraphQL POST to https://api.github.com/graphql using the
+    same urllib.request transport, Bearer token header, and timeout conventions
+    as the REST-based fetchers in this module. Best-effort: returns [] on
+    missing token, non-GitHub URL, GraphQL/HTTP/network error, timeout, rate
+    limit, or malformed payload — never raises (spec 022).
+    """
+
+    def __init__(self, token: str | None) -> None:
+        self._token = token
+
+    def fetch_qualifying_discussions(self, canonical_url: str) -> list[Discussion]:
+        if self._token is None:
+            _logger.debug("discussions fetch skipped: no token")
+            return []
+
+        parsed = _parse_owner_repo(canonical_url)
+        if parsed is None:
+            _logger.debug("discussions fetch skipped: not a GitHub URL (%s)", canonical_url)
+            return []
+        owner, repo = parsed
+
+        candidates = self._fetch_all_pages(owner, repo)
+        qualifying = [d for d in candidates if _qualifies(d)]
+        qualifying.sort(key=_ranking_key, reverse=True)
+        return qualifying[:DISCUSSION_MAX_SUMMARIZED]
+
+    def _fetch_all_pages(self, owner: str, repo: str) -> list[Discussion]:
+        discussions: list[Discussion] = []
+        cursor: str | None = None
+        for _ in range(DISCUSSION_MAX_PAGES):
+            page = self._fetch_page(owner, repo, cursor)
+            if page is None:
+                break
+            nodes, has_next_page, end_cursor = page
+            discussions.extend(nodes)
+            if not has_next_page:
+                break
+            cursor = end_cursor
+        return discussions
+
+    def _fetch_page(
+        self, owner: str, repo: str, cursor: str | None
+    ) -> tuple[list[Discussion], bool, str | None] | None:
+        variables = {
+            "owner": owner,
+            "repo": repo,
+            "first": DISCUSSION_PAGE_SIZE,
+            "cursor": cursor,
+        }
+        payload = json.dumps({"query": _DISCUSSIONS_QUERY, "variables": variables}).encode()
+        req = urllib.request.Request(_GRAPHQL_URL, data=payload, method="POST")
+        req.add_header("Authorization", f"Bearer {self._token}")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("User-Agent", "git-it/1.0")
+        try:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # type: ignore[arg-type]
+                raw = json.loads(resp.read())
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:
+            _logger.warning("discussions graphql api error: %s", type(exc).__name__)
+            return None
+
+        try:
+            return _parse_page(raw)
+        except (KeyError, TypeError, ValueError) as exc:
+            _logger.warning("discussions graphql payload malformed: %s", type(exc).__name__)
+            return None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _qualifies(discussion: Discussion) -> bool:
+    if discussion.category == "Q&A" and discussion.is_answered:
+        return True
+    if discussion.upvote_count + discussion.reaction_count >= DISCUSSION_MIN_ENGAGEMENT_SCORE:
+        return True
+    return discussion.comment_count >= DISCUSSION_MIN_REPLY_COUNT
+
+
+def _ranking_key(discussion: Discussion) -> tuple[int, str]:
+    score = discussion.upvote_count + discussion.reaction_count + discussion.comment_count
+    return (score, discussion.updated_at)
+
+
+def _parse_page(raw: object) -> tuple[list[Discussion], bool, str | None]:
+    if not isinstance(raw, dict):
+        raise TypeError("graphql response is not a JSON object")
+    data = raw["data"]
+    if not isinstance(data, dict):
+        raise TypeError("graphql response missing 'data' object")
+    repository = data["repository"]
+    if not isinstance(repository, dict):
+        raise TypeError("graphql response missing 'repository' object")
+    discussions_obj = repository["discussions"]
+    if not isinstance(discussions_obj, dict):
+        raise TypeError("graphql response missing 'discussions' object")
+
+    nodes_raw = discussions_obj["nodes"]
+    if not isinstance(nodes_raw, list):
+        raise TypeError("graphql response 'nodes' is not a list")
+    nodes = [_parse_node(node) for node in nodes_raw]
+
+    page_info = discussions_obj["pageInfo"]
+    if not isinstance(page_info, dict):
+        raise TypeError("graphql response missing 'pageInfo' object")
+    has_next_page = bool(page_info["hasNextPage"])
+    end_cursor = page_info.get("endCursor")
+    end_cursor = str(end_cursor) if end_cursor is not None else None
+    return nodes, has_next_page, end_cursor
+
+
+def _parse_node(node: object) -> Discussion:
+    if not isinstance(node, dict):
+        raise TypeError("discussion node is not a JSON object")
+    category_obj = node.get("category") or {}
+    category = str(category_obj.get("name")) if isinstance(category_obj, dict) else ""
+    answer_obj = node.get("answer")
+    answer_body = (
+        str(answer_obj.get("body"))
+        if isinstance(answer_obj, dict) and answer_obj.get("body") is not None
+        else None
+    )
+    reactions_obj = node.get("reactions") or {}
+    reaction_count = (
+        int(reactions_obj.get("totalCount", 0)) if isinstance(reactions_obj, dict) else 0
+    )
+    comments_obj = node.get("comments") or {}
+    comment_count = int(comments_obj.get("totalCount", 0)) if isinstance(comments_obj, dict) else 0
+
+    return Discussion(
+        id=str(node["number"]),
+        url=str(node["url"]),
+        title=str(node.get("title", "")),
+        body=str(node.get("body", "")),
+        answer_body=answer_body,
+        category=category,
+        is_answered=node.get("answerChosenAt") is not None,
+        upvote_count=int(node.get("upvoteCount", 0)),
+        reaction_count=reaction_count,
+        comment_count=comment_count,
+        updated_at=str(node.get("updatedAt", "")),
+    )
 
 
 def _parse_owner_repo(canonical_url: str) -> tuple[str, str] | None:
