@@ -26,6 +26,7 @@ One file per batch, organized by feature area.
 - [Batch 22 — COMPLETED status + file change extraction and persistence](ingestion/batch-22-completed-status-file-change-extraction.md)
 - [Batch 23 — Commit query service and `git-it commits` CLI command](ingestion/batch-23-commit-query-service-cli.md)
 - [Batch 96 — File/folder path linking in narrative text (spec 020)](ingestion/batch-96-file-folder-path-linking.md)
+- [Batch 107 — GitHub Discussions evidence foundation (spec 022, slice 1)](ingestion/batch-107-discussion-evidence-foundation.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

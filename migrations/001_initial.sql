@@ -88,3 +88,17 @@ CREATE TABLE IF NOT EXISTS default_branch_metadata (
     default_branch TEXT NOT NULL,
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS discussion_evidence (
+    repository_id  TEXT NOT NULL,
+    discussion_id  TEXT NOT NULL,
+    discussion_url TEXT NOT NULL,
+    claim_type     TEXT NOT NULL,
+    summary        TEXT NOT NULL,
+    confidence     DOUBLE PRECISION NOT NULL,
+    limitations    TEXT NOT NULL DEFAULT '[]',
+    source_inputs  TEXT NOT NULL DEFAULT '[]',
+    generated_at   TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    PRIMARY KEY (repository_id, discussion_id)
+);

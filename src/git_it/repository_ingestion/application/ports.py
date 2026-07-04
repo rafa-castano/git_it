@@ -3,6 +3,7 @@ from typing import Protocol
 
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
+from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 
@@ -29,6 +30,8 @@ __all__ = [
     "DEFAULT_AUDIENCE",
     "DefaultBranchReader",
     "DefaultBranchWriter",
+    "DiscussionEvidence",
+    "DiscussionEvidenceReader",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -124,6 +127,17 @@ class DefaultBranchReader(Protocol):
 
 class DefaultBranchWriter(Protocol):
     def save_default_branch(self, repository_id: str, default_branch: str) -> None: ...
+
+
+class DiscussionEvidenceReader(Protocol):
+    """Reads stored, schema-validated discussion evidence for a repository (spec 022).
+
+    Returns the full currently-stored set — there is no incremental "new since last
+    generation" filtering for discussion evidence (see spec 022 Non-goals); the set is
+    already bounded to at most 20 short summaries per repository.
+    """
+
+    def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]: ...
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ passes locally without a database and runs in CI when a Postgres service is pres
 """
 
 import os
+from datetime import UTC, datetime
 
 import pytest
 
@@ -18,6 +19,7 @@ from git_it.repository_ingestion.application.ports import (
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
+from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
@@ -26,6 +28,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCommitStore,
     PostgresCommitWithAnalysisReader,
     PostgresDefaultBranchStore,
+    PostgresDiscussionEvidenceStore,
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
@@ -400,3 +403,60 @@ def test_postgres_default_branch_store_upsert_overwrites(conninfo: str) -> None:
     store.save_default_branch("pg-repo-18", "main")
     store.save_default_branch("pg-repo-18", "develop")
     assert store.get_default_branch("pg-repo-18") == "develop"
+
+
+# ---------------------------------------------------------------------------
+# Spec 022 — discussion evidence store
+# ---------------------------------------------------------------------------
+
+
+def _make_discussion_evidence(
+    discussion_id: str, number: int, **overrides: object
+) -> DiscussionEvidence:
+    kwargs: dict[str, object] = {
+        "discussion_id": discussion_id,
+        "discussion_url": f"https://github.com/owner/repo/discussions/{number}",
+        "claim_type": "design_rationale",
+        "summary": "summary text",
+        "confidence": 0.8,
+        "limitations": [],
+        "source_inputs": [discussion_id],
+        "generated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "model": "test-model",
+    }
+    kwargs.update(overrides)
+    return DiscussionEvidence(**kwargs)  # type: ignore[arg-type]
+
+
+def test_postgres_discussion_evidence_store_returns_empty_when_absent(conninfo: str) -> None:
+    store = PostgresDiscussionEvidenceStore(conninfo)
+    assert store.get_discussion_evidence("pg-repo-19") == []
+
+
+def test_postgres_discussion_evidence_store_roundtrips(conninfo: str) -> None:
+    store = PostgresDiscussionEvidenceStore(conninfo)
+    evidence = _make_discussion_evidence(
+        "pg-d-1", 1, limitations=["low confidence"], source_inputs=["pg-d-1"]
+    )
+
+    store.save_discussion_evidence("pg-repo-20", [evidence])
+    retrieved = store.get_discussion_evidence("pg-repo-20")
+
+    assert retrieved == [evidence]
+
+
+def test_postgres_discussion_evidence_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresDiscussionEvidenceStore(conninfo)
+    store.save_discussion_evidence(
+        "pg-repo-21", [_make_discussion_evidence("pg-d-2", 2, summary="first summary")]
+    )
+
+    store.save_discussion_evidence(
+        "pg-repo-21",
+        [_make_discussion_evidence("pg-d-2", 2, summary="second summary", confidence=0.9)],
+    )
+
+    result = store.get_discussion_evidence("pg-repo-21")
+    assert len(result) == 1
+    assert result[0].summary == "second summary"
+    assert result[0].confidence == 0.9

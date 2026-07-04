@@ -47,6 +47,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCommitWithAnalysisReader,
     PostgresContributorReader,
     PostgresDefaultBranchStore,
+    PostgresDiscussionEvidenceStore,
     PostgresFileFactReader,
     PostgresFileFactStore,
     PostgresGithubContextCache,
@@ -68,6 +69,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCommitWithAnalysisReader,
     SqliteContributorReader,
     SqliteDefaultBranchStore,
+    SqliteDiscussionEvidenceStore,
     SqliteFileFactReader,
     SqliteFileFactStore,
     SqliteGithubContextCache,
@@ -172,6 +174,19 @@ def build_default_branch_store(
         return PostgresDefaultBranchStore(conninfo)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteDefaultBranchStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_discussion_evidence_store(
+    *,
+    project_root: Path,
+) -> SqliteDiscussionEvidenceStore | PostgresDiscussionEvidenceStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresDiscussionEvidenceStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteDiscussionEvidenceStore(db_path)
     store.initialize()
     return store
 

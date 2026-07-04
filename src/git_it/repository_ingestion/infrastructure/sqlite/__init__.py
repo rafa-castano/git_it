@@ -14,6 +14,7 @@ from .commits import (
     SqliteCommitWithAnalysisReader,
 )
 from .contributors import SqliteContributorReader
+from .discussions import SqliteDiscussionEvidenceStore
 from .files import SqliteFileFactReader, SqliteFileFactStore
 from .github import SqliteDefaultBranchStore, SqliteGithubContextCache, SqliteRepoMetadataStore
 from .ingestion import SqliteIngestionRunStore
@@ -28,6 +29,7 @@ __all__ = [
     "SqliteCommitWithAnalysisReader",
     "SqliteContributorReader",
     "SqliteDefaultBranchStore",
+    "SqliteDiscussionEvidenceStore",
     "SqliteFileFactReader",
     "SqliteFileFactStore",
     "SqliteGithubContextCache",
