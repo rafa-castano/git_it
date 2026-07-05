@@ -1,6 +1,7 @@
 """Tests for CommitAnalysisService.analyze_commits_async (Batch 43)."""
 
 import threading
+from datetime import UTC, datetime
 
 from git_it.repository_ingestion.application.commit_analysis_service import (
     CommitAnalysisService,
@@ -15,6 +16,7 @@ from git_it.repository_ingestion.domain.analysis import (
     CommitCategory,
     RiskLevel,
 )
+from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -327,3 +329,97 @@ async def test_async_default_concurrency_is_five() -> None:
     # With concurrency=5 and 5 tasks, all could run simultaneously
     assert client.call_count == 5
     assert client.max_concurrent <= 5
+
+
+# ---------------------------------------------------------------------------
+# Batch 122 — embedding computation wiring in the async write path (spec 023)
+# ---------------------------------------------------------------------------
+
+
+def _make_chunk(sha: str) -> EmbeddedChunk:
+    return EmbeddedChunk(
+        repository_id=_REPO_ID,
+        source_type="commit_analysis",
+        source_id=sha,
+        text="Added a feature",
+        vector=[0.1, 0.2, 0.3],
+        model="test-embedding-model",
+        created_at=datetime.now(UTC),
+    )
+
+
+class FakeEmbeddingService:
+    def __init__(self, chunks: dict[str, EmbeddedChunk] | None = None) -> None:
+        self._chunks = chunks or {}
+        self.calls: list[tuple[str, CommitAnalysis]] = []
+
+    def embed_commit_analysis(
+        self, repository_id: str, analysis: CommitAnalysis
+    ) -> EmbeddedChunk | None:
+        self.calls.append((repository_id, analysis))
+        return self._chunks.get(analysis.commit_sha)
+
+
+class FakeEmbeddingWriter:
+    def __init__(self) -> None:
+        self.saved: list[tuple[str, list[EmbeddedChunk]]] = []
+
+    def save_embeddings(self, repository_id: str, items: list[EmbeddedChunk]) -> None:
+        self.saved.append((repository_id, items))
+
+
+async def test_async_saves_embedding_when_service_and_writer_provided() -> None:
+    sha_a = "sha-aaa"
+    sha_b = "sha-bbb"
+    commits = [_make_commit(sha_a, "feat: a"), _make_commit(sha_b, "feat: b")]
+    client = FakeAnalysisClient({sha_a: _make_analysis(sha_a), sha_b: _make_analysis(sha_b)})
+    chunk_a = _make_chunk(sha_a)
+    chunk_b = _make_chunk(sha_b)
+    embedding_service = FakeEmbeddingService({sha_a: chunk_a, sha_b: chunk_b})
+    embedding_writer = FakeEmbeddingWriter()
+    service = CommitAnalysisService(
+        reader=FakeCommitReader(commits),
+        client=client,
+        embedding_service=embedding_service,
+        embedding_writer=embedding_writer,
+    )
+
+    await service.analyze_commits_async(_REPO_ID)
+
+    assert len(embedding_service.calls) == 2
+    saved_chunks = [chunk for _repo_id, chunks in embedding_writer.saved for chunk in chunks]
+    assert sorted(saved_chunks, key=lambda c: c.source_id) == sorted(
+        [chunk_a, chunk_b], key=lambda c: c.source_id
+    )
+
+
+async def test_async_skips_save_when_chunk_is_none() -> None:
+    sha_a = "sha-aaa"
+    sha_b = "sha-bbb"
+    commits = [_make_commit(sha_a, "feat: a"), _make_commit(sha_b, "feat: b")]
+    client = FakeAnalysisClient({sha_a: _make_analysis(sha_a), sha_b: _make_analysis(sha_b)})
+    chunk_b = _make_chunk(sha_b)
+    embedding_service = FakeEmbeddingService({sha_b: chunk_b})  # sha_a has no chunk -> None
+    embedding_writer = FakeEmbeddingWriter()
+    service = CommitAnalysisService(
+        reader=FakeCommitReader(commits),
+        client=client,
+        embedding_service=embedding_service,
+        embedding_writer=embedding_writer,
+    )
+
+    await service.analyze_commits_async(_REPO_ID)
+
+    assert len(embedding_service.calls) == 2
+    assert embedding_writer.saved == [(_REPO_ID, [chunk_b])]
+
+
+async def test_async_without_embedding_dependencies_does_not_touch_embeddings() -> None:
+    sha = "sha-solo"
+    commits = [_make_commit(sha, "feat: solo")]
+    client = FakeAnalysisClient({sha: _make_analysis(sha)})
+    service = _build_service(commits, client)
+
+    results = await service.analyze_commits_async(_REPO_ID)
+
+    assert len(results) == 1

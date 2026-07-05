@@ -10,6 +10,8 @@ from git_it.repository_ingestion.application.ports import (
     CommitAnalysisClient,
     CommitAnalysisReader,
     CommitAnalysisWriter,
+    EmbeddingAnalyzer,
+    EmbeddingWriter,
     GithubContextReader,
     LLMMessage,
     RepoContextReader,
@@ -62,6 +64,8 @@ class CommitAnalysisService:
         analysis_reader: CommitAnalysisReader | None = None,
         repo_context_reader: RepoContextReader | None = None,
         github_context_reader: GithubContextReader | None = None,
+        embedding_service: EmbeddingAnalyzer | None = None,
+        embedding_writer: EmbeddingWriter | None = None,
     ) -> None:
         self._reader = reader
         self._client = client
@@ -70,6 +74,8 @@ class CommitAnalysisService:
         self._analysis_reader = analysis_reader
         self._repo_context_reader = repo_context_reader
         self._github_context_reader = github_context_reader
+        self._embedding_service = embedding_service
+        self._embedding_writer = embedding_writer
 
     def analyze_commit(
         self,
@@ -174,6 +180,10 @@ class CommitAnalysisService:
             analysis = analysis.model_copy(update={"commit_sha": commit.sha})
             if self._analysis_writer is not None:
                 self._analysis_writer.save_analysis(analysis, repository_id=repository_id)
+            if self._embedding_service is not None and self._embedding_writer is not None:
+                chunk = self._embedding_service.embed_commit_analysis(repository_id, analysis)
+                if chunk is not None:
+                    self._embedding_writer.save_embeddings(repository_id, [chunk])
             results.append(analysis)
             new_count += 1
             if on_progress:
@@ -258,6 +268,18 @@ class CommitAnalysisService:
                         analysis,
                         repository_id=repository_id,
                     )
+                if self._embedding_service is not None and self._embedding_writer is not None:
+
+                    def _embed_and_save() -> None:
+                        assert self._embedding_service is not None
+                        assert self._embedding_writer is not None
+                        chunk = self._embedding_service.embed_commit_analysis(
+                            repository_id, analysis
+                        )
+                        if chunk is not None:
+                            self._embedding_writer.save_embeddings(repository_id, [chunk])
+
+                    await asyncio.to_thread(_embed_and_save)
                 return analysis
 
         gathered = await asyncio.gather(*[_analyze_one(c, cl) for c, cl in to_analyze])

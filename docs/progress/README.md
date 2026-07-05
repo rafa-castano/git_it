@@ -108,6 +108,7 @@ One file per batch, organized by feature area.
 - [Batch 110 — Feed discussion evidence into the case-study narrative prompt (spec 022, slice 4)](analysis/batch-110-narrative-discussion-evidence.md)
 - [Batch 120 — EmbeddingService with per-item failure isolation (spec 023, slice 3)](analysis/batch-120-embedding-service.md)
 - [Batch 121 — SemanticSearchService with cosine-similarity retrieval (spec 023, slice 4)](analysis/batch-121-semantic-search-service.md)
+- [Batch 122 — Wire embedding computation into commit analysis and discussion evidence (spec 023, slice 5)](analysis/batch-122-embedding-ingest-wiring.md)
 
 ## Evals
 - [Batch 61 — Evaluation harness for LLM commit classification accuracy](evals/batch-61-evaluation-harness.md)

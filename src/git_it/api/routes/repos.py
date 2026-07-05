@@ -39,6 +39,7 @@ from git_it.api.schemas import (
     RepoSummary,
 )
 from git_it.chat.service import ChatMessage, ChatService
+from git_it.repository_ingestion.application.embedding_service import EmbeddingService
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
     build_case_study_store,
@@ -49,6 +50,8 @@ from git_it.repository_ingestion.composition import (
     build_default_branch_store,
     build_discussion_evidence_store,
     build_discussion_summarizer,
+    build_embedding_client,
+    build_embedding_store,
     build_ingestion_run_store,
     build_narrative_service,
     build_repo_metadata_store,
@@ -174,6 +177,19 @@ def _fetch_and_store_discussion_evidence(
             return
         store = build_discussion_evidence_store(project_root=project_root)
         store.save_discussion_evidence(repository_id, evidence)
+
+        embedding_client = build_embedding_client()
+        if embedding_client is not None:
+            embedding_service = EmbeddingService(embedding_client)
+            embedding_writer = build_embedding_store(project_root=project_root)
+            chunks = [
+                chunk
+                for item in evidence
+                if (chunk := embedding_service.embed_discussion_evidence(repository_id, item))
+                is not None
+            ]
+            if chunks:
+                embedding_writer.save_embeddings(repository_id, chunks)
     except Exception as e:
         _logger.warning(
             "discussion evidence fetch failed: %s",

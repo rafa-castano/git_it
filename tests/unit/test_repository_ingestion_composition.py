@@ -3,13 +3,16 @@ from pathlib import Path
 import git
 import pytest
 
-from git_it.repository_ingestion.application.ports import ExtractedCommit
+from git_it.repository_ingestion.application.embedding_service import EmbeddingService
+from git_it.repository_ingestion.application.ports import ExtractedCommit, LLMMessage
 from git_it.repository_ingestion.composition import (
+    build_commit_analysis_service,
     build_discussion_summarizer,
     build_embedding_client,
     build_narrative_service,
     build_repository_ingestion_service,
 )
+from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory, RiskLevel
 from git_it.repository_ingestion.infrastructure.git import GitCommandPlan, GitCommandResult
 from git_it.repository_ingestion.infrastructure.llm import LiteLLMEmbeddingClient, LiteLLMLLMClient
 from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
@@ -195,3 +198,58 @@ def test_build_embedding_client_returns_litellm_client_when_openai_api_key_set(
     client = build_embedding_client()
 
     assert isinstance(client, LiteLLMEmbeddingClient)
+
+
+# ---------------------------------------------------------------------------
+# Batch 122 — build_commit_analysis_service wires embedding dependencies
+# when OPENAI_API_KEY is set, and hides the feature entirely when absent (spec 023).
+# ---------------------------------------------------------------------------
+
+
+class _StubCommitAnalysisClient:
+    def analyze_commit(
+        self, system: str, messages: list[LLMMessage]
+    ) -> CommitAnalysis:  # pragma: no cover
+        return CommitAnalysis(
+            commit_sha="stub-sha",
+            summary="stub summary",
+            category=CommitCategory.CHORE,
+            confidence=0.5,
+            risk_level=RiskLevel.LOW,
+            evidence=[],
+            limitations=[],
+        )
+
+
+def test_build_commit_analysis_service_wires_embedding_dependencies_when_key_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-test-key")
+
+    service = build_commit_analysis_service(
+        project_root=tmp_path,
+        model="fake-model",
+        client=_StubCommitAnalysisClient(),
+    )
+
+    assert isinstance(service._embedding_service, EmbeddingService)
+    assert service._embedding_writer is not None
+
+
+def test_build_commit_analysis_service_embedding_dependencies_none_when_key_absent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    service = build_commit_analysis_service(
+        project_root=tmp_path,
+        model="fake-model",
+        client=_StubCommitAnalysisClient(),
+    )
+
+    assert service._embedding_service is None
+    assert service._embedding_writer is None

@@ -645,6 +645,139 @@ def test_fetch_and_store_discussion_evidence_swallows_exceptions(
 
 
 # ---------------------------------------------------------------------------
+# Batch 122 — embedding computation for discussion evidence (spec 023)
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_and_store_discussion_evidence_computes_embeddings_when_openai_key_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import UTC, datetime
+
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+    from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-test-key")
+    discussion = _make_discussion()
+    evidence = _make_discussion_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    chunk = EmbeddedChunk(
+        repository_id="repo-abc",
+        source_type="discussion_evidence",
+        source_id=evidence.discussion_url,
+        text=evidence.summary,
+        vector=[0.1, 0.2],
+        model="test-embedding-model",
+        created_at=datetime.now(UTC),
+    )
+    stub_embedding_service = mock.Mock()
+    stub_embedding_service.embed_discussion_evidence.return_value = chunk
+    stub_embedding_writer = mock.Mock()
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_discussion_summarizer",
+            return_value=stub_summarizer,
+        ),
+        mock.patch(
+            "git_it.api.routes.repos.build_embedding_client",
+            return_value=mock.Mock(),
+        ),
+        mock.patch(
+            "git_it.api.routes.repos.build_embedding_store",
+            return_value=stub_embedding_writer,
+        ),
+        mock.patch(
+            "git_it.api.routes.repos.EmbeddingService",
+            return_value=stub_embedding_service,
+        ),
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = [discussion]
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    stub_embedding_service.embed_discussion_evidence.assert_called_once_with("repo-abc", evidence)
+    stub_embedding_writer.save_embeddings.assert_called_once_with("repo-abc", [chunk])
+
+
+def test_fetch_and_store_discussion_evidence_skips_embeddings_when_openai_key_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    discussion = _make_discussion()
+    evidence = _make_discussion_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_discussion_summarizer",
+            return_value=stub_summarizer,
+        ),
+        mock.patch(
+            "git_it.api.routes.repos.build_embedding_client",
+            return_value=None,
+        ) as mock_build_embedding_client,
+        mock.patch("git_it.api.routes.repos.build_embedding_store") as mock_build_embedding_store,
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = [discussion]
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_embedding_client.assert_called_once()
+    mock_build_embedding_store.assert_not_called()
+
+
+def test_fetch_and_store_discussion_evidence_swallows_embedding_exceptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_discussion_evidence
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-test-key")
+    discussion = _make_discussion()
+    evidence = _make_discussion_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubDiscussionsFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_discussion_summarizer",
+            return_value=stub_summarizer,
+        ),
+        mock.patch(
+            "git_it.api.routes.repos.build_embedding_client",
+            side_effect=RuntimeError("boom"),
+        ),
+    ):
+        mock_fetcher_cls.return_value.fetch_qualifying_discussions.return_value = [discussion]
+        # Must not raise: inherits the existing best-effort try/except (spec 022/023).
+        _fetch_and_store_discussion_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Composition wiring — build_discussion_summarizer / build_narrative_service (spec 022)
 # ---------------------------------------------------------------------------
 

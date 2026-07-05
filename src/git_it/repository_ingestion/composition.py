@@ -7,6 +7,7 @@ from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
 from git_it.repository_ingestion.application.discussion_summarizer import DiscussionSummarizer
+from git_it.repository_ingestion.application.embedding_service import EmbeddingService
 from git_it.repository_ingestion.application.narrative_service import NarrativeService
 from git_it.repository_ingestion.application.pattern_detection_service import (
     PatternDetectionService,
@@ -387,6 +388,12 @@ def build_commit_analysis_service(
         else None
     )
 
+    embedding_client = build_embedding_client()
+    embedding_service = EmbeddingService(embedding_client) if embedding_client is not None else None
+    embedding_writer = (
+        build_embedding_store(project_root=project_root) if embedding_client is not None else None
+    )
+
     if backend == "postgres":
         postgres_initialize(conninfo)
         analysis_store = PostgresCommitAnalysisStore(conninfo)
@@ -409,6 +416,8 @@ def build_commit_analysis_service(
             analysis_reader=analysis_store,
             repo_context_reader=case_study_store,
             github_context_reader=github_reader,
+            embedding_service=embedding_service,
+            embedding_writer=embedding_writer,
         )
 
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -430,6 +439,8 @@ def build_commit_analysis_service(
         analysis_reader=sqlite_analysis_store,
         repo_context_reader=sqlite_case_study_store,
         github_context_reader=github_reader,
+        embedding_service=embedding_service,
+        embedding_writer=embedding_writer,
     )
 
 

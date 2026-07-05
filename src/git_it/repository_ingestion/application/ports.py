@@ -33,8 +33,10 @@ __all__ = [
     "DefaultBranchWriter",
     "DiscussionEvidence",
     "DiscussionEvidenceReader",
+    "EmbeddingAnalyzer",
     "EmbeddingClient",
     "EmbeddingReader",
+    "EmbeddingWriter",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -162,6 +164,32 @@ class EmbeddingReader(Protocol):
     """
 
     def get_all_embeddings(self, repository_id: str) -> list[EmbeddedChunk]: ...
+
+
+class EmbeddingWriter(Protocol):
+    """Persists computed embedding vectors for a repository (spec 023).
+
+    Backing stores (``SqliteEmbeddingStore``/``PostgresEmbeddingStore``) already
+    implement this shape structurally; this Protocol formalizes it as the port
+    ``CommitAnalysisService`` (and the discussion-evidence ingest flow) depend on,
+    so callers don't need to import concrete infrastructure classes.
+    """
+
+    def save_embeddings(self, repository_id: str, items: list[EmbeddedChunk]) -> None: ...
+
+
+class EmbeddingAnalyzer(Protocol):
+    """Computes an embedding for a freshly-produced ``CommitAnalysis`` (spec 023).
+
+    ``EmbeddingService`` implements this shape structurally; this Protocol formalizes
+    it as the port ``CommitAnalysisService`` depends on, so it does not need to import
+    the concrete application-layer ``EmbeddingService`` class, and test doubles stay
+    structurally typed without subclassing it.
+    """
+
+    def embed_commit_analysis(
+        self, repository_id: str, analysis: CommitAnalysis
+    ) -> EmbeddedChunk | None: ...
 
 
 @dataclass(frozen=True)
