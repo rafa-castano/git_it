@@ -125,6 +125,7 @@ One file per batch, organized by feature area.
 - [Batch 103 — Split SQLite infrastructure into a cohesive package](infrastructure/batch-103-split-sqlite-infrastructure.md)
 - [Batch 104 — Split PostgreSQL infrastructure into a cohesive package](infrastructure/batch-104-split-postgres-infrastructure.md)
 - [Batch 105 — Fix latent PostgreSQL migrations-path off-by-one](infrastructure/batch-105-fix-postgres-migrations-path.md)
+- [Batch 116 — LLM call observability core (spec 024, slice 1)](infrastructure/batch-116-observability-core.md)
 
 ## UI
 - [Batch 76 — Extract CSS and JS from index.html to static files](ui/batch-76-frontend-split.md)
