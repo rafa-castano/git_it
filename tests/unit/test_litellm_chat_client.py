@@ -6,6 +6,7 @@ into an `LLMTurn`. Tests monkeypatch `litellm.completion` to a canned response �
 no network, fully deterministic.
 """
 
+import logging
 from types import SimpleNamespace
 from typing import Any
 
@@ -13,6 +14,10 @@ import pytest
 
 from git_it.chat.litellm_client import LiteLLMChatClient
 from git_it.chat.service import LLMTurn, StreamPart
+
+
+def _observability_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if r.name == "git_it.observability"]
 
 
 def _install_fake_completion(
@@ -188,3 +193,77 @@ def test_respond_stream_passes_stream_true_to_litellm(monkeypatch: pytest.Monkey
     )
 
     assert captured["stream"] is True
+
+
+# ---------------------------------------------------------------------------
+# Batch 117 — spec 024: both respond() and respond_stream() are observed with
+# call_site="chat". respond_stream is a generator — its observation must
+# reflect full-stream consumption (duration + success/failure), not just
+# generator creation. See observe_llm_call_stream in infrastructure/observability.py.
+# ---------------------------------------------------------------------------
+
+
+def test_respond_is_observed_with_chat_call_site(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="git_it.observability")
+    message = SimpleNamespace(content="Here is the answer.", tool_calls=None)
+    _install_fake_completion(monkeypatch, message)
+
+    client = LiteLLMChatClient()
+    client.respond(system="sys", messages=[{"role": "user", "content": "hi"}], tools=[])
+
+    records = _observability_records(caplog)
+    assert len(records) == 1
+    assert records[0].call_site == "chat"  # type: ignore[attr-defined]
+    assert records[0].success is True  # type: ignore[attr-defined]
+
+
+def test_respond_stream_emits_no_observation_until_fully_consumed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="git_it.observability")
+    chunks = [_chunk(_delta(content="Hello")), _chunk(_delta(content=" world"))]
+    _install_fake_stream(monkeypatch, chunks)
+
+    client = LiteLLMChatClient()
+    parts = list(
+        client.respond_stream(system="sys", messages=[{"role": "user", "content": "hi"}], tools=[])
+    )
+
+    assert parts  # sanity: the stream produced output
+    records = _observability_records(caplog)
+    assert len(records) == 1
+    assert records[0].call_site == "chat"  # type: ignore[attr-defined]
+    assert records[0].success is True  # type: ignore[attr-defined]
+
+
+def test_respond_stream_observes_failure_when_provider_raises_mid_stream(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="git_it.observability")
+
+    def _fake_completion_raises(**kwargs: Any) -> Any:
+        def _gen() -> Any:
+            yield _chunk(_delta(content="partial"))
+            raise RuntimeError("stream broke")
+
+        return _gen()
+
+    import litellm
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion_raises)
+
+    client = LiteLLMChatClient()
+    with pytest.raises(RuntimeError, match="stream broke"):
+        list(
+            client.respond_stream(
+                system="sys", messages=[{"role": "user", "content": "hi"}], tools=[]
+            )
+        )
+
+    records = _observability_records(caplog)
+    assert len(records) == 1
+    assert records[0].call_site == "chat"  # type: ignore[attr-defined]
+    assert records[0].success is False  # type: ignore[attr-defined]
+    assert records[0].error_type == "RuntimeError"  # type: ignore[attr-defined]

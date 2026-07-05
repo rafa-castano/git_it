@@ -17,7 +17,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, ParamSpec, TypeVar
 
@@ -28,6 +28,17 @@ _UNKNOWN_MODEL = "unknown"
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+# A call site is either a fixed string, or a callable resolving the call site
+# from the wrapped method's own instance at call time -- needed because one
+# class (LiteLLMLLMClient) is reused for two different purposes, and the
+# decorator argument is otherwise fixed at module-load/decoration time (spec
+# 024, open question #2).
+CallSite = str | Callable[[Any], str]
+
+
+def _resolve_call_site(call_site: CallSite, self_arg: Any) -> str:
+    return call_site(self_arg) if callable(call_site) else call_site
 
 
 @dataclass(frozen=True)
@@ -116,8 +127,13 @@ def _build_and_emit(
         _logger.warning("observability logging failed: %s", type(log_exc).__name__)
 
 
-def observe_llm_call(call_site: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator factory wrapping an instance method with observability.
+def observe_llm_call(call_site: CallSite) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Decorator factory wrapping a synchronous instance method with observability.
+
+    ``call_site`` is either a fixed string, or a callable that resolves the
+    call site from the wrapped instance at call time (e.g. ``lambda self:
+    self._call_site``) -- the latter lets one class serve two different
+    purposes without hardcoding a single call site at decoration time.
 
     The wrapped method's public signature, return type, and raised
     exceptions are unchanged -- this is a pure cross-cutting observer, never
@@ -128,12 +144,13 @@ def observe_llm_call(call_site: str) -> Callable[[Callable[P, R]], Callable[P, R
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             self_arg = args[0] if args else None
+            resolved_call_site = _resolve_call_site(call_site, self_arg)
             start = time.monotonic()
             try:
                 result = func(*args, **kwargs)
             except Exception as exc:
                 _build_and_emit(
-                    call_site=call_site,
+                    call_site=resolved_call_site,
                     self_arg=self_arg,
                     start=start,
                     success=False,
@@ -141,13 +158,63 @@ def observe_llm_call(call_site: str) -> Callable[[Callable[P, R]], Callable[P, R
                 )
                 raise
             _build_and_emit(
-                call_site=call_site,
+                call_site=resolved_call_site,
                 self_arg=self_arg,
                 start=start,
                 success=True,
                 error_type=None,
             )
             return result
+
+        return wrapper
+
+    return decorator
+
+
+def observe_llm_call_stream(
+    call_site: CallSite,
+) -> Callable[[Callable[P, Iterator[R]]], Callable[P, Iterator[R]]]:
+    """Decorator factory for generator-function call sites (e.g. streaming chat).
+
+    ``observe_llm_call`` alone is insufficient here: applied to a generator
+    function, it would only time how long it takes to *create* the generator
+    (near-instant), not how long the caller spends consuming it, and it would
+    report success even if the underlying stream raises mid-iteration.
+
+    This wrapper is itself a generator function: timing starts only once the
+    caller begins iterating (matching the underlying call's own laziness),
+    and the observation is built and emitted exactly once -- after the stream
+    is fully exhausted, or when it raises during iteration. If the caller
+    abandons the stream early without an exception (e.g. breaks out of a
+    ``for`` loop), no observation is emitted: there is no well-defined
+    duration/outcome for a stream that was neither finished nor failed.
+    """
+
+    def decorator(func: Callable[P, Iterator[R]]) -> Callable[P, Iterator[R]]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
+            self_arg = args[0] if args else None
+            resolved_call_site = _resolve_call_site(call_site, self_arg)
+            start = time.monotonic()
+            try:
+                yield from func(*args, **kwargs)
+            except Exception as exc:
+                _build_and_emit(
+                    call_site=resolved_call_site,
+                    self_arg=self_arg,
+                    start=start,
+                    success=False,
+                    error_type=type(exc).__name__,
+                )
+                raise
+            else:
+                _build_and_emit(
+                    call_site=resolved_call_site,
+                    self_arg=self_arg,
+                    start=start,
+                    success=True,
+                    error_type=None,
+                )
 
         return wrapper
 

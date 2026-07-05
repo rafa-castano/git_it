@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from git_it.repository_ingestion.application.ports import LLMMessage
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
+from git_it.repository_ingestion.infrastructure.observability import observe_llm_call
 
 _logger = logging.getLogger(__name__)
 
@@ -36,12 +37,26 @@ Rules:
 
 
 class LiteLLMLLMClient:
+    """Reused for two distinct call sites (spec 024, open question #2):
+    narrative generation and discussion summarization. ``call_site`` is a
+    constructor parameter -- set by whichever composition factory builds the
+    instance -- rather than fixed on the class, since ``observe_llm_call``'s
+    decorator argument is otherwise fixed at decoration time and this one
+    class serves both purposes.
+    """
+
     def __init__(
-        self, *, model: str = _DEFAULT_MODEL, max_tokens: int = _DEFAULT_MAX_TOKENS
+        self,
+        *,
+        model: str = _DEFAULT_MODEL,
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        call_site: str = "narrative_generation",
     ) -> None:
         self._model = model
         self._max_tokens = max_tokens
+        self._call_site = call_site
 
+    @observe_llm_call(lambda self: self._call_site)
     def complete(self, messages: list[LLMMessage]) -> str:
         import litellm
 
@@ -59,6 +74,7 @@ class InstructorCommitAnalysisAdapter:
     def __init__(self, *, model: str = _DEFAULT_MODEL) -> None:
         self._model = model
 
+    @observe_llm_call("commit_analysis")
     def analyze_commit(self, system: str, messages: list[LLMMessage]) -> CommitAnalysis:
         import instructor
         import litellm
@@ -177,6 +193,7 @@ class InstructorPatternSynthesisAdapter:
     def __init__(self, *, model: str = _DEFAULT_MODEL) -> None:
         self._model = model
 
+    @observe_llm_call("pattern_synthesis")
     def synthesize(self, report: PatternReport) -> list[PatternExplanation]:
         import instructor
         import litellm

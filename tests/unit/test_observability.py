@@ -221,3 +221,38 @@ def test_broken_observation_step_does_not_swallow_original_exception(
 def test_decorated_method_preserves_name_and_docstring() -> None:
     client = _FakeClient()
     assert client.call.__name__ == "call"
+
+
+# ---------------------------------------------------------------------------
+# Batch 117 — observe_llm_call accepts a callable call_site resolver, so a
+# single decorated method can be shared by instances that serve different
+# purposes (spec 024 open question #2: LiteLLMLLMClient reused for both
+# narrative_generation and discussion_summarization).
+# ---------------------------------------------------------------------------
+
+
+class _FakeMultiPurposeClient:
+    def __init__(self, model: str, call_site: str) -> None:
+        self._model = model
+        self._call_site = call_site
+
+    @observe_llm_call(lambda self: self._call_site)
+    def call(self, text: str) -> str:
+        return f"response for {text}"
+
+
+def test_observe_llm_call_resolves_call_site_dynamically_from_instance(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="git_it.observability")
+
+    narrative_client = _FakeMultiPurposeClient(model="m1", call_site="narrative_generation")
+    discussion_client = _FakeMultiPurposeClient(model="m1", call_site="discussion_summarization")
+
+    narrative_client.call("hello")
+    discussion_client.call("hello")
+
+    records = _observability_records(caplog)
+    assert len(records) == 2
+    assert records[0].call_site == "narrative_generation"  # type: ignore[attr-defined]
+    assert records[1].call_site == "discussion_summarization"  # type: ignore[attr-defined]

@@ -12,6 +12,10 @@ from typing import Any
 
 from git_it.chat.service import LLMTurn, StreamPart, ToolCall
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
+from git_it.repository_ingestion.infrastructure.observability import (
+    observe_llm_call,
+    observe_llm_call_stream,
+)
 
 _DEFAULT_MAX_TOKENS = 1024
 
@@ -23,6 +27,7 @@ class LiteLLMChatClient:
         self._model = model
         self._max_tokens = max_tokens
 
+    @observe_llm_call("chat")
     def respond(
         self,
         *,
@@ -49,6 +54,7 @@ class LiteLLMChatClient:
         message = response.choices[0].message  # type: ignore[union-attr]
         return _from_wire_message(message)
 
+    @observe_llm_call_stream("chat")
     def respond_stream(
         self,
         *,

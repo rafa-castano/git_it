@@ -3,8 +3,13 @@ from pathlib import Path
 import git
 
 from git_it.repository_ingestion.application.ports import ExtractedCommit
-from git_it.repository_ingestion.composition import build_repository_ingestion_service
+from git_it.repository_ingestion.composition import (
+    build_discussion_summarizer,
+    build_narrative_service,
+    build_repository_ingestion_service,
+)
 from git_it.repository_ingestion.infrastructure.git import GitCommandPlan, GitCommandResult
+from git_it.repository_ingestion.infrastructure.llm import LiteLLMLLMClient
 from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
 from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
 
@@ -139,3 +144,27 @@ def test_build_repository_ingestion_service_wires_gitpython_extractor_by_default
     assert result.commits_reused == 0
     assert result.files_inserted is not None
     assert result.files_inserted >= 2
+
+
+# ---------------------------------------------------------------------------
+# Batch 117 — spec 024 open question #2: LiteLLMLLMClient is reused for both
+# narrative generation and discussion summarization. Each composition factory
+# must construct it with the correct call_site so observe_llm_call's log
+# records are attributable to the right purpose.
+# ---------------------------------------------------------------------------
+
+
+def test_build_narrative_service_wires_narrative_generation_call_site(tmp_path: Path) -> None:
+    service = build_narrative_service(project_root=tmp_path, model="fake-model")
+
+    llm_client = service._llm_client
+    assert isinstance(llm_client, LiteLLMLLMClient)
+    assert llm_client._call_site == "narrative_generation"
+
+
+def test_build_discussion_summarizer_wires_discussion_summarization_call_site() -> None:
+    summarizer = build_discussion_summarizer(model="fake-model")
+
+    llm_client = summarizer._llm_client
+    assert isinstance(llm_client, LiteLLMLLMClient)
+    assert llm_client._call_site == "discussion_summarization"

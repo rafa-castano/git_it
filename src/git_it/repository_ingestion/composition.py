@@ -499,7 +499,9 @@ def build_pattern_detection_service_reader(
 
 
 def build_discussion_summarizer(*, model: str) -> DiscussionSummarizer:
-    return DiscussionSummarizer(LiteLLMLLMClient(model=model), model=model)
+    return DiscussionSummarizer(
+        LiteLLMLLMClient(model=model, call_site="discussion_summarization"), model=model
+    )
 
 
 def build_narrative_service(*, project_root: Path, model: str) -> NarrativeService:
@@ -513,7 +515,11 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
         return NarrativeService(
             temporal_reader=pg_store,
             pattern_service=build_pattern_detection_service(project_root=project_root),
-            llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
+            llm_client=LiteLLMLLMClient(
+                model=_NARRATIVE_MODEL,
+                max_tokens=_NARRATIVE_MAX_TOKENS,
+                call_site="narrative_generation",
+            ),
             case_study_store=pg_case_study_store,
             synopsis_store=pg_synopsis_store,
             discussion_reader=build_discussion_evidence_store(project_root=project_root),
@@ -529,7 +535,11 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
     return NarrativeService(
         temporal_reader=store,
         pattern_service=build_pattern_detection_service(project_root=project_root),
-        llm_client=LiteLLMLLMClient(model=_NARRATIVE_MODEL, max_tokens=_NARRATIVE_MAX_TOKENS),
+        llm_client=LiteLLMLLMClient(
+            model=_NARRATIVE_MODEL,
+            max_tokens=_NARRATIVE_MAX_TOKENS,
+            call_site="narrative_generation",
+        ),
         case_study_store=case_study_store,
         synopsis_store=synopsis_store,
         discussion_reader=build_discussion_evidence_store(project_root=project_root),
