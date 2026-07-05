@@ -134,3 +134,4 @@ One file per batch, organized by feature area.
 - [Batch 90 — Activity chart zoom ladder (spec 017)](ui/batch-90-activity-chart-zoom-ladder.md)
 - [Batch 92 — Commit-categories donut multi-select (spec 018)](ui/batch-92-donut-category-multi-select.md)
 - [Batch 93 — Resizable repo sidebar (drag-to-resize)](ui/batch-93-resizable-sidebar.md)
+- [Batch 113 — Fix two defects found in the first live Playwright QA sweep](ui/batch-113-qa-sweep-fixes.md)

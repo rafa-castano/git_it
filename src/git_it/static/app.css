@@ -470,5 +470,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 /* ── Responsive: narrow effective viewport (browser zoom or window resize) ── */
 @media (max-width: 900px) {
   .charts-row { grid-template-columns: 1fr; }
-  aside { width: 160px; }
+  /* Respect a dragged/persisted --sidebar-width (batch 93) instead of silently
+     discarding it: the handle stays interactive at every viewport width, so
+     pinning a literal 160px here made drag-resize a no-op below 900px with no
+     feedback to the user. Falls back to 160px pre-drag, capped at 220px so a
+     wide desktop-dragged value doesn't dominate a narrow viewport. */
+  aside { width: var(--sidebar-width, 160px); max-width: 220px; }
 }

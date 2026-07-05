@@ -395,6 +395,32 @@ def test_check_opening_quality_only_inspects_first_paragraph() -> None:
     assert result.is_generic is False
 
 
+def test_check_opening_quality_does_not_flag_specific_opening_using_a_common_temporal_phrase() -> (
+    None
+):
+    """ "In the weeks that followed" is ordinary English, not boilerplate on its own.
+
+    Found via live QA (Playwright sweep, 2026-07-04): a genuinely repo-specific opening
+    naming the exact stack and integrations was flagged generic solely because it ended
+    with this common temporal phrase. The other list entries already catch the actual
+    known-bad pattern (see test_check_opening_quality_flags_known_generic_boilerplate),
+    so this phrase does not need to be a standalone trigger.
+    """
+    narrative = (
+        "## Overview\n"
+        "Odysseus is a self-hosted AI agent platform that integrates a conversational "
+        "assistant with real-world productivity tools, backed by a Python/FastAPI "
+        "backend. The project launched as v1.0 and then entered an intensive two-week "
+        "stabilization sprint, producing 230 additional commits in the weeks that "
+        "followed.\n\n"
+        "## Timeline\n"
+        "Some timeline content."
+    )
+    result = check_opening_quality(narrative)
+    assert result.is_generic is False
+    assert result.matched_phrase is None
+
+
 def test_generate_logs_warning_when_narrative_opening_is_generic(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

@@ -176,7 +176,6 @@ def _build_incremental_system_prompt(audience: str) -> str:
 
 _GENERIC_OPENING_PHRASES: tuple[str, ...] = (
     "this case study traces",
-    "in the weeks that followed",
     "using the commit history as evidence",
     "this case study examines the evolution",
     "this document traces",
