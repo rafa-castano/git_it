@@ -4,6 +4,7 @@ from typing import Protocol
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
+from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 
@@ -33,6 +34,7 @@ __all__ = [
     "DiscussionEvidence",
     "DiscussionEvidenceReader",
     "EmbeddingClient",
+    "EmbeddingReader",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -149,6 +151,17 @@ class EmbeddingClient(Protocol):
     """
 
     def embed(self, text: str) -> list[float]: ...
+
+
+class EmbeddingReader(Protocol):
+    """Reads every persisted embedding vector for a repository (spec 023).
+
+    Backing stores (``SqliteEmbeddingStore``/``PostgresEmbeddingStore``) already
+    implement this shape structurally; this Protocol formalizes it as the port
+    ``SemanticSearchService`` depends on.
+    """
+
+    def get_all_embeddings(self, repository_id: str) -> list[EmbeddedChunk]: ...
 
 
 @dataclass(frozen=True)
