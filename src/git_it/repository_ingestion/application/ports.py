@@ -32,6 +32,7 @@ __all__ = [
     "DefaultBranchWriter",
     "DiscussionEvidence",
     "DiscussionEvidenceReader",
+    "EmbeddingClient",
     "ExtractedCommit",
     "FileChurnRecord",
     "FileEvidenceReader",
@@ -138,6 +139,16 @@ class DiscussionEvidenceReader(Protocol):
     """
 
     def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]: ...
+
+
+class EmbeddingClient(Protocol):
+    """Computes an embedding vector for already-validated summary text (spec 023).
+
+    Mirrors ``LLMClient``'s minimalism — a single method, no batching, no model
+    selection at the call site (the model is fixed at construction time).
+    """
+
+    def embed(self, text: str) -> list[float]: ...
 
 
 @dataclass(frozen=True)

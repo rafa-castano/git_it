@@ -28,6 +28,7 @@ One file per batch, organized by feature area.
 - [Batch 96 — File/folder path linking in narrative text (spec 020)](ingestion/batch-96-file-folder-path-linking.md)
 - [Batch 107 — GitHub Discussions evidence foundation (spec 022, slice 1)](ingestion/batch-107-discussion-evidence-foundation.md)
 - [Batch 108 — GitHub Discussions GraphQL fetcher (spec 022, slice 2)](ingestion/batch-108-github-discussions-fetcher.md)
+- [Batch 118 — RAG semantic search embedding foundation (spec 023, slice 1)](ingestion/batch-118-embedding-foundation.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

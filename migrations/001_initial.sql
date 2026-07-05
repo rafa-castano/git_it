@@ -102,3 +102,14 @@ CREATE TABLE IF NOT EXISTS discussion_evidence (
     model          TEXT NOT NULL,
     PRIMARY KEY (repository_id, discussion_id)
 );
+
+CREATE TABLE IF NOT EXISTS embedding_vectors (
+    repository_id TEXT NOT NULL,
+    source_type   TEXT NOT NULL,
+    source_id     TEXT NOT NULL,
+    text          TEXT NOT NULL,
+    vector_json   TEXT NOT NULL,
+    model         TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    PRIMARY KEY (repository_id, source_type, source_id)
+);

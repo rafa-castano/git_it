@@ -20,6 +20,7 @@ from git_it.repository_ingestion.application.ports import (
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
+from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
@@ -29,6 +30,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCommitWithAnalysisReader,
     PostgresDefaultBranchStore,
     PostgresDiscussionEvidenceStore,
+    PostgresEmbeddingStore,
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
@@ -460,3 +462,54 @@ def test_postgres_discussion_evidence_store_upsert_overwrites(conninfo: str) -> 
     assert len(result) == 1
     assert result[0].summary == "second summary"
     assert result[0].confidence == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Spec 023 — embedding vector store
+# ---------------------------------------------------------------------------
+
+
+def _make_embedded_chunk(source_id: str, **overrides: object) -> EmbeddedChunk:
+    kwargs: dict[str, object] = {
+        "repository_id": "pg-repo-22",
+        "source_type": "commit_analysis",
+        "source_id": source_id,
+        "text": "summary text",
+        "vector": [0.1, 0.2, 0.3],
+        "model": "text-embedding-3-small",
+        "created_at": datetime(2026, 1, 1, tzinfo=UTC),
+    }
+    kwargs.update(overrides)
+    return EmbeddedChunk(**kwargs)  # type: ignore[arg-type]
+
+
+def test_postgres_embedding_store_returns_empty_when_absent(conninfo: str) -> None:
+    store = PostgresEmbeddingStore(conninfo)
+    assert store.get_all_embeddings("pg-repo-22") == []
+
+
+def test_postgres_embedding_store_roundtrips(conninfo: str) -> None:
+    store = PostgresEmbeddingStore(conninfo)
+    chunk = _make_embedded_chunk("pg-sha-1", repository_id="pg-repo-23")
+
+    store.save_embeddings("pg-repo-23", [chunk])
+    retrieved = store.get_all_embeddings("pg-repo-23")
+
+    assert retrieved == [chunk]
+
+
+def test_postgres_embedding_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresEmbeddingStore(conninfo)
+    store.save_embeddings(
+        "pg-repo-24",
+        [_make_embedded_chunk("pg-sha-2", repository_id="pg-repo-24", text="first")],
+    )
+
+    store.save_embeddings(
+        "pg-repo-24",
+        [_make_embedded_chunk("pg-sha-2", repository_id="pg-repo-24", text="second")],
+    )
+
+    result = store.get_all_embeddings("pg-repo-24")
+    assert len(result) == 1
+    assert result[0].text == "second"

@@ -20,6 +20,7 @@ from .commits import (
 )
 from .contributors import PostgresContributorReader
 from .discussions import PostgresDiscussionEvidenceStore
+from .embeddings import PostgresEmbeddingStore
 from .files import PostgresFileFactReader, PostgresFileFactStore
 from .github import (
     PostgresDefaultBranchStore,
@@ -39,6 +40,7 @@ __all__ = [
     "PostgresContributorReader",
     "PostgresDefaultBranchStore",
     "PostgresDiscussionEvidenceStore",
+    "PostgresEmbeddingStore",
     "PostgresFileFactReader",
     "PostgresFileFactStore",
     "PostgresGithubContextCache",
