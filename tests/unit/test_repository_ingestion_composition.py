@@ -1,15 +1,17 @@
 from pathlib import Path
 
 import git
+import pytest
 
 from git_it.repository_ingestion.application.ports import ExtractedCommit
 from git_it.repository_ingestion.composition import (
     build_discussion_summarizer,
+    build_embedding_client,
     build_narrative_service,
     build_repository_ingestion_service,
 )
 from git_it.repository_ingestion.infrastructure.git import GitCommandPlan, GitCommandResult
-from git_it.repository_ingestion.infrastructure.llm import LiteLLMLLMClient
+from git_it.repository_ingestion.infrastructure.llm import LiteLLMEmbeddingClient, LiteLLMLLMClient
 from git_it.repository_ingestion.infrastructure.sqlite import SqliteIngestionRunStore
 from git_it.repository_ingestion.infrastructure.workspace import ingestion_workspace_root
 
@@ -168,3 +170,28 @@ def test_build_discussion_summarizer_wires_discussion_summarization_call_site() 
     llm_client = summarizer._llm_client
     assert isinstance(llm_client, LiteLLMLLMClient)
     assert llm_client._call_site == "discussion_summarization"
+
+
+# ---------------------------------------------------------------------------
+# Batch 119 — spec 023: build_embedding_client() is the single source of
+# truth for "is the RAG feature available." It must return None when
+# OPENAI_API_KEY is absent, and a real LiteLLMEmbeddingClient when present.
+# ---------------------------------------------------------------------------
+
+
+def test_build_embedding_client_returns_none_when_openai_api_key_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    assert build_embedding_client() is None
+
+
+def test_build_embedding_client_returns_litellm_client_when_openai_api_key_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-test-key")
+
+    client = build_embedding_client()
+
+    assert isinstance(client, LiteLLMEmbeddingClient)

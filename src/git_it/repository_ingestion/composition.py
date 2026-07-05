@@ -37,6 +37,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
     _NARRATIVE_MODEL,
     InstructorCommitAnalysisAdapter,
     InstructorPatternSynthesisAdapter,
+    LiteLLMEmbeddingClient,
     LiteLLMLLMClient,
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
@@ -511,6 +512,19 @@ def build_pattern_detection_service_reader(
         file_evidence_reader=file_fact_reader,
         synthesis_client=synthesis_client,
     )
+
+
+def build_embedding_client() -> LiteLLMEmbeddingClient | None:
+    """Single source of truth for "is the RAG feature (spec 023) available."
+
+    Every other RAG-dependent call site (embedding computation at analysis
+    time, the future ``search_similar_commits`` tool) must check this
+    factory's return value and skip/hide entirely when it's ``None``, never
+    construct a ``LiteLLMEmbeddingClient`` directly.
+    """
+    if not os.environ.get("OPENAI_API_KEY"):
+        return None
+    return LiteLLMEmbeddingClient()
 
 
 def build_discussion_summarizer(*, model: str) -> DiscussionSummarizer:

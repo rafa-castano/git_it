@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from typing import cast
 
@@ -18,6 +19,11 @@ _DEFAULT_MAX_TOKENS = 4096
 _NARRATIVE_MAX_TOKENS = 16000
 _ANALYSIS_MAX_TOKENS = 1024
 _SYNTHESIS_MAX_TOKENS = 2048
+
+# env-var-backed, batch-74 convention (see infrastructure/github.py's DISCUSSION_* constants).
+# Spec 023, open question #1: resolved default is OpenAI's text-embedding-3-small — low cost,
+# ample dimensionality for short one-paragraph summaries.
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 
 _PATTERN_SYNTHESIS_SYSTEM_PROMPT = """\
 You are a senior software engineering educator. Given a pattern detection report for a Git
@@ -68,6 +74,33 @@ class LiteLLMLLMClient:
         )
         content = response.choices[0].message.content  # type: ignore[union-attr]
         return content or ""
+
+
+class LiteLLMEmbeddingClient:
+    """Computes an embedding vector for already-validated summary text (spec 023).
+
+    Alongside -- not a modification of -- ``LiteLLMLLMClient``. Requires
+    ``OPENAI_API_KEY`` to be present in the environment for litellm to route
+    the call; the composition layer (``build_embedding_client``) is
+    responsible for not constructing this client at all when the key is
+    absent.
+
+    Never swallows failures: a raised exception (rate limit, network error,
+    malformed response shape) propagates unchanged out of ``.embed()``. Per
+    spec 023's Failure modes table, treating a malformed response as an
+    embedding failure is one layer up, in ``EmbeddingService`` (batch 120),
+    which catches exceptions from this method.
+    """
+
+    def __init__(self, *, model: str = EMBEDDING_MODEL) -> None:
+        self._model = model
+
+    @observe_llm_call("embedding")
+    def embed(self, text: str) -> list[float]:
+        import litellm
+
+        response = litellm.embedding(model=self._model, input=[text])
+        return response.data[0]["embedding"]  # type: ignore[no-any-return]
 
 
 class InstructorCommitAnalysisAdapter:
