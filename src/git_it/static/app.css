@@ -45,7 +45,9 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; line-height
 
 /* ── Header ── */
 header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 2px solid var(--accent); }
-.hdr-logo { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
+.hdr-logo { display: inline-flex; align-items: center; gap: 0.45rem; background: none; border: none; cursor: pointer; font-family: inherit; color: inherit; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; padding: 0; }
+.hdr-logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; border-radius: 0.5rem; background: rgba(255,255,255,0.94); box-shadow: 0 0 0 1px rgba(255,255,255,0.32), 0 7px 18px rgba(0,0,0,0.2); flex: 0 0 auto; }
+.hdr-logo-icon { width: 1.45rem; height: 1.45rem; object-fit: contain; display: block; }
 #hdr-center { flex: 1; display: flex; align-items: center; gap: 0.75rem; min-width: 0; overflow: hidden; }
 #hdr-repo-info { display: none; align-items: center; gap: 0.75rem; min-width: 0; overflow: hidden; }
 .hdr-back-btn { font-size: 13px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: inherit; padding: 0; transition: color 0.1s; white-space: nowrap; flex-shrink: 0; }
@@ -73,7 +75,9 @@ header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: 
 /* ── Hero ── */
 .home-hero { text-align: center; padding: 2.5rem 0 1rem; position: relative; }
 .home-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.13) 0%, transparent 70%); pointer-events: none; z-index: 0; border-radius: 16px; }
-.home-hero h1 { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.65rem; position: relative; background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.home-hero h1 { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.45rem; font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.65rem; position: relative; background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 2.2em; height: 2.2em; border-radius: 0.55em; background: rgba(255,255,255,0.94); box-shadow: 0 0 0 1px rgba(255,255,255,0.4), 0 14px 34px rgba(0,0,0,0.28); flex: 0 0 auto; -webkit-text-fill-color: initial; }
+.hero-logo-icon { width: 1.78em; height: 1.78em; object-fit: contain; display: block; -webkit-text-fill-color: initial; }
 .home-hero p { font-size: 1.05rem; color: var(--muted); max-width: 540px; margin: 0 auto; line-height: 1.6; position: relative; }
 /* ── Ingest card ── */
 .add-repo-wrap { display: flex; justify-content: center; }

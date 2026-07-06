@@ -14,7 +14,10 @@
 
 <!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
 <header>
-  <button class="hdr-logo" onclick="goHome()" aria-label="Go to home" style="background:none;border:none;cursor:pointer;font-family:inherit;color:inherit;font-size:1.05rem;font-weight:800;letter-spacing:.04em;white-space:nowrap;flex-shrink:0;padding:0">&#x1F50E; Git It</button>
+  <button class="hdr-logo" onclick="goHome()" aria-label="Go to home">
+    <span class="hdr-logo-badge"><img src="/static/git_it_logo_no_background.png" alt="" class="hdr-logo-icon"></span>
+    <span>Git It</span>
+  </button>
   <div id="hdr-center">
     <div id="hdr-repo-info">
       <span class="hdr-sep" aria-hidden="true">/</span>
@@ -57,7 +60,7 @@
   <div class="home-inner">
 
     <div class="home-hero" aria-label="Git It — Repository intelligence">
-      <h1>&#x1F50E; Understand any GitHub repository</h1>
+      <h1><span class="hero-logo-badge"><img src="/static/git_it_logo_no_background.png" alt="" class="hero-logo-icon"></span> Understand any GitHub repository</h1>
       <p>Git It analyzes commit history with AI to surface patterns, hotspots, and a narrative case study of how your codebase evolved.</p>
     </div>
 
