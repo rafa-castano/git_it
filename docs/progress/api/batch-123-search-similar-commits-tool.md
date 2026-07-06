@@ -87,16 +87,15 @@ Full suite: **954 passed, 24 skipped** (24 skips pre-date this batch — unrelat
 dependency skips, not new). Ran the complete suite since this touches the shared `ChatService`
 dispatch loop used by all four existing production tools.
 
-Gates: `ruff check .`, `ruff format --check .`, `mypy src/` all pass clean for the three
-production files this batch touched
-(`src/git_it/tools/registry.py`, `src/git_it/chat/service.py`, `src/git_it/chat/composition.py`).
-`ruff check .`/`ruff format --check .` flag two pre-existing, non-functional nits inside the
-already-written test files from the interrupted prior session (an unsorted import block in
-`tests/unit/test_chat_service.py`, a formatting diff in
-`tests/unit/test_chat_tools_semantic_search.py`) — left untouched per this batch's explicit
-constraint not to modify any of the three test files; they don't affect test correctness (all 19
-tests across the three files pass) and are candidates for a follow-up mechanical formatting-only
-commit if desired.
+Gates: `ruff check .`, `ruff format --check .`, `mypy src/`, and the full `pytest -q` suite all pass
+clean repo-wide, including the pre-commit hooks. `ruff check .`/`ruff format --check .` initially
+flagged two pre-existing, non-functional nits left over from the interrupted prior session's RED
+test files: an unsorted import block in `tests/unit/test_chat_service.py`, and a
+`# type: ignore[no-untyped-def]` comment sitting on a parameter continuation line instead of the
+`def` line in `tests/unit/test_chat_tools_semantic_search.py` (mypy anchors the error to the `def`
+line, so the misplaced comment was a no-op). Both were mechanical, semantics-preserving fixes —
+reordering imports and moving a comment, no assertions or logic touched — approved and applied
+before this commit, matching the file's own existing single-line-signature convention.
 
 ### Gotchas
 
