@@ -147,3 +147,4 @@ One file per batch, organized by feature area.
 - [Batch 93 — Resizable repo sidebar (drag-to-resize)](ui/batch-93-resizable-sidebar.md)
 - [Batch 113 — Fix two defects found in the first live Playwright QA sweep](ui/batch-113-qa-sweep-fixes.md)
 - [Batch 125 — Fix blank-line-per-sentence rendering in Ask tab answers](ui/batch-125-ask-tab-blank-lines-fix.md)
+- [Batch 126 — Linkify commit SHAs and file/folder paths in Ask tab answers](ui/batch-126-ask-tab-commit-and-path-links.md)

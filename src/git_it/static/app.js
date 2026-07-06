@@ -1850,6 +1850,16 @@ function _linkifyPaths(html, canonicalUrl, defaultBranch) {
   });
 }
 
+/** Reuses the same spec-020 SHA/path linkifiers for Ask tab answers, sourced
+ * from currentRepoMeta (already trusted, already loaded for the open repo —
+ * never taken from the LLM's own text). Ordering (SHA before path) matches
+ * _linkifyPaths' own doc comment. */
+function _linkifyAskAnswerHtml(html) {
+  const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : null;
+  const defaultBranch = currentRepoMeta ? currentRepoMeta.default_branch : null;
+  return _linkifyPaths(_linkifyCommitShas(html, canonicalUrl), canonicalUrl, defaultBranch);
+}
+
 async function loadCaseStudy(repoId) {
   const el = document.getElementById('case-study-content');
   el.innerHTML = spinner();
@@ -2518,7 +2528,7 @@ function _appendAskMessage(role, text) {
   const div = document.createElement('div');
   div.className = 'ask-msg ask-msg-' + role;
   div.innerHTML = role === 'assistant'
-    ? `<div class="markdown-body">${renderMarkdown(text)}</div>`
+    ? `<div class="markdown-body">${_linkifyAskAnswerHtml(renderMarkdown(text))}</div>`
     : esc(text);
   transcript.appendChild(div);
   transcript.scrollTop = transcript.scrollHeight;
@@ -2630,7 +2640,7 @@ async function _submitAskQuestion(message) {
           if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
           if (!bubbleEl) bubbleEl = _appendAskMessage('assistant', '');
           accumulated += frame.data.text_delta;
-          bubbleEl.querySelector('.markdown-body').innerHTML = renderMarkdown(accumulated);
+          bubbleEl.querySelector('.markdown-body').innerHTML = _linkifyAskAnswerHtml(renderMarkdown(accumulated));
           const transcript = document.getElementById('ask-transcript');
           if (transcript) transcript.scrollTop = transcript.scrollHeight;
         }
