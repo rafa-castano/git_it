@@ -29,7 +29,7 @@ app + SQLite DB. This batch closes that gap and truths up the docs.
   - `GET .../patterns` — **200** with `hotspots == []` and `bugfix_recurrences == []` (same
     reasoning as commits — the handler doesn't check repo existence).
 
-**`specs/008-repository-deletion.md`** — status bumped from `Draft` to `Implemented`.
+**`docs/specs/008-repository-deletion.md`** — status bumped from `Draft` to `Implemented`.
 
 **`docs/specs/index.md`** — spec 008 row changed from
 `Draft (built, untested at integration level)` to `Implemented`.
@@ -43,7 +43,7 @@ app + SQLite DB. This batch closes that gap and truths up the docs.
 ### Gotchas
 
 - **Spec prose vs. real behavior mismatch (documented, not fixed):** the spec's acceptance
-  criteria (lines 84–86 of `specs/008-repository-deletion.md`) claim
+  criteria (lines 84–86 of `docs/specs/008-repository-deletion.md`) claim
   `GET .../commits` and `GET .../patterns` return `404` after delete. The actual handlers
   never check whether `repository_id` exists — `get_commits` and `get_patterns` only guard on
   `database_is_provisioned` (a global "does *any* DB file exist" check), then run a query that

@@ -6,7 +6,7 @@ Convert controlled Git gateway failures into safe ingestion results.
 
 ### Source of truth
 
-- failure mapping table in `specs/001-repository-ingestion.md`
+- failure mapping table in `docs/specs/001-repository-ingestion.md`
 - security requirement to avoid stack traces and unsafe details in user-facing failures
 
 ### Examples

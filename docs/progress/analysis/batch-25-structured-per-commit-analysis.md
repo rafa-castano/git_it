@@ -6,7 +6,7 @@ Implement `CommitAnalysis` domain model and `CommitAnalysisService` that produce
 
 ### Source of truth
 
-- `specs/002-commit-analysis.md`
+- `docs/specs/002-commit-analysis.md`
 
 ### Examples covered
 

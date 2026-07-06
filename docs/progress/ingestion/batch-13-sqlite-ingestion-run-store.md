@@ -6,7 +6,7 @@ Add the first SQLite-backed persistence port for ingestion run audit records bef
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` SQLite-backed fact persistence requirement
+- `docs/specs/001-repository-ingestion.md` SQLite-backed fact persistence requirement
 - `IngestionRun: append-only per ingestion attempt`
 - failure persistence requirements for status, error code, stage, retryable flag, and safe message
 

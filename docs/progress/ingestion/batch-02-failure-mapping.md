@@ -6,7 +6,7 @@ Centralize ingestion failure status, error code, stage, and retryability rules.
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` failure mapping table
+- `docs/specs/001-repository-ingestion.md` failure mapping table
 
 ### Examples
 

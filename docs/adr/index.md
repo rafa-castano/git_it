@@ -2,11 +2,11 @@
 
 ADRs record significant architectural choices made during Git It development. Each ADR captures the context, the decision, and the rationale so that future contributors understand why the system is structured the way it is.
 
-ADR source files live in `ADR/` at the project root.
+ADR source files live in this directory (`docs/adr/`), alongside this index.
 
 ## ADR index
 
-ADR source files live in `ADR/` at the project root. The table below lists all current ADRs.
+ADR source files live in this directory (`docs/adr/`). The table below lists all current ADRs.
 
 | ADR | Title | Status |
 |---|---|---|
@@ -29,7 +29,7 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 
 ## How to add a new ADR
 
-1. Copy `ADR/000-template.md` to `ADR/NNN-short-title.md`.
+1. Copy `docs/adr/000-template.md` to `docs/adr/NNN-short-title.md`.
 2. Fill in status, context, decision, and consequences.
 3. Link the new ADR from the relevant feature docs and from this index.
 4. If the decision affects a spec, reference the ADR from that spec.

@@ -298,7 +298,7 @@ All production code follows TDD: failing test first, then implementation.
 
 - `docs/mcp/servers.md`: add a "Git It as an MCP provider" section with the
   `git-it mcp` command and a client config example.
-- `docs/mcp-strategy.md` / `specs/006-mcp-strategy.md`: cross-reference that Git It
+- `docs/mcp-strategy.md` / `docs/specs/006-mcp-strategy.md`: cross-reference that Git It
   now also *provides* an MCP server (consumer → provider inversion).
 - `docs/getting-started.md`: add an "MCP server" subsection.
 - `docs/specs/index.md`: add row for spec 011.

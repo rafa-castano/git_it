@@ -6,8 +6,8 @@ Add the commit read path so the rest of the pipeline (analysis, pattern detectio
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` query service DTO requirements
-- `specs/002-commit-analysis.md` — commit analysis requires reading commits back
+- `docs/specs/001-repository-ingestion.md` query service DTO requirements
+- `docs/specs/002-commit-analysis.md` — commit analysis requires reading commits back
 - Layered architecture: `CommitRecord` DTO lives in application, `SqliteCommitReader` in infrastructure
 
 ### Examples

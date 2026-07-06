@@ -97,7 +97,7 @@ end-to-end before any public release.
 
 ### (c) Direct SQLite reader instantiation in API route handlers
 
-> **Resolved 2026-07-02** by spec 014 (`specs/014-postgres-read-layer.md`): the route
+> **Resolved 2026-07-02** by spec 014 (`docs/specs/014-postgres-read-layer.md`): the route
 > handlers below now obtain their readers through `build_*` read factories in
 > `composition.py` that honour `_get_db_backend()`, exactly as the "Revisit when"
 > clause of this section prescribed. When the Postgres backend is selected and
@@ -206,16 +206,16 @@ Postgres read support is a real requirement.
 ## Documentation impact
 
 - `.claude/agents/05-infrastructure-cloud-agent.md` — local-first MVP principle this ADR implements.
-- `ADR/005-use-local-first-no-container-mvp.md` — the parent infrastructure decision.
-- `ADR/006-use-postgresql-pgvector.md` — PostgreSQL adapter scope and limitations.
+- `docs/adr/005-use-local-first-no-container-mvp.md` — the parent infrastructure decision.
+- `docs/adr/006-use-postgresql-pgvector.md` — PostgreSQL adapter scope and limitations.
 - `docs/progress/infrastructure/batch-63-postgresql-migration.md` — Postgres adapter
   implementation scope (write/service paths only).
 
 ## Links
 
 - `.claude/agents/05-infrastructure-cloud-agent.md`
-- `ADR/005-use-local-first-no-container-mvp.md`
-- `ADR/006-use-postgresql-pgvector.md`
+- `docs/adr/005-use-local-first-no-container-mvp.md`
+- `docs/adr/006-use-postgresql-pgvector.md`
 - `src/git_it/api/routes/repos.py` — limitations (a) and (c)
 - `src/git_it/api/app.py` — limitation (b)
 - `src/git_it/repository_ingestion/composition.py` — `_get_db_backend()` and `build_*` factories

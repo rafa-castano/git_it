@@ -137,7 +137,7 @@ spec-011 shared tool layer (`git_it.tools.registry`), exposed as
 
 ## Documentation impact
 
-- `specs/012-gitit-gpt-chat.md` (Status: Implemented).
+- `docs/specs/012-gitit-gpt-chat.md` (Status: Implemented).
 - `docs/getting-started.md`: "Ask" tab subsection.
 - `docs/prompt-contracts/gitit-gpt-system-prompt.md` (new): the system prompt and
   its injection-hardening rule.
@@ -145,6 +145,6 @@ spec-011 shared tool layer (`git_it.tools.registry`), exposed as
 
 ## Links
 
-- specs/012-gitit-gpt-chat.md
+- docs/specs/012-gitit-gpt-chat.md
 - ADR 011 (spec 011, the shared tool layer this reuses)
-- specs/011-mcp-server-exposure.md
+- docs/specs/011-mcp-server-exposure.md

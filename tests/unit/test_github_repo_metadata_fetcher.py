@@ -3,7 +3,7 @@
 All tests mock urllib.request.urlopen so no network access is made, mirroring
 the existing pattern in test_github_api_fetcher.py (this codebase's GitHub
 adapter uses stdlib urllib, not httpx, so respx does not apply here — see
-specs/019-github-stars-languages.md § Tests required for the full rationale).
+docs/specs/019-github-stars-languages.md § Tests required for the full rationale).
 """
 
 import json

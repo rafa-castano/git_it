@@ -83,11 +83,11 @@ Expose Git It as a **read-only MCP server over stdio**, launched by a new
 
 ## Documentation impact
 
-- `specs/011-mcp-server-exposure.md`, `docs/mcp/servers.md`,
+- `docs/specs/011-mcp-server-exposure.md`, `docs/mcp/servers.md`,
   `docs/getting-started.md`, `docs/specs/index.md`.
 
 ## Links
 
-- specs/011-mcp-server-exposure.md
-- specs/006-mcp-strategy.md (consumer stance)
+- docs/specs/011-mcp-server-exposure.md
+- docs/specs/006-mcp-strategy.md (consumer stance)
 - Reference: https://github.com/xavidop/diamond

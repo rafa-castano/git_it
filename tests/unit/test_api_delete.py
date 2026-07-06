@@ -1,6 +1,6 @@
 """Tests for DELETE /api/repos/{repository_id} — Batch 78.
 
-All 6 unit tests follow the TDD spec in specs/008-repository-deletion.md.
+All 6 unit tests follow the TDD spec in docs/specs/008-repository-deletion.md.
 Uses FastAPI's TestClient with a temporary SQLite DB.
 No network, no external services, fully deterministic.
 """

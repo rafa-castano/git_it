@@ -6,7 +6,7 @@ Add the first real commit extraction implementation using GitPython and prove it
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` commit evidence requirements (section 8)
+- `docs/specs/001-repository-ingestion.md` commit evidence requirements (section 8)
 - Testing strategy: default tests must not require network access
 - `CommitExtractor` protocol established in Batch 19
 

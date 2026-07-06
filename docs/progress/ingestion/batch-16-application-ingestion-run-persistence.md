@@ -6,7 +6,7 @@ Wire ingestion run persistence into the application service through an applicati
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` ingestion run audit and failure persistence requirements
+- `docs/specs/001-repository-ingestion.md` ingestion run audit and failure persistence requirements
 - Batch 13 SQLite ingestion run store
 - Batch 14 architecture layers
 - Batch 15 query DTO/read port

@@ -224,7 +224,7 @@ visual noise with no informational value.
 ## Documentation impact
 
 - `docs/prompt-contracts/commit-analysis.md`: add section on dual-audience schema.
-- `specs/009-commit-audience-summaries.md`: this file.
+- `docs/specs/009-commit-audience-summaries.md`: this file.
 - `docs/specs/index.md`: add row for spec 009.
 
 ---

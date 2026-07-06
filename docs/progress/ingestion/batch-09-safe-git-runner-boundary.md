@@ -6,7 +6,7 @@ Connect the safe Git command planner to an injectable execution boundary without
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` failure mappings
+- `docs/specs/001-repository-ingestion.md` failure mappings
 - `docs/security/threat-model.md` safe ingestion constraints
 - Batch 8 command planning contract
 

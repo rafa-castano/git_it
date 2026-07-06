@@ -6,8 +6,8 @@ Complete the MVP pipeline: persist structured commit analyses to SQLite (so LLM 
 
 ### Source of truth
 
-- `specs/002-commit-analysis.md` (persistence)
-- `specs/004-narrative-engine.md`
+- `docs/specs/002-commit-analysis.md` (persistence)
+- `docs/specs/004-narrative-engine.md`
 
 ### Examples covered
 

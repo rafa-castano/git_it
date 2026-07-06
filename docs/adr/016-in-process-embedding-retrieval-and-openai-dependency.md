@@ -233,7 +233,7 @@ applied to every completions call site.
 
 ## Documentation impact
 
-- `specs/023-rag-semantic-commit-search.md` — the spec this ADR closes the
+- `docs/specs/023-rag-semantic-commit-search.md` — the spec this ADR closes the
   deferred ADR-impact item for.
 - `docs/adr/index.md` — this ADR's row.
 - `docs/prompt-contracts/gitit-gpt-system-prompt.md` — documents the
@@ -243,7 +243,7 @@ applied to every completions call site.
 
 ## Links
 
-- `specs/023-rag-semantic-commit-search.md`
+- `docs/specs/023-rag-semantic-commit-search.md`
 - ADR 006 (Use SQLite for MVP, PostgreSQL+pgvector for Future) — the
   deferred plan this ADR bypasses rather than acts on.
 - ADR 005 (Use Local-First No-Container MVP Infrastructure) / ADR 010

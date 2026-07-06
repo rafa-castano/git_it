@@ -4,7 +4,7 @@ Feature specifications for Git It. Each spec defines the goal, acceptance criter
 
 ## Spec index
 
-Spec source files live in `specs/` at the project root.
+Spec source files live in this directory (`docs/specs/`), alongside this index.
 
 | Spec | Title | Status |
 |---|---|---|

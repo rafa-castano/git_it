@@ -1,13 +1,13 @@
 # MCP Setup
 
 This page describes how MCP servers are configured for Git It **development**
-(the consumer side, `specs/006-mcp-strategy.md`) under least privilege. See
+(the consumer side, `docs/specs/006-mcp-strategy.md`) under least privilege. See
 `docs/mcp/servers.md` for the enabled server list and `docs/mcp/security.md`
 for the underlying security rules this setup follows.
 
 For the MCP server Git It itself **exposes** (`git-it mcp`), see the
 "Git It as an MCP provider" section of `docs/mcp/servers.md` and
-`specs/011-mcp-server-exposure.md` instead — that is a separate, already
+`docs/specs/011-mcp-server-exposure.md` instead — that is a separate, already
 implemented feature, not a development-tooling MCP server.
 
 ## Principles
@@ -102,4 +102,4 @@ Before enabling a new MCP server or widening an existing one's access:
    `docs/mcp/security.md`.
 3. Document the justification (why, secret exposure risk, write necessity)
    per `docs/mcp/security.md`'s "Contributor expectations" section.
-4. Cross-check against `specs/006-mcp-strategy.md` AC-7.
+4. Cross-check against `docs/specs/006-mcp-strategy.md` AC-7.

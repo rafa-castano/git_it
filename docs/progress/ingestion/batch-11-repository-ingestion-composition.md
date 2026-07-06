@@ -6,7 +6,7 @@ Provide a small application composition factory that wires the ingestion service
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` application-service and controlled-workspace requirements
+- `docs/specs/001-repository-ingestion.md` application-service and controlled-workspace requirements
 - Batch 3 workspace path helpers
 - Batch 8-10 safe Git gateway and runner contracts
 

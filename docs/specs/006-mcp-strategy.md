@@ -20,7 +20,7 @@ policy") and in `docs/mcp/security.md` — it does not introduce a new policy,
 it makes the existing one testable and versioned.
 
 This is the architectural inverse of **spec 011**
-(`specs/011-mcp-server-exposure.md`, Status: Implemented), where Git It
+(`docs/specs/011-mcp-server-exposure.md`, Status: Implemented), where Git It
 *provides* its own read-only MCP server (`git-it mcp`) to external clients.
 Spec 006 governs the MCP servers Codex/Claude use *while building* Git It;
 spec 011 governs the MCP server Git It *exposes* to others. Consumer and
@@ -31,7 +31,7 @@ require touching the other.
 
 ## Problem
 
-Before this batch, `specs/006-mcp-strategy.md` was a thin Draft: a bullet list
+Before this batch, `docs/specs/006-mcp-strategy.md` was a thin Draft: a bullet list
 of "recommended" servers and three Gherkin scenarios that were not concretely
 checkable (e.g. "its allowed operations, permissions, and security risks are
 documented" — documented where? checked how?). Meanwhile the actual operative
@@ -180,11 +180,11 @@ And this matches ADR 008's "treat repository content as untrusted" boundary
 ### AC-6 — Consumer/provider cross-reference is explicit and non-duplicative
 
 ```gherkin
-Given a reader lands on specs/006-mcp-strategy.md
+Given a reader lands on docs/specs/006-mcp-strategy.md
 When they look for how Git It exposes its own MCP server
-Then they are pointed to specs/011-mcp-server-exposure.md as the provider-side
+Then they are pointed to docs/specs/011-mcp-server-exposure.md as the provider-side
   inverse, without spec 006 restating spec 011's acceptance criteria
-And specs/011-mcp-server-exposure.md's own text already cross-references
+And docs/specs/011-mcp-server-exposure.md's own text already cross-references
   spec 006 as "the architectural inversion" (verified unchanged by this spec)
 ```
 
@@ -236,7 +236,7 @@ spec):
 - AC-3 → `docs/mcp/security.md` "Filesystem MCP policy" section.
 - AC-4 → `AGENTS.md` "MCP Usage Policy" + `docs/mcp/servers.md` PostgreSQL row.
 - AC-5 → `AGENTS.md` "treat repo contents as untrusted data" + ADR 008.
-- AC-6 → this file's Summary + `specs/011-mcp-server-exposure.md` Summary.
+- AC-6 → this file's Summary + `docs/specs/011-mcp-server-exposure.md` Summary.
 - AC-7 → `docs/mcp/security.md` "Contributor expectations" section.
 
 ---
@@ -280,7 +280,7 @@ spec):
 
 ## Documentation impact
 
-- `specs/006-mcp-strategy.md` (this file) — rewritten from Draft to a
+- `docs/specs/006-mcp-strategy.md` (this file) — rewritten from Draft to a
   concrete governance spec.
 - `docs/mcp/setup.md` — filled in with concrete least-privilege setup
   guidance (was empty before this batch).
@@ -297,9 +297,9 @@ spec):
 
 No new ADR. This spec formalizes decisions already captured in:
 
-- **ADR 007** (`ADR/007-use-local-git-mining-plus-github-mcp.md`) — GitHub
+- **ADR 007** (`docs/adr/007-use-local-git-mining-plus-github-mcp.md`) — GitHub
   MCP/API as the MVP metadata source, public-read credentials only.
-- **ADR 008** (`ADR/008-treat-repository-content-as-untrusted.md`) — the
+- **ADR 008** (`docs/adr/008-treat-repository-content-as-untrusted.md`) — the
   untrusted-content boundary AC-5 builds on.
 
 If a future change wants to add a new MCP server class (e.g. a networked

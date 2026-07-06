@@ -120,7 +120,7 @@ ADR 011 for the client config and security model.
 > `postgresql://` or `postgres://` URL switches both the write AND read paths
 > to Postgres. If Postgres is selected but unreachable, requests fail loud
 > with a 503 diagnostic — there is no silent fallback to SQLite. See
-> `specs/014-postgres-read-layer.md`.
+> `docs/specs/014-postgres-read-layer.md`.
 
 ## CLI usage
 

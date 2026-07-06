@@ -6,7 +6,7 @@ Detect knowledge silos: files touched by very few authors relative to their comm
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md`
+- `docs/specs/003-pattern-detection.md`
 
 ### Examples covered
 

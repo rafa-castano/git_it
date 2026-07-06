@@ -6,8 +6,8 @@ Make the narrative engine present commits in chronological order (oldest → new
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md`
-- `specs/004-narrative-engine.md`
+- `docs/specs/003-pattern-detection.md`
+- `docs/specs/004-narrative-engine.md`
 
 ### Examples covered
 

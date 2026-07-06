@@ -6,7 +6,7 @@ Define the smallest public contract for accepting repository URLs before any Git
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md`
+- `docs/specs/001-repository-ingestion.md`
 - local-first MVP constraints
 - public GitHub repository-only scope
 

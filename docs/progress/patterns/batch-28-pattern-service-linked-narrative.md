@@ -6,7 +6,7 @@ Make `case-study` and `patterns` consume the same hotspot data: same threshold, 
 
 ### Source of truth
 
-- `specs/004-narrative-engine.md`
+- `docs/specs/004-narrative-engine.md`
 
 ### Examples covered
 

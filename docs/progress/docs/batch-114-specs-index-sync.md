@@ -49,7 +49,7 @@ None — docs-only change, no production code touched.
   disagree (the file says "Accepted", the index says "Implemented" once it's
   actually shipped). Worth knowing before "fixing" a future mismatch: check
   `docs/progress/` for real evidence first, don't just copy the spec file's header.
-- Did not bump the individual `specs/015-022*.md` files' own `Status:` lines to
+- Did not bump the individual `docs/specs/015-022*.md` files' own `Status:` lines to
   match — that mirrors the existing, repo-wide convention (001-004/007/014-020 all
   have this same header/index mismatch already) rather than introducing a
   one-off fix for only the newest specs.

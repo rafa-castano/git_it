@@ -39,7 +39,7 @@ an eval" bar is actually satisfied by is the same one batch 88 itself relied on 
   live-LLM eval — consistent with this codebase's actual established practice for
   narrative-prompt changes, not a gap introduced by this batch.
 - `docs/specs/index.md` — spec 025's row updated `Draft` → `Implemented`.
-- `specs/025-readme-changelog-context.md` — its own `Status:` header is left as `Draft`
+- `docs/specs/025-readme-changelog-context.md` — its own `Status:` header is left as `Draft`
   unchanged, per this repo's own established convention (confirmed in batch 114/122's
   progress docs): a spec file's own header is a historical record of what was decided at
   authoring time, not retroactively edited; only `docs/specs/index.md` tracks real,

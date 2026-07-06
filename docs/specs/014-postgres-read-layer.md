@@ -176,7 +176,7 @@ HTTP 503
 
 ## Evidence requirements
 
-- ADR 010 (`ADR/010-local-first-mvp-accepted-limitations.md`), limitation (c) —
+- ADR 010 (`docs/adr/010-local-first-mvp-accepted-limitations.md`), limitation (c) —
   the documented debt this spec repays.
 - `src/git_it/api/routes/repos.py` — hardcoded adapters (lines cited in Problem).
 - `src/git_it/repository_ingestion/composition.py` — `_get_db_backend()` and the
@@ -238,8 +238,8 @@ All production code follows TDD: failing test first.
 
 ## Documentation impact
 
-- `specs/014-postgres-read-layer.md` (this file).
-- `ADR/010-local-first-mvp-accepted-limitations.md` — dated note marking
+- `docs/specs/014-postgres-read-layer.md` (this file).
+- `docs/adr/010-local-first-mvp-accepted-limitations.md` — dated note marking
   limitation (c) resolved by this spec (history preserved, not rewritten).
 - `docs/progress/api/batch-82-postgres-read-layer.md` + entry in
   `docs/progress/README.md`.

@@ -6,7 +6,7 @@ Persist extracted commits into SQLite using idempotent `INSERT OR IGNORE` so tha
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` commit fact persistence and idempotency requirements
+- `docs/specs/001-repository-ingestion.md` commit fact persistence and idempotency requirements
 - Batch 20 `CommitExtractor` protocol and `GitPythonCommitExtractor`
 - `CommitFact` unique by `(repository_id, sha)` — re-ingestion must produce distinct inserted/reused tallies
 

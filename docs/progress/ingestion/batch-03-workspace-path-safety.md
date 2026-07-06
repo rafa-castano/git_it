@@ -6,7 +6,7 @@ Define safe local workspace paths before clone/fetch implementation.
 
 ### Source of truth
 
-- controlled workspace lifecycle in `specs/001-repository-ingestion.md`
+- controlled workspace lifecycle in `docs/specs/001-repository-ingestion.md`
 - local-first, no-container MVP strategy
 
 ### Examples

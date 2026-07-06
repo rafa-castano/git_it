@@ -6,7 +6,7 @@ Add the first local CLI adapter for repository ingestion while keeping domain lo
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` CLI requirements
+- `docs/specs/001-repository-ingestion.md` CLI requirements
 - Batch 11 composition factory
 - controlled workspace requirement that generated identifiers, not owner/repo strings, drive cache paths
 

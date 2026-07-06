@@ -6,7 +6,7 @@ Establish the commit extraction contract so the service can receive and count ra
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` commit evidence requirements (section 8)
+- `docs/specs/001-repository-ingestion.md` commit evidence requirements (section 8)
 - Clean architecture boundary: domain holds the data record, application holds the port protocol
 
 ### Examples

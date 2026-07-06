@@ -107,11 +107,11 @@ pattern in `index.html`) and introduce one shared helper,
 
 ## Documentation impact
 
-- `specs/012-gitit-gpt-chat.md` AC-6 (Markdown rendering replaces HTML-escaped
+- `docs/specs/012-gitit-gpt-chat.md` AC-6 (Markdown rendering replaces HTML-escaped
   plain text for chat replies).
 - `docs/getting-started.md` Ask subsection.
 
 ## Links
 
 - ADR 008 (treat repository content as untrusted)
-- specs/012-gitit-gpt-chat.md AC-6
+- docs/specs/012-gitit-gpt-chat.md AC-6

@@ -6,7 +6,7 @@ Add the first stable query DTOs over persisted ingestion runs so future CLI/GUI 
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` query service DTO requirements
+- `docs/specs/001-repository-ingestion.md` query service DTO requirements
 - Batch 13 SQLite ingestion run store
 - Batch 14 layered architecture boundaries
 

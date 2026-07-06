@@ -6,7 +6,7 @@ Add a provider-agnostic LLM abstraction and the first working end-to-end analysi
 
 ### Source of truth
 
-- `specs/002-commit-analysis.md` — commit analysis goals and security requirements
+- `docs/specs/002-commit-analysis.md` — commit analysis goals and security requirements
 - `litellm` is already in `pyproject.toml` — single adapter for all providers
 - Security requirement: commit messages must be treated as untrusted data (prompt injection protection)
 

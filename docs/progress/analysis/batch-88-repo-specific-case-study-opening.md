@@ -18,8 +18,8 @@ separate future enhancement).
 
 ## Source of truth
 
-- `specs/015-repo-specific-case-study-opening.md` (new)
-- `specs/004-narrative-engine.md` (existing narrative engine contract, unchanged structurally)
+- `docs/specs/015-repo-specific-case-study-opening.md` (new)
+- `docs/specs/004-narrative-engine.md` (existing narrative engine contract, unchanged structurally)
 - `docs/prompt-contracts/narrative-generation.md` (new)
 
 ## What was added
@@ -48,7 +48,7 @@ separate future enhancement).
 - `docs/prompt-contracts/narrative-generation.md` — new prompt-contract doc (purpose, inputs,
   output schema, anti-generic-opening rule, forbidden/failure behavior), matching the style of
   `commit-analysis.md` and `pattern-detection.md`.
-- `specs/015-repo-specific-case-study-opening.md` — new spec, Status: Accepted.
+- `docs/specs/015-repo-specific-case-study-opening.md` — new spec, Status: Accepted.
 
 ## Tests added
 

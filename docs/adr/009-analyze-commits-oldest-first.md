@@ -99,12 +99,12 @@ via `tests/unit/test_api_analyze.py`.
 
 - `docs/progress/api/bugfix-session-ui-and-ordering.md` — records the original bug and the
   one-line fix that established this decision.
-- `specs/004-narrative-engine.md` — the narrative engine spec documents how case studies are
+- `docs/specs/004-narrative-engine.md` — the narrative engine spec documents how case studies are
   built from ordered analyses.
 
 ## Links
 
-- `specs/004-narrative-engine.md`
+- `docs/specs/004-narrative-engine.md`
 - `docs/progress/api/bugfix-session-ui-and-ordering.md`
 - `src/git_it/api/routes/repos.py` — `_analyze_bg` (production decision) and `estimate_analyze`
   (acknowledged inconsistency)

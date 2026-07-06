@@ -6,7 +6,7 @@ Implement the first pattern detector: hotspot detection using aggregated file ch
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md` (layer 1: rule-based detectors)
+- `docs/specs/003-pattern-detection.md` (layer 1: rule-based detectors)
 
 ### Examples covered
 

@@ -89,7 +89,7 @@ requirement" section is extended with references to
 mirroring the "Discussion evidence eval (spec 022)" section's exact format:
 how to run, options, requires, and a numbered "what it checks" list.
 
-**`ADR/016-in-process-embedding-retrieval-and-openai-dependency.md`** (new):
+**`docs/adr/016-in-process-embedding-retrieval-and-openai-dependency.md`** (new):
 records both decisions spec 023 flagged as ADR-worthy:
 
 1. Cosine-similarity retrieval is in-process and backend-agnostic
@@ -112,7 +112,7 @@ records both decisions spec 023 flagged as ADR-worthy:
 
 **`docs/specs/index.md`** — spec 023's row changed from `Draft` to
 `Implemented` (its own `Status:` header in
-`specs/023-rag-semantic-commit-search.md` is intentionally left as `Draft`,
+`docs/specs/023-rag-semantic-commit-search.md` is intentionally left as `Draft`,
 matching the established convention from batch 114 that a spec's own header
 is not retroactively edited after implementation).
 

@@ -6,7 +6,7 @@ Fix the final ingestion status from the intermediate `CLONING_OR_FETCHING` to `C
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` file-level evidence and completion status requirements
+- `docs/specs/001-repository-ingestion.md` file-level evidence and completion status requirements
 - `ExtractedCommit.file_changes` derived from `commit.stats.files` (GitPython)
 - `UNIQUE(repository_id, commit_sha, file_path)` idempotency key
 

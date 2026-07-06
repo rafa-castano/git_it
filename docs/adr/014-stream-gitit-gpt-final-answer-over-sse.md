@@ -137,12 +137,12 @@ Given that contract:
 
 ## Documentation impact
 
-- `specs/013-gitit-gpt-streaming.md` (Status: Implemented).
+- `docs/specs/013-gitit-gpt-streaming.md` (Status: Implemented).
 - `docs/getting-started.md` Ask subsection.
 - `docs/specs/index.md`, `docs/adr/index.md` rows.
 
 ## Links
 
-- specs/013-gitit-gpt-streaming.md
+- docs/specs/013-gitit-gpt-streaming.md
 - ADR 012 (the agentic loop this extends)
 - ADR 013 (the sanitized-Markdown rendering the growing bubble reuses)

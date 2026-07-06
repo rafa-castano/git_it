@@ -28,7 +28,7 @@ order="oldest"   # was: order="newest"
 Commits are now processed chronologically, matching the order the case study narrative builds
 the repository's engineering story.
 
-Architectural rationale recorded in `ADR/009-analyze-commits-oldest-first.md` (that ADR will be
+Architectural rationale recorded in `docs/adr/009-analyze-commits-oldest-first.md` (that ADR will be
 created in a later batch — reference it by that exact filename).
 
 ### Fix — uvicorn command in getting-started.md

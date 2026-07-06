@@ -78,7 +78,7 @@ Before any task, Codex must:
 1. Read this file.
 2. Read `AGENTS.md`.
 3. Identify the active agent role.
-4. Read the relevant spec under `specs/`.
+4. Read the relevant spec under `docs/specs/`.
 5. Check whether an ADR is needed.
 6. Check whether tests already exist.
 7. Propose a minimal change plan only when the task is complex.

@@ -185,14 +185,14 @@ implemented:
 
 ## Documentation impact
 
-- `specs/022-github-discussions.md` — the spec this ADR closes the deferred
+- `docs/specs/022-github-discussions.md` — the spec this ADR closes the deferred
   ADR-impact item for.
 - `docs/adr/index.md` — this ADR's row.
 - `evals/README.md` — documents the new discussion-evidence eval.
 
 ## Links
 
-- `specs/022-github-discussions.md`
+- `docs/specs/022-github-discussions.md`
 - ADR 007 (Use Local Git Mining Plus GitHub MCP) — REST API boundary this ADR's
   GraphQL decision extends.
 - ADR 008 (Treat Repository Content as Untrusted) — the general posture this

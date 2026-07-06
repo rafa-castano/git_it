@@ -2,7 +2,7 @@
 
 ### Goal
 
-`specs/006-mcp-strategy.md` was a thin Draft: a bullet list of "recommended"
+`docs/specs/006-mcp-strategy.md` was a thin Draft: a bullet list of "recommended"
 MCP servers and three Gherkin scenarios that were not concretely checkable
 (e.g. "its allowed operations, permissions, and security risks are
 documented" — documented where, checked how?). Meanwhile the actual operative
@@ -13,12 +13,12 @@ that anchor (not duplicate or contradict) the existing `AGENTS.md` policy,
 and fills in the previously-empty `docs/mcp/setup.md`. No production code
 changes — this is a docs-only batch, consistent with a decision already made:
 Git It as MCP **consumer** (spec 006) is not deferred to spec 011; spec 011
-(`specs/011-mcp-server-exposure.md`, Implemented) is the separate, already
+(`docs/specs/011-mcp-server-exposure.md`, Implemented) is the separate, already
 implemented **provider**-side inverse.
 
 ### What was added
 
-**`specs/006-mcp-strategy.md`** — rewritten from Draft to `Status: Implemented`
+**`docs/specs/006-mcp-strategy.md`** — rewritten from Draft to `Status: Implemented`
 (matching spec 011's status for consumer/provider symmetry). Adds:
 
 - A Problem section explaining the drift between the vague old spec and the
@@ -53,7 +53,7 @@ documentation-only changes). Validated with
 ### Gotchas
 
 - **`docs/specs/index.md` still lists spec 006 as "Draft"** (row 16). This
-  batch's explicit file scope was `specs/006-mcp-strategy.md`,
+  batch's explicit file scope was `docs/specs/006-mcp-strategy.md`,
   `docs/mcp/setup.md`, this progress doc, and `docs/progress/README.md` —
   updating the spec index table was intentionally left out of scope to keep
   the commit minimal and matching the requested file list. The index is
@@ -63,7 +63,7 @@ documentation-only changes). Validated with
 - **Out-of-tree links bite again.** As documented in batch 83, `mkdocs.yml`
   sets `docs_dir: docs`, so `mkdocs build --strict` cannot resolve Markdown
   links pointing to `specs/` or `ADR/` (outside the docs tree). Every
-  reference to `specs/006-mcp-strategy.md`, `specs/011-mcp-server-exposure.md`,
+  reference to `docs/specs/006-mcp-strategy.md`, `docs/specs/011-mcp-server-exposure.md`,
   `AGENTS.md`, and `ADR/*.md` in the new spec text and in `docs/mcp/setup.md`
   is written as plain backtick text, not a Markdown link, matching the
   established convention.

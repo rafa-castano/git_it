@@ -247,8 +247,8 @@ All production code follows TDD: failing test first.
 
 ## Documentation impact
 
-- `specs/013-gitit-gpt-streaming.md` (this file).
-- `specs/012-gitit-gpt-chat.md`: remove/update the "No streaming (SSE)" line
+- `docs/specs/013-gitit-gpt-streaming.md` (this file).
+- `docs/specs/012-gitit-gpt-chat.md`: remove/update the "No streaming (SSE)" line
   under Non-goals to point at this spec.
 - `docs/getting-started.md` Ask subsection.
 - `docs/prompt-contracts/gitit-gpt-system-prompt.md`: no change to the prompt

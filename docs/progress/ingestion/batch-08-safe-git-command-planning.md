@@ -6,7 +6,7 @@ Define the first safe Git adapter contract without executing Git, touching the n
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` MVP behavior
+- `docs/specs/001-repository-ingestion.md` MVP behavior
 - `docs/security/threat-model.md`
 - `docs/testing-strategy.md`
 

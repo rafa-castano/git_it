@@ -75,7 +75,7 @@ from the local git clone (token-independent, no GitHub API call).
 
 ## Files Changed
 
-- `specs/020-file-folder-path-linking.md` — new spec (Accepted)
+- `docs/specs/020-file-folder-path-linking.md` — new spec (Accepted)
 - `src/git_it/repository_ingestion/application/ports.py` — `DefaultBranchReader`/`DefaultBranchWriter`
 - `src/git_it/repository_ingestion/application/service.py` — optional port wiring in `ingest()`
 - `src/git_it/repository_ingestion/infrastructure/commits.py` — `GitPythonDefaultBranchReader`

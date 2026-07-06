@@ -129,6 +129,7 @@ One file per batch, organized by feature area.
 - [Batch 115 — Specs 023 (RAG semantic search) and 024 (LLM call observability)](docs/batch-115-rag-and-observability-specs.md)
 - [Batch 129 — Specs 025 (README/CHANGELOG context) and 026 (Releases + Security Advisories)](docs/batch-129-readme-releases-advisories-specs.md)
 - [Batch 134 — Spec 025 closure (README/CHANGELOG context)](docs/batch-134-spec-025-closure.md)
+- [Batch 136 — Unify documentation under docs/ (move ADR and specs into the tree)](docs/batch-136-unify-docs-tree.md)
 
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)

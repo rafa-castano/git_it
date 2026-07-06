@@ -53,7 +53,7 @@ Below 75% indicates model regression or prompt drift and should block a release.
 ## Discussion evidence eval (spec 022)
 
 Checks that case-study narratives generated with GitHub Discussions evidence
-respect the evidence-discipline properties `specs/022-github-discussions.md`
+respect the evidence-discipline properties `docs/specs/022-github-discussions.md`
 requires: citation completeness, no raw-text leakage, and uncertainty
 preservation.
 
@@ -103,7 +103,7 @@ never fails the run.
 
 Checks that embedding-based semantic search over `CommitAnalysis`/
 `DiscussionEvidence` summaries respects the properties
-`specs/023-rag-semantic-commit-search.md` requires: concept recall, no
+`docs/specs/023-rag-semantic-commit-search.md` requires: concept recall, no
 raw-text leakage, and relevance-ordering sanity.
 
 ### How to run

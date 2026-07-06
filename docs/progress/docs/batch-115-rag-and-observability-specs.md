@@ -52,7 +52,7 @@ Two rounds of `AskUserQuestion` (4 + 2 questions), all answered:
 
 ### What was added
 
-- `specs/023-rag-semantic-commit-search.md` (new, Draft) — full grill-me-with-docs template:
+- `docs/specs/023-rag-semantic-commit-search.md` (new, Draft) — full grill-me-with-docs template:
   domain concepts (`EmbeddedChunk`, `EmbeddingClient`, `LiteLLMEmbeddingClient`,
   `SqliteEmbeddingStore`/`PostgresEmbeddingStore`, `EmbeddingService`, `SemanticSearchService`,
   new `search_similar_commits` tool), 8 Gherkin acceptance criteria, failure-mode table, security/
@@ -63,7 +63,7 @@ Two rounds of `AskUserQuestion` (4 + 2 questions), all answered:
   deliberate divergence from ADR 006's pgvector plan in favor of in-process, backend-agnostic
   search). Three explicit Open questions (embedding model/dimension, default `top_k`,
   re-embedding-on-re-analysis) left unlocked rather than guessed at.
-- `specs/024-llm-call-observability.md` (new, Draft) — `LLMCallObservation` dataclass,
+- `docs/specs/024-llm-call-observability.md` (new, Draft) — `LLMCallObservation` dataclass,
   `observe_llm_call(call_site)` wrapper/decorator applied to all 5 existing LLM call sites (plus
   spec 023's embedding client once built), 5 Gherkin ACs including the two hardest-to-get-wrong
   ones (a logging failure must never break the underlying call; content must never leak into the

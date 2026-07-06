@@ -258,7 +258,7 @@ All production code follows TDD: failing test first.
 
 ## Documentation impact
 
-- `specs/012-gitit-gpt-chat.md` (this file), `docs/specs/index.md` row.
+- `docs/specs/012-gitit-gpt-chat.md` (this file), `docs/specs/index.md` row.
 - `docs/getting-started.md`: Ask tab subsection.
 - `docs/prompt-contracts/`: new `gitit-gpt-system-prompt.md` documenting the system
   prompt and hardening.

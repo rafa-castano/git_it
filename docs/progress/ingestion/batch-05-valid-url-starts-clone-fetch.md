@@ -7,7 +7,7 @@ Make valid repository inputs cross the application boundary into the Git gateway
 ### Source of truth
 
 - URL contract
-- ingestion lifecycle stages from `specs/001-repository-ingestion.md`
+- ingestion lifecycle stages from `docs/specs/001-repository-ingestion.md`
 
 ### Examples
 

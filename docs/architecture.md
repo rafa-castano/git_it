@@ -96,14 +96,14 @@ MVP. Two remain open; one has since been resolved:
   local development. Still open.
 - **Direct SQLite reader instantiation in API routes** — routes used to
   construct SQLite readers directly instead of going through a port.
-  Resolved 2026-07-02 by `specs/014-postgres-read-layer.md`, which introduced
+  Resolved 2026-07-02 by `docs/specs/014-postgres-read-layer.md`, which introduced
   a PostgreSQL-backed read layer
   (`src/git_it/repository_ingestion/infrastructure/postgres.py`) selected via
   `DATABASE_URL`. CLI `list-analyses` and the shared MCP/chat tool registry
   also route read-side persistence through composition, so driving adapters no
   longer select SQLite directly.
 
-See `ADR/010-local-first-mvp-accepted-limitations.md` for full detail on all
+See `docs/adr/010-local-first-mvp-accepted-limitations.md` for full detail on all
 three.
 
 ## Roadmap
@@ -114,12 +114,12 @@ between what's specified and what's shipped:
 
 - **Spec 005 — Documentation Engine**: automated generation of
   documentation from repository analysis. Not yet built. See
-  `specs/005-documentation-engine.md`.
+  `docs/specs/005-documentation-engine.md`.
 - **Spec 006 — MCP Strategy**: the broader MCP strategy document. The MCP
   server itself is live (ADR 011, spec 011), but this strategy spec covering
-  the wider approach is still Draft. See `specs/006-mcp-strategy.md`.
+  the wider approach is still Draft. See `docs/specs/006-mcp-strategy.md`.
 - **Spec 008 — Repository Deletion**: the DELETE endpoint and delete UI are
   built (`src/git_it/api/routes/repos.py`, `src/git_it/static/app.js`), but
   the spec was never bumped past Draft and there is no integration test
   covering the delete flow (`tests/integration/test_repo_lifecycle.py` has no
-  delete coverage). See `specs/008-repository-deletion.md`.
+  delete coverage). See `docs/specs/008-repository-deletion.md`.

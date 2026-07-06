@@ -6,7 +6,7 @@ Expose the persisted run ID in CLI output so the result of each ingestion is tra
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` CLI human-readable output requirements
+- `docs/specs/001-repository-ingestion.md` CLI human-readable output requirements
 - Batch 16 `IngestionResult.run_id` already populated by the application service
 
 ### Examples

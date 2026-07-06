@@ -6,7 +6,7 @@ Extend `PatternDetectionService` with semantic patterns derived from stored `Com
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md`
+- `docs/specs/003-pattern-detection.md`
 
 ### Examples covered
 

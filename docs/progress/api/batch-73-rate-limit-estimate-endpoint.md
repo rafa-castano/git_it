@@ -8,8 +8,8 @@ unauthenticated client could call it in a tight loop, forcing repeated full-data
 batch adds a `20/minute` limit, consistent with the rate-limiting policy already applied to the
 write endpoints (`ingest` 5/min, `analyze` 10/min, `regenerate` 5/min).
 
-Recorded as an accepted design point in `ADR/010-local-first-mvp-accepted-limitations.md` (the
-CORS/local-first posture) and specified in `specs/007-cost-estimation.md`.
+Recorded as an accepted design point in `docs/adr/010-local-first-mvp-accepted-limitations.md` (the
+CORS/local-first posture) and specified in `docs/specs/007-cost-estimation.md`.
 
 ## Changes Made
 

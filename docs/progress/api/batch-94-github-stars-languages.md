@@ -79,7 +79,7 @@ persisted independently of the existing per-commit `GithubContextFetcher`
 
 ## Files Changed
 
-- `specs/019-github-stars-languages.md` — new spec (Accepted)
+- `docs/specs/019-github-stars-languages.md` — new spec (Accepted)
 - `src/git_it/repository_ingestion/domain/repo_metadata.py` — new
 - `src/git_it/repository_ingestion/infrastructure/github.py` — `GithubRepoMetadataFetcher`
 - `src/git_it/repository_ingestion/infrastructure/sqlite.py` — `SqliteRepoMetadataStore` + deleter update

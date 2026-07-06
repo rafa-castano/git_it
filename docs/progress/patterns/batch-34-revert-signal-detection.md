@@ -6,7 +6,7 @@ Detect instability via revert commit ratio as a signal of rework or broken workf
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md`
+- `docs/specs/003-pattern-detection.md`
 
 ### Examples covered
 

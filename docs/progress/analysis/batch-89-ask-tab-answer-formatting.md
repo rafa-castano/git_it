@@ -19,7 +19,7 @@ documented as an accepted trade-off in spec 016.
 
 ## Source of truth
 
-- `specs/016-ask-tab-answer-formatting.md` (new)
+- `docs/specs/016-ask-tab-answer-formatting.md` (new)
 - `docs/prompt-contracts/gitit-gpt-system-prompt.md` (updated)
 
 ## What was added
@@ -53,7 +53,7 @@ documented as an accepted trade-off in spec 016.
 - `docs/prompt-contracts/gitit-gpt-system-prompt.md` — new "Formatting rules
   (spec 016)" section documenting the prompt instruction and the two-sided
   normalizer, plus an evidence-requirement pointer to the new test file.
-- `specs/016-ask-tab-answer-formatting.md` — new spec, Status: Accepted.
+- `docs/specs/016-ask-tab-answer-formatting.md` — new spec, Status: Accepted.
 
 ## Tests added
 

@@ -14,7 +14,7 @@ cross-link to the Commits tab.
 
 ## What changed
 
-- `specs/017-activity-chart-zoom-ladder.md` — new spec (mirrors spec 016's
+- `docs/specs/017-activity-chart-zoom-ladder.md` — new spec (mirrors spec 016's
   structure), including the locked reconciliation decisions: only hour-level
   clicks cross-link to Commits; the date-box filter and the zoom span
   compose independently rather than resetting each other.

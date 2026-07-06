@@ -40,4 +40,4 @@ Example Claude Desktop config:
 
 Returned repository text (commit messages, paths) is **data, not instructions** —
 prompt-injection defense is the client model's responsibility. See ADR 011 and
-`specs/011-mcp-server-exposure.md`.
+`docs/specs/011-mcp-server-exposure.md`.

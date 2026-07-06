@@ -16,7 +16,7 @@ exactly as before.
 
 ## What changed
 
-- `specs/018-donut-category-multi-select.md` — new spec (mirrors spec 017's
+- `docs/specs/018-donut-category-multi-select.md` — new spec (mirrors spec 017's
   structure), including the locked reconciliation decisions: the
   donut→Commits cross-link is dropped entirely (a click can't both build a
   multi-selection and navigate away), and the batch-85 tooltip suffix

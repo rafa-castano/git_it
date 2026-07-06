@@ -6,7 +6,7 @@ Enrich the CLI success output with repository identity (owner/repo and canonical
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` CLI human-readable output requirements (section 10)
+- `docs/specs/001-repository-ingestion.md` CLI human-readable output requirements (section 10)
 - `ParsedRepositoryUrl.canonical_url` already computed inside the service during URL validation
 
 ### Examples

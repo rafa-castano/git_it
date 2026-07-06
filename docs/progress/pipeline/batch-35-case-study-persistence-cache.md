@@ -6,7 +6,7 @@ Cache generated case studies in SQLite so repeated `case-study` calls skip the L
 
 ### Source of truth
 
-- `specs/004-narrative-engine.md`
+- `docs/specs/004-narrative-engine.md`
 
 ### Examples covered
 

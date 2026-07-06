@@ -9,7 +9,7 @@ five real LLM call sites — that is batch 117, a separate, later slice.
 
 ### Why
 
-Spec 024 (`specs/024-llm-call-observability.md`) locks the TDD order: build and
+Spec 024 (`docs/specs/024-llm-call-observability.md`) locks the TDD order: build and
 fully test the wrapper in isolation with a fake wrapped function first, then
 apply it to each real call site one at a time. This keeps the mechanism itself
 small, reviewable, and independently green before it touches any production

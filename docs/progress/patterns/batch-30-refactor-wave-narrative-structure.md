@@ -6,8 +6,8 @@ Add refactor wave pattern detector and align narrative system prompt to spec 004
 
 ### Source of truth
 
-- `specs/003-pattern-detection.md`
-- `specs/004-narrative-engine.md`
+- `docs/specs/003-pattern-detection.md`
+- `docs/specs/004-narrative-engine.md`
 
 ### Examples covered
 

@@ -75,7 +75,7 @@ Full suite: **811 passed, 18 skipped** (was 801 before this batch; +10 new).
 ### Gotchas
 
 - **Spec header said "Implemented" before the code existed.** The spec file
-  (`specs/021-background-job-fail-loud.md`) was authored in the same RED pass as
+  (`docs/specs/021-background-job-fail-loud.md`) was authored in the same RED pass as
   the tests and optimistically carried `Status: Implemented`. That is now true as
   of this commit; the header was left as-is rather than churned Draft→Implemented
   across two commits.

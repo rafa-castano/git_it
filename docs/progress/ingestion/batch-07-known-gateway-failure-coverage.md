@@ -6,7 +6,7 @@ Ensure the application service covers every known fetch/Git gateway failure curr
 
 ### Source of truth
 
-- `specs/001-repository-ingestion.md` default failure mapping table
+- `docs/specs/001-repository-ingestion.md` default failure mapping table
 
 ### Examples
 

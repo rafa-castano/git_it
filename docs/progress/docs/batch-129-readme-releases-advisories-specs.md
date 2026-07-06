@@ -45,7 +45,7 @@ Two rounds of `AskUserQuestion` (2 + 2 questions), all answered:
 
 ### What was added
 
-- `specs/025-readme-changelog-context.md` (new, Draft) — `ProjectDocContent` domain model,
+- `docs/specs/025-readme-changelog-context.md` (new, Draft) — `ProjectDocContent` domain model,
   `GitPythonProjectDocReader` (reads blobs from the bare clone's `HEAD` tree via GitPython —
   confirmed via `infrastructure/git.py:144`'s `--bare` flag that no working tree exists, so a
   plain filesystem read isn't possible; mirrors `GitPythonDefaultBranchReader`'s exact
@@ -53,7 +53,7 @@ Two rounds of `AskUserQuestion` (2 + 2 questions), all answered:
   wiring into `RepositoryIngestionService` (mirrors default-branch capture exactly), a new
   `## Project Documentation` narrative section, 8 Gherkin ACs, and an explicit "no new ADR
   needed" assessment (mechanical reuse of already-decided patterns).
-- `specs/026-releases-and-security-advisories.md` (new, Draft) — `Release`/`SecurityAdvisory`
+- `docs/specs/026-releases-and-security-advisories.md` (new, Draft) — `Release`/`SecurityAdvisory`
   raw domain types, `ReleaseEvidence`/`AdvisoryEvidence` validated/persisted types (evidence_ref
   sourced from Git It's own trusted API response, never LLM output — same ADR 015 citation-trust
   mitigation Discussions already uses), `ReleaseSummarizer`/`AdvisorySummarizer` (one LLM call

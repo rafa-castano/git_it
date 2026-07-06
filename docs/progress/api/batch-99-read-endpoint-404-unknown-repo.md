@@ -3,7 +3,7 @@
 ### Goal
 
 Batch 98 (commit `c43b6b9`) documented — but did not fix — a discrepancy between
-`specs/008-repository-deletion.md`'s acceptance criteria and the real handler behavior:
+`docs/specs/008-repository-deletion.md`'s acceptance criteria and the real handler behavior:
 the spec requires `GET .../commits`, `GET .../patterns`, and `GET .../analyze/estimate`
 to return `404` for an unknown/deleted `repository_id`, but the handlers only guarded on
 `database_is_provisioned(...)` (a global "does *any* DB exist" check), so they returned

@@ -56,7 +56,7 @@ out of the deterministic unit suite):
 **`evals/README.md`** — new "Discussion evidence eval (spec 022)" section:
 how to run, what each of the three checks does, and the exit-code contract.
 
-**`ADR/015-graphql-discussions-and-untrusted-text-summarization.md`** (new):
+**`docs/adr/015-graphql-discussions-and-untrusted-text-summarization.md`** (new):
 records both decisions spec 022 flagged as ADR-worthy:
 1. GraphQL is used only where REST is insufficient (Discussions); REST stays
    the default (references ADR 007, and the fixed-template/no-injection

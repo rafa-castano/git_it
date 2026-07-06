@@ -54,12 +54,12 @@ Gaps found while mapping the read paths (each mirrors its SQLite neighbour):
 
 ## Files Changed
 
-- `specs/014-postgres-read-layer.md` — new spec (Accepted)
+- `docs/specs/014-postgres-read-layer.md` — new spec (Accepted)
 - `src/git_it/repository_ingestion/composition.py` — 7 read factories + provisioned check
 - `src/git_it/api/routes/repos.py` — handlers rewired to factories
 - `src/git_it/api/app.py` — fail-loud `psycopg.OperationalError` handler
 - `src/git_it/repository_ingestion/infrastructure/postgres.py` — parity gaps closed
-- `ADR/010-local-first-mvp-accepted-limitations.md` — dated resolution note on limitation (c)
+- `docs/adr/010-local-first-mvp-accepted-limitations.md` — dated resolution note on limitation (c)
 - `tests/unit/test_read_factories.py` — 31 new unit tests (new file)
 - `tests/unit/test_postgres_adapters.py` — 4 new contract tests (skipped without live Postgres)
 - `docs/progress/api/batch-82-postgres-read-layer.md` — this file

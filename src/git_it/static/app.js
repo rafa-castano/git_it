@@ -591,7 +591,7 @@ const _GH_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="curr
 // Spec 019: fixed-order categorical palette for the language bar, validated
 // (lightness band, CVD-adjacency, contrast) against this app's own --surface
 // values via the dataviz skill's validate_palette.js — see
-// specs/019-github-stars-languages.md § Domain concepts for why this is a
+// docs/specs/019-github-stars-languages.md § Domain concepts for why this is a
 // dedicated palette rather than a reuse of --blue/--green/--red/etc (those
 // already carry fixed status meaning elsewhere in the app). Order is the
 // CVD-safety mechanism — do not reshuffle without re-validating.

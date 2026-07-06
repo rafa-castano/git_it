@@ -9,7 +9,7 @@ batch.
 
 ### What was added
 
-**`specs/022-github-discussions.md`** — a `Status: Draft` spec following the exact
+**`docs/specs/022-github-discussions.md`** — a `Status: Draft` spec following the exact
 `grill-me-with-docs` section structure, encoding these locked product/technical decisions as
 resolved requirements (not open questions):
 
@@ -71,7 +71,7 @@ None — spec-only batch; implementation and its tests are deferred to a future 
   generation (full or incremental) resends the complete stored set — no "new since last
   generation" diffing logic is needed for this evidence source, unlike commit analyses.
 - **Out-of-tree links**: every reference to `AGENTS.md`, `CODEX.md`, `ADR/*.md`, and other
-  spec files inside `specs/022-github-discussions.md` is plain backtick text, not a Markdown
+  spec files inside `docs/specs/022-github-discussions.md` is plain backtick text, not a Markdown
   link — `mkdocs.yml`'s `docs_dir: docs` means `mkdocs build --strict` cannot resolve links
   pointing outside the `docs/` tree (same convention documented in batch 83 and re-confirmed
   in batch 102).
