@@ -124,16 +124,7 @@
               <option value="expert" selected>Expert</option>
               <option value="beginner">Beginner</option>
             </select>
-            <select id="cat-filter" aria-label="Filter commits by category" onchange="_applyTimelineFilters()">
-              <option value="">All categories</option>
-              <option value="FEATURE">FEATURE</option>
-              <option value="BUGFIX">BUGFIX</option>
-              <option value="REFACTOR">REFACTOR</option>
-              <option value="BUILD">BUILD</option>
-              <option value="DOCS">DOCS</option>
-              <option value="TEST">TEST</option>
-              <option value="OTHER">OTHER</option>
-            </select>
+            <div id="commits-cat-chips" class="donut-legend" role="list" aria-label="Filter commits by category" style="margin:0"></div>
             <input type="text" id="tl-search" placeholder="Filter commits…" aria-label="Filter commits by keyword, author, or SHA" oninput="_debouncedTimelineFilter()">
             <input type="date" id="tl-date-from" aria-label="Filter from date" title="From date" onchange="_tlHourFilter=null;_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">
             <input type="date" id="tl-date-to" aria-label="Filter to date" title="To date" onchange="_tlHourFilter=null;_applyTimelineFilters()" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;color-scheme:dark">

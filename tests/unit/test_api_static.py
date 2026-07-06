@@ -63,11 +63,14 @@ def test_static_index_has_four_tabs(tmp_path: Path) -> None:
         assert tab in response.text
 
 
-def test_static_index_has_category_colors(tmp_path: Path) -> None:
+def test_static_app_js_has_category_colors(tmp_path: Path) -> None:
+    # Batch 127: the category filter/legend chips are generated dynamically in
+    # app.js (CAT_COLORS/_COMMIT_CATEGORIES), same as the donut's own legend
+    # always was — index.html no longer hardcodes category <option>s.
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
-    response = client.get("/static/index.html")
-    assert "BUGFIX" in response.text or "bugfix" in response.text.lower()
+    response = client.get("/static/app.js")
+    assert "BUGFIX" in response.text
 
 
 def test_static_index_has_aria_roles(tmp_path: Path) -> None:

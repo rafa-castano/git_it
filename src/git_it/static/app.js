@@ -889,6 +889,61 @@ function _updateAudienceBanner(audience) {
   }
 }
 
+/* Commits-tab category multi-select: mirrors the donut's own multi-select
+ * (spec 018) — same toggleSelection()/catColor()/catTipKey() helpers, same
+ * selected/dimmed chip styling — so a category reads the same color/shape
+ * whether toggled from the donut legend or from here. Reset per repo load
+ * in loadTimeline(), not on every filter application. */
+/* Matches CommitCategory (domain/analysis.py) exactly. The old single-select
+ * only listed 7 of these 10 (plus a bogus "OTHER" that matched nothing) —
+ * SECURITY/PERFORMANCE/CHORE/UNKNOWN commits had no filter option at all.
+ * Fixed here since this list was being rebuilt anyway. */
+const _COMMIT_CATEGORIES = [
+  'FEATURE', 'BUGFIX', 'REFACTOR', 'TEST', 'DOCS', 'BUILD',
+  'SECURITY', 'PERFORMANCE', 'CHORE', 'UNKNOWN',
+];
+let _commitsCategorySelected = new Set();
+
+function _renderCommitsCategoryChips() {
+  const el = document.getElementById('commits-cat-chips');
+  if (!el) return;
+  el.innerHTML = _COMMIT_CATEGORIES.map(cat => {
+    const isSelected = _commitsCategorySelected.has(cat);
+    const isDimmed = _commitsCategorySelected.size > 0 && !isSelected;
+    const cls = ['donut-legend-item', isSelected ? 'selected' : '', isDimmed ? 'dimmed' : ''].filter(Boolean).join(' ');
+    return `<span class="${cls}" data-tip="${catTipKey(cat)}" data-tip-suffix="(Click to toggle)" tabindex="0" role="listitem" aria-pressed="${isSelected}"
+      style="cursor:pointer"
+      onclick="_toggleCommitsCategory('${cat}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+      <span class="donut-legend-dot" style="background:${catColor(cat)}" aria-hidden="true"></span>
+      ${cat.toLowerCase()}
+    </span>`;
+  }).join('');
+}
+
+window._toggleCommitsCategory = function(cat) {
+  _commitsCategorySelected = toggleSelection(_commitsCategorySelected, cat.toUpperCase());
+  _renderCommitsCategoryChips();
+  _applyTimelineFilters();
+};
+
+/** Cross-link from a donut *slice* click (legend clicks keep toggling the
+ * donut's own local multi-select, unchanged) — drills into the Commits tab
+ * filtered to that one category, mirroring _filterByEvidenceShas'/spec 017's
+ * hour-click cross-link style (switchTab, ensure _tlAllCommits is loaded,
+ * apply the filter with a labeled description). */
+window._drillDonutCategoryToCommits = function(cat) {
+  if (!cat || !currentRepo) return;
+  const upper = cat.toUpperCase();
+  switchTab('commits');
+  setTimeout(async () => {
+    if (!_tlAllCommits.length) await loadTimeline(currentRepo);
+    _commitsCategorySelected = new Set([upper]);
+    _renderCommitsCategoryChips();
+    _applyCommitFilter(`Category: ${upper}`);
+  }, 100);
+};
+
 async function _applyTimelineFilters() {
   if (!currentRepo) return;
   const limit = document.getElementById('tl-limit-select')?.value || '200';
@@ -896,7 +951,6 @@ async function _applyTimelineFilters() {
   const keyword = (document.getElementById('tl-search')?.value || '').toLowerCase().trim();
   const fromDate = document.getElementById('tl-date-from')?.value;
   const toDate = document.getElementById('tl-date-to')?.value;
-  const cat = (document.getElementById('cat-filter')?.value || '').toUpperCase();
   if (limitN > _tlAllCommits.length) {
     await loadTimeline(currentRepo);
     return;
@@ -920,10 +974,13 @@ async function _applyTimelineFilters() {
       (c.summary||'').toLowerCase().includes(keyword)
     );
   }
-  if (cat) commits = commits.filter(c => (c.category || '').toUpperCase() === cat);
+  if (_commitsCategorySelected.size > 0) {
+    commits = commits.filter(c => _commitsCategorySelected.has((c.category || '').toUpperCase()));
+  }
   if (_evidenceShaFilter) commits = commits.filter(c => _evidenceShaFilter.has(c.sha));
   // A narrowing search/filter is active (as opposed to just the commit-count limit) —
   // expand day groups automatically so matches aren't hidden behind a closed day.
+  const cat = _commitsCategorySelected.size > 0 ? Array.from(_commitsCategorySelected).join(', ') : '';
   const hasActiveFilter = !!(keyword || fromDate || toDate || cat || _evidenceShaFilter || _tlHourFilter);
   _updateCommitFilterBar({ hasActiveFilter, keyword, fromDate, toDate, cat });
   renderTimeline(commits, _tlPatterns, { defaultOpen: hasActiveFilter });
@@ -957,6 +1014,8 @@ async function loadTimeline(repoId) {
     ]);
     _tlAllCommits = commitsData.commits || [];
     _tlPatterns = patterns;
+    _commitsCategorySelected = new Set();
+    _renderCommitsCategoryChips();
     // Build limit selector options based on actual count
     const sel = document.getElementById('tl-limit-select');
     if (sel) {
@@ -1226,7 +1285,7 @@ async function loadOverview(repoId) {
             aria-label="Clear category selection and show all categories"
             style="display:none;padding:0.2rem 0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">Clear</button>
         </div>
-        <div class="chart-container" style="height:170px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution"></canvas></div>
+        <div class="chart-container" style="height:170px"><canvas id="chart-donut" aria-label="Donut chart showing commit category distribution. Click a slice to view its commits in the Commits tab."></canvas></div>
         <div id="donut-legend-custom" class="donut-legend" role="list" aria-label="Category legend"></div>
       </div>
       <div class="chart-box">
@@ -1273,9 +1332,11 @@ async function loadOverview(repoId) {
   /* Commit-categories donut multi-select (spec 018): _donutSelected drives
    * both the rendered slices (visibleCategories) and the legend's
    * selected/dimmed styling. Reset per-load below, alongside _actScale/
-   * _actSpan. onClick/legend clicks route through the same
-   * window._toggleDonutCategory() handler so chart-click and legend-click
-   * stay in sync. */
+   * _actSpan. Legend clicks toggle _donutSelected via _toggleDonutCategory().
+   * Slice clicks instead drill into the Commits tab for that one category
+   * (_drillDonutCategoryToCommits) — deliberately decoupled from the legend
+   * so "click the chart to see specifics" matches the Activity chart's own
+   * drill convention (spec 017), while the legend stays a same-tab compare. */
   function _rebuildDonutChart() {
     const visible = visibleCategories(catCounts, _donutSelected);
     destroyChart('donut');
@@ -1294,7 +1355,7 @@ async function loadOverview(repoId) {
           if (!els.length) return;
           const cat = visible[els[0].index]?.category;
           if (!cat) return;
-          window._toggleDonutCategory(cat);
+          window._drillDonutCategoryToCommits(cat);
         },
       },
     });
@@ -2193,14 +2254,14 @@ function _applyCommitFilter(desc) {
 }
 
 function _clearCommitFilters() {
-  const sel = document.getElementById('cat-filter');
   const kw = document.getElementById('tl-search');
   const from = document.getElementById('tl-date-from');
   const to = document.getElementById('tl-date-to');
-  if (sel) sel.value = '';
   if (kw) kw.value = '';
   if (from) from.value = '';
   if (to) to.value = '';
+  _commitsCategorySelected = new Set();
+  _renderCommitsCategoryChips();
   _evidenceShaFilter = null;
   _tlHourFilter = null;
   const bar = document.getElementById('commits-filter-bar');
