@@ -21,6 +21,8 @@ from git_it.repository_ingestion.application.ports import (
     DefaultBranchWriter,
     FileFactWriter,
     LLMClient,
+    ProjectDocReader,
+    ProjectDocWriter,
 )
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 from git_it.repository_ingestion.infrastructure.commits import (
@@ -56,6 +58,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresProjectDocStore,
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     PostgresRepositoryListReader,
@@ -64,6 +67,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
 from git_it.repository_ingestion.infrastructure.postgres import (
     initialize as postgres_initialize,
 )
+from git_it.repository_ingestion.infrastructure.project_docs import GitPythonProjectDocReader
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteCaseStudyStore,
     SqliteCommitAnalysisStore,
@@ -79,6 +83,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteFileFactStore,
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
+    SqliteProjectDocStore,
     SqliteRepoMetadataStore,
     SqliteRepositoryDeleter,
     SqliteRepositoryListReader,
@@ -183,6 +188,19 @@ def build_default_branch_store(
     return store
 
 
+def build_project_doc_store(
+    *,
+    project_root: Path,
+) -> SqliteProjectDocStore | PostgresProjectDocStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresProjectDocStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteProjectDocStore(db_path)
+    store.initialize()
+    return store
+
+
 def build_discussion_evidence_store(
     *,
     project_root: Path,
@@ -274,6 +292,8 @@ def build_repository_ingestion_service(
     file_fact_writer: FileFactWriter | None = None,
     default_branch_reader: DefaultBranchReader | None = None,
     default_branch_writer: DefaultBranchWriter | None = None,
+    project_doc_reader: ProjectDocReader | None = None,
+    project_doc_writer: ProjectDocWriter | None = None,
 ) -> RepositoryIngestionService:
     backend, conninfo = _get_db_backend()
     cache_path = repository_cache_path(project_root, repository_id=repository_id)
@@ -316,6 +336,16 @@ def build_repository_ingestion_service(
         if default_branch_writer is not None
         else build_default_branch_store(project_root=project_root)
     )
+    doc_reader = (
+        project_doc_reader
+        if project_doc_reader is not None
+        else GitPythonProjectDocReader(cache_path=cache_path)
+    )
+    doc_writer = (
+        project_doc_writer
+        if project_doc_writer is not None
+        else build_project_doc_store(project_root=project_root)
+    )
     return RepositoryIngestionService(
         git_gateway=git_gateway,
         commit_extractor=extractor,
@@ -325,6 +355,8 @@ def build_repository_ingestion_service(
         run_writer=run_store,
         default_branch_reader=branch_reader,
         default_branch_writer=branch_writer,
+        project_doc_reader=doc_reader,
+        project_doc_writer=doc_writer,
     )
 
 

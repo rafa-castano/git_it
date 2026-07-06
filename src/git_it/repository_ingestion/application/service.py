@@ -13,6 +13,8 @@ from git_it.repository_ingestion.application.ports import (
     GitGatewayError,
     IngestionRunRecord,
     IngestionRunWriter,
+    ProjectDocReader,
+    ProjectDocWriter,
 )
 from git_it.repository_ingestion.domain.failure_mapping import failure_for_error_code
 from git_it.repository_ingestion.domain.url_contract import (
@@ -50,6 +52,8 @@ class RepositoryIngestionService:
         clock: Callable[[], str] | None = None,
         default_branch_reader: DefaultBranchReader | None = None,
         default_branch_writer: DefaultBranchWriter | None = None,
+        project_doc_reader: ProjectDocReader | None = None,
+        project_doc_writer: ProjectDocWriter | None = None,
     ) -> None:
         self._git_gateway = git_gateway
         self._commit_extractor = commit_extractor
@@ -61,6 +65,8 @@ class RepositoryIngestionService:
         self._clock = clock or (lambda: datetime.now(UTC).isoformat())
         self._default_branch_reader = default_branch_reader
         self._default_branch_writer = default_branch_writer
+        self._project_doc_reader = project_doc_reader
+        self._project_doc_writer = project_doc_writer
 
     def ingest(self, raw_url: str) -> IngestionResult:
         run_id = self._next_run_id()
@@ -112,6 +118,11 @@ class RepositoryIngestionService:
                 self._default_branch_writer.save_default_branch(
                     self._repository_id or "", default_branch
                 )
+
+        if self._project_doc_reader is not None:
+            project_docs = self._project_doc_reader.get_project_docs(self._repository_id or "")
+            if project_docs is not None and self._project_doc_writer is not None:
+                self._project_doc_writer.save_project_docs(project_docs)
 
         commits_inserted: int | None = None
         commits_reused: int | None = None

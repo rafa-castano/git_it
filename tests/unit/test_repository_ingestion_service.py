@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from git_it.repository_ingestion.application.ports import (
@@ -5,6 +7,7 @@ from git_it.repository_ingestion.application.ports import (
     ExtractedCommit,
     GitGatewayError,
     IngestionRunRecord,
+    ProjectDocContent,
 )
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 
@@ -465,3 +468,97 @@ def test_ingestion_service_persists_git_gateway_failure() -> None:
             safe_message="Repository fetch failed safely before analysis could start.",
         )
     ]
+
+
+# ---------------------------------------------------------------------------
+# Project-doc capture (spec 025)
+# ---------------------------------------------------------------------------
+
+
+def _make_project_docs(repository_id: str) -> ProjectDocContent:
+    return ProjectDocContent(
+        repository_id=repository_id,
+        readme_text="# Example\nThis project does things.",
+        readme_truncated=False,
+        changelog_text=None,
+        changelog_truncated=False,
+        captured_at=datetime(2026, 6, 15, 10, 0, 0, tzinfo=UTC),
+    )
+
+
+class FakeProjectDocReader:
+    def __init__(self, *, content: ProjectDocContent | None) -> None:
+        self.content = content
+        self.calls: list[str] = []
+
+    def get_project_docs(self, repository_id: str) -> ProjectDocContent | None:
+        self.calls.append(repository_id)
+        return self.content
+
+
+class RecordingProjectDocWriter:
+    def __init__(self) -> None:
+        self.calls: list[ProjectDocContent] = []
+
+    def save_project_docs(self, content: ProjectDocContent) -> None:
+        self.calls.append(content)
+
+
+def test_ingestion_service_persists_project_docs_after_successful_clone() -> None:
+    git_gateway = SpyGitGateway()
+    project_docs = _make_project_docs("repo-1")
+    reader = FakeProjectDocReader(content=project_docs)
+    writer = RecordingProjectDocWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        project_doc_reader=reader,
+        project_doc_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.calls == ["repo-1"]
+    assert writer.calls == [project_docs]
+
+
+def test_ingestion_service_does_not_persist_project_docs_when_reader_returns_none() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeProjectDocReader(content=None)
+    writer = RecordingProjectDocWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        project_doc_reader=reader,
+        project_doc_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert writer.calls == []
+
+
+def test_ingestion_service_skips_project_doc_reader_without_wiring() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway, repository_id="repo-1")
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.status == "COMPLETED"
+
+
+def test_ingestion_service_does_not_read_project_docs_on_gateway_failure() -> None:
+    git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
+    reader = FakeProjectDocReader(content=_make_project_docs("repo-1"))
+    writer = RecordingProjectDocWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        project_doc_reader=reader,
+        project_doc_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.calls == []
+    assert writer.calls == []
