@@ -31,7 +31,7 @@ Spec source files live in `specs/` at the project root.
 | 021 | Background-Job Fail-Loud | Implemented |
 | 022 | GitHub Discussions Ingestion and Narrative Evidence | Implemented |
 | 023 | RAG-Enhanced Semantic Search for the Ask Tab | Implemented |
-| 024 | LLM Call Observability (Structured Logging) | Draft |
+| 024 | LLM Call Observability (Structured Logging) | Implemented |
 
 ## How specs relate to the codebase
 
