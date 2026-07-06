@@ -144,6 +144,7 @@ const TIPS = {
   catChore:      "Routine maintenance: version bumps, cleanup, formatting, configuration. No feature or behavior changes.",
   catSecurity:   "Addresses a security vulnerability, hardens access controls, or improves authentication and authorization.",
   catUnknown:    "AI could not confidently classify this commit into a known category.",
+  tlLegacySummary: "This commit was analyzed before beginner/expert summaries existed, so the Beginner/Expert selector has no effect on it — re-analyze the repository to generate audience-specific versions.",
   riskLow:       "Low risk — the change is small, well-scoped, and unlikely to introduce regressions.",
   riskMedium:    "Medium risk — the change touches multiple areas or has moderate complexity. Review carefully.",
   riskHigh:      "High risk — the change is large, touches core systems, or could introduce significant regressions. Requires thorough review.",
@@ -1126,7 +1127,8 @@ function renderTimeline(commits, patterns, { defaultOpen = false } = {}) {
         const xid = `tlx-${month.replace('-', '')}-${di}-${i}`;
         const cat = (c.category || '').toUpperCase();
         // Resolve audience-aware summary: use dual fields when available, fall back to legacy summary
-        const activeSummary = c.summary_beginner !== undefined && c.summary_beginner !== null
+        const hasDualAudience = c.summary_beginner !== undefined && c.summary_beginner !== null;
+        const activeSummary = hasDualAudience
           ? (_commitAudience === 'beginner' ? c.summary_beginner : (c.summary_expert ?? ''))
           : (c.summary || '');
         const hasAnalysis = !!(c.category || activeSummary);
@@ -1153,8 +1155,9 @@ function renderTimeline(commits, patterns, { defaultOpen = false } = {}) {
           const shaEl = shaUrl
             ? `<a href="${esc(shaUrl)}" target="_blank" rel="noopener" style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</a>`
             : `<span style="margin-left:.5rem;font-family:monospace;font-size:10px;color:var(--muted)">${esc(sha7)}</span>`;
+          const legacyNote = hasDualAudience ? '' : `<span class="tl-legacy-note" data-tip="tlLegacySummary" style="display:inline-block;margin-left:.5rem;font-size:11px;color:var(--muted);cursor:help">(single-summary analysis)</span>`;
           html += `<div class="tl-detail" id="${xid}">
-            ${esc(activeSummary)}
+            ${esc(activeSummary)}${legacyNote}
             ${shaEl}
           </div>`;
         }
