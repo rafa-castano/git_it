@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from git_it.repository_ingestion.application.advisory_summarizer import AdvisorySummarizer
 from git_it.repository_ingestion.application.analysis_service import RepositoryAnalysisService
 from git_it.repository_ingestion.application.commit_analysis_service import CommitAnalysisService
 from git_it.repository_ingestion.application.commit_query_service import (
@@ -24,6 +25,7 @@ from git_it.repository_ingestion.application.ports import (
     ProjectDocReader,
     ProjectDocWriter,
 )
+from git_it.repository_ingestion.application.release_summarizer import ReleaseSummarizer
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 from git_it.repository_ingestion.infrastructure.commits import (
     GitPythonCommitExtractor,
@@ -44,6 +46,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
     LiteLLMLLMClient,
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
+    PostgresAdvisoryEvidenceStore,
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
     PostgresCommitCountReader,
@@ -59,6 +62,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
     PostgresProjectDocStore,
+    PostgresReleaseEvidenceStore,
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     PostgresRepositoryListReader,
@@ -69,6 +73,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
 )
 from git_it.repository_ingestion.infrastructure.project_docs import GitPythonProjectDocReader
 from git_it.repository_ingestion.infrastructure.sqlite import (
+    SqliteAdvisoryEvidenceStore,
     SqliteCaseStudyStore,
     SqliteCommitAnalysisStore,
     SqliteCommitCountReader,
@@ -84,6 +89,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
     SqliteProjectDocStore,
+    SqliteReleaseEvidenceStore,
     SqliteRepoMetadataStore,
     SqliteRepositoryDeleter,
     SqliteRepositoryListReader,
@@ -210,6 +216,32 @@ def build_discussion_evidence_store(
         return PostgresDiscussionEvidenceStore(conninfo)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteDiscussionEvidenceStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_release_evidence_store(
+    *,
+    project_root: Path,
+) -> SqliteReleaseEvidenceStore | PostgresReleaseEvidenceStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresReleaseEvidenceStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteReleaseEvidenceStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_advisory_evidence_store(
+    *,
+    project_root: Path,
+) -> SqliteAdvisoryEvidenceStore | PostgresAdvisoryEvidenceStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresAdvisoryEvidenceStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteAdvisoryEvidenceStore(db_path)
     store.initialize()
     return store
 
@@ -573,6 +605,18 @@ def build_embedding_client() -> LiteLLMEmbeddingClient | None:
 def build_discussion_summarizer(*, model: str) -> DiscussionSummarizer:
     return DiscussionSummarizer(
         LiteLLMLLMClient(model=model, call_site="discussion_summarization"), model=model
+    )
+
+
+def build_release_summarizer(*, model: str) -> ReleaseSummarizer:
+    return ReleaseSummarizer(
+        LiteLLMLLMClient(model=model, call_site="release_summarization"), model=model
+    )
+
+
+def build_advisory_summarizer(*, model: str) -> AdvisorySummarizer:
+    return AdvisorySummarizer(
+        LiteLLMLLMClient(model=model, call_site="advisory_summarization"), model=model
     )
 
 

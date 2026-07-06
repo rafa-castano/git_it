@@ -800,6 +800,347 @@ def test_build_narrative_service_wires_discussion_reader(tmp_path: Path) -> None
 
 
 # ---------------------------------------------------------------------------
+# _fetch_and_store_release_evidence / _fetch_and_store_advisory_evidence —
+# ingestion-time fetch helpers (spec 026)
+# ---------------------------------------------------------------------------
+
+
+def _make_release(tag_name: str = "v1.0.0") -> Any:
+    from git_it.repository_ingestion.domain.releases import Release
+
+    return Release(
+        tag_name=tag_name,
+        name="Version 1.0.0",
+        body="Some release notes.",
+        html_url=f"https://github.com/owner/repo/releases/tag/{tag_name}",
+        published_at="2024-01-01T00:00:00Z",
+        prerelease=False,
+    )
+
+
+def _make_release_evidence(tag_name: str = "v1.0.0") -> Any:
+    from datetime import UTC, datetime
+
+    from git_it.repository_ingestion.domain.releases import ReleaseEvidence
+
+    return ReleaseEvidence(
+        tag_name=tag_name,
+        release_url=f"https://github.com/owner/repo/releases/tag/{tag_name}",
+        claim_type="feature_release",
+        summary="This release adds a new feature.",
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[tag_name],
+        generated_at=datetime.now(UTC),
+        model="test-model",
+    )
+
+
+def _make_advisory(ghsa_id: str = "GHSA-xxxx-xxxx-xxxx") -> Any:
+    from git_it.repository_ingestion.domain.advisories import SecurityAdvisory
+
+    return SecurityAdvisory(
+        ghsa_id=ghsa_id,
+        cve_id="CVE-2024-0001",
+        summary="A SQL injection vulnerability.",
+        description="Detailed description of the vulnerability.",
+        severity="high",
+        html_url=f"https://github.com/owner/repo/security/advisories/{ghsa_id}",
+        published_at="2024-01-01T00:00:00Z",
+    )
+
+
+def _make_advisory_evidence(ghsa_id: str = "GHSA-xxxx-xxxx-xxxx") -> Any:
+    from datetime import UTC, datetime
+
+    from git_it.repository_ingestion.domain.advisories import AdvisoryEvidence
+
+    return AdvisoryEvidence(
+        ghsa_id=ghsa_id,
+        advisory_url=f"https://github.com/owner/repo/security/advisories/{ghsa_id}",
+        severity="high",
+        summary="A SQL injection vulnerability was fixed.",
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[ghsa_id],
+        generated_at=datetime.now(UTC),
+        model="test-model",
+    )
+
+
+def test_fetch_and_store_release_evidence_skips_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_release_evidence
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with mock.patch("git_it.api.routes.repos.GithubReleasesFetcher") as mock_fetcher_cls:
+        _fetch_and_store_release_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_fetcher_cls.assert_not_called()
+
+
+def test_fetch_and_store_release_evidence_stores_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_release_evidence
+    from git_it.repository_ingestion.composition import build_release_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    release = _make_release()
+    evidence = _make_release_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubReleasesFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_release_summarizer",
+            return_value=stub_summarizer,
+        ) as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_releases.return_value = [release]
+        _fetch_and_store_release_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_called_once()
+    stub_summarizer.summarize.assert_called_once_with([release])
+    store = build_release_evidence_store(project_root=tmp_path)
+    assert store.get_release_evidence("repo-abc") == [evidence]
+
+
+def test_fetch_and_store_release_evidence_noop_when_no_releases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_release_evidence
+    from git_it.repository_ingestion.composition import build_release_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with (
+        mock.patch("git_it.api.routes.repos.GithubReleasesFetcher") as mock_fetcher_cls,
+        mock.patch("git_it.api.routes.repos.build_release_summarizer") as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_releases.return_value = []
+        _fetch_and_store_release_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_not_called()
+    store = build_release_evidence_store(project_root=tmp_path)
+    assert store.get_release_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_release_evidence_noop_when_summarizer_returns_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_release_evidence
+    from git_it.repository_ingestion.composition import build_release_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    release = _make_release()
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = []
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubReleasesFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_release_summarizer",
+            return_value=stub_summarizer,
+        ),
+    ):
+        mock_fetcher_cls.return_value.fetch_releases.return_value = [release]
+        _fetch_and_store_release_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    store = build_release_evidence_store(project_root=tmp_path)
+    assert store.get_release_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_release_evidence_swallows_exceptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_release_evidence
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with mock.patch("git_it.api.routes.repos.GithubReleasesFetcher") as mock_fetcher_cls:
+        mock_fetcher_cls.return_value.fetch_releases.side_effect = RuntimeError("boom")
+        # Must not raise: any failure degrades to "no release evidence" (spec 026).
+        _fetch_and_store_release_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+
+def test_fetch_and_store_advisory_evidence_skips_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_advisory_evidence
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with mock.patch("git_it.api.routes.repos.GithubSecurityAdvisoriesFetcher") as mock_fetcher_cls:
+        _fetch_and_store_advisory_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_fetcher_cls.assert_not_called()
+
+
+def test_fetch_and_store_advisory_evidence_stores_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_advisory_evidence
+    from git_it.repository_ingestion.composition import build_advisory_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    advisory = _make_advisory()
+    evidence = _make_advisory_evidence()
+
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = [evidence]
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubSecurityAdvisoriesFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_advisory_summarizer",
+            return_value=stub_summarizer,
+        ) as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_advisories.return_value = [advisory]
+        _fetch_and_store_advisory_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_called_once()
+    stub_summarizer.summarize.assert_called_once_with([advisory])
+    store = build_advisory_evidence_store(project_root=tmp_path)
+    assert store.get_advisory_evidence("repo-abc") == [evidence]
+
+
+def test_fetch_and_store_advisory_evidence_noop_when_no_advisories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_advisory_evidence
+    from git_it.repository_ingestion.composition import build_advisory_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with (
+        mock.patch("git_it.api.routes.repos.GithubSecurityAdvisoriesFetcher") as mock_fetcher_cls,
+        mock.patch("git_it.api.routes.repos.build_advisory_summarizer") as mock_build_summarizer,
+    ):
+        mock_fetcher_cls.return_value.fetch_advisories.return_value = []
+        _fetch_and_store_advisory_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    mock_build_summarizer.assert_not_called()
+    store = build_advisory_evidence_store(project_root=tmp_path)
+    assert store.get_advisory_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_advisory_evidence_noop_when_summarizer_returns_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_advisory_evidence
+    from git_it.repository_ingestion.composition import build_advisory_evidence_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    advisory = _make_advisory()
+    stub_summarizer = mock.Mock()
+    stub_summarizer.summarize.return_value = []
+
+    with (
+        mock.patch("git_it.api.routes.repos.GithubSecurityAdvisoriesFetcher") as mock_fetcher_cls,
+        mock.patch(
+            "git_it.api.routes.repos.build_advisory_summarizer",
+            return_value=stub_summarizer,
+        ),
+    ):
+        mock_fetcher_cls.return_value.fetch_advisories.return_value = [advisory]
+        _fetch_and_store_advisory_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    store = build_advisory_evidence_store(project_root=tmp_path)
+    assert store.get_advisory_evidence("repo-abc") == []
+
+
+def test_fetch_and_store_advisory_evidence_swallows_exceptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_advisory_evidence
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    with mock.patch("git_it.api.routes.repos.GithubSecurityAdvisoriesFetcher") as mock_fetcher_cls:
+        mock_fetcher_cls.return_value.fetch_advisories.side_effect = RuntimeError("boom")
+        # Must not raise: any failure degrades to "no advisory evidence" (spec 026).
+        _fetch_and_store_advisory_evidence(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Composition wiring — release/advisory factories (spec 026)
+# ---------------------------------------------------------------------------
+
+
+def test_build_release_evidence_store_returns_sqlite_store(tmp_path: Path) -> None:
+    from git_it.repository_ingestion.composition import build_release_evidence_store
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteReleaseEvidenceStore
+
+    store = build_release_evidence_store(project_root=tmp_path)
+    assert isinstance(store, SqliteReleaseEvidenceStore)
+    # initialize() already ran — get_release_evidence must not raise.
+    assert store.get_release_evidence("repo-abc") == []
+
+
+def test_build_advisory_evidence_store_returns_sqlite_store(tmp_path: Path) -> None:
+    from git_it.repository_ingestion.composition import build_advisory_evidence_store
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteAdvisoryEvidenceStore
+
+    store = build_advisory_evidence_store(project_root=tmp_path)
+    assert isinstance(store, SqliteAdvisoryEvidenceStore)
+    assert store.get_advisory_evidence("repo-abc") == []
+
+
+def test_build_release_summarizer_returns_release_summarizer() -> None:
+    from git_it.repository_ingestion.application.release_summarizer import ReleaseSummarizer
+    from git_it.repository_ingestion.composition import build_release_summarizer
+
+    summarizer = build_release_summarizer(model="test-model")
+    assert isinstance(summarizer, ReleaseSummarizer)
+
+
+def test_build_advisory_summarizer_returns_advisory_summarizer() -> None:
+    from git_it.repository_ingestion.application.advisory_summarizer import AdvisorySummarizer
+    from git_it.repository_ingestion.composition import build_advisory_summarizer
+
+    summarizer = build_advisory_summarizer(model="test-model")
+    assert isinstance(summarizer, AdvisorySummarizer)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/repos/{id}/case-study
 # ---------------------------------------------------------------------------
 

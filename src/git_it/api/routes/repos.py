@@ -42,6 +42,8 @@ from git_it.chat.service import ChatMessage, ChatService
 from git_it.repository_ingestion.application.embedding_service import EmbeddingService
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
+    build_advisory_evidence_store,
+    build_advisory_summarizer,
     build_case_study_store,
     build_commit_analysis_service,
     build_commit_count_reader,
@@ -54,6 +56,8 @@ from git_it.repository_ingestion.composition import (
     build_embedding_store,
     build_ingestion_run_store,
     build_narrative_service,
+    build_release_evidence_store,
+    build_release_summarizer,
     build_repo_metadata_store,
     build_repository_deleter,
     build_repository_ingestion_service,
@@ -66,7 +70,9 @@ from git_it.repository_ingestion.domain.url_contract import (
 )
 from git_it.repository_ingestion.infrastructure.github import (
     GithubDiscussionsFetcher,
+    GithubReleasesFetcher,
     GithubRepoMetadataFetcher,
+    GithubSecurityAdvisoriesFetcher,
 )
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 
@@ -198,6 +204,65 @@ def _fetch_and_store_discussion_evidence(
         )
 
 
+def _fetch_and_store_release_evidence(
+    *, repository_id: str, canonical_url: str, project_root: Path
+) -> None:
+    """Best-effort GitHub Releases fetch + LLM summarize + store, run once after a
+    successful ingest. Never raises: any failure degrades to 'no release evidence'
+    (spec 026). Raw release body text is used only as summarizer LLM input — only the
+    validated ReleaseEvidence is persisted. Not embedded (spec 026 non-goal)."""
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return
+    try:
+        fetcher = GithubReleasesFetcher(token=token)
+        releases = fetcher.fetch_releases(canonical_url)
+        if not releases:
+            return
+        summarizer = build_release_summarizer(model=DEFAULT_MODEL)
+        evidence = summarizer.summarize(releases)
+        if not evidence:
+            return
+        store = build_release_evidence_store(project_root=project_root)
+        store.save_release_evidence(repository_id, evidence)
+    except Exception as e:
+        _logger.warning(
+            "release evidence fetch failed: %s",
+            type(e).__name__,
+            extra={"repository_id": repository_id},
+        )
+
+
+def _fetch_and_store_advisory_evidence(
+    *, repository_id: str, canonical_url: str, project_root: Path
+) -> None:
+    """Best-effort GitHub Security Advisories fetch + LLM summarize + store, run once
+    after a successful ingest. Never raises: any failure degrades to 'no advisory
+    evidence' (spec 026). Raw advisory description text is used only as summarizer LLM
+    input — only the validated AdvisoryEvidence is persisted. Not embedded (spec 026
+    non-goal)."""
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return
+    try:
+        fetcher = GithubSecurityAdvisoriesFetcher(token=token)
+        advisories = fetcher.fetch_advisories(canonical_url)
+        if not advisories:
+            return
+        summarizer = build_advisory_summarizer(model=DEFAULT_MODEL)
+        evidence = summarizer.summarize(advisories)
+        if not evidence:
+            return
+        store = build_advisory_evidence_store(project_root=project_root)
+        store.save_advisory_evidence(repository_id, evidence)
+    except Exception as e:
+        _logger.warning(
+            "advisory evidence fetch failed: %s",
+            type(e).__name__,
+            extra={"repository_id": repository_id},
+        )
+
+
 def _ingest_bg(url: str, project_root: Path) -> None:
     _logger.info("ingestion started", extra={"url": url})
     try:
@@ -216,6 +281,16 @@ def _ingest_bg(url: str, project_root: Path) -> None:
                 project_root=project_root,
             )
             _fetch_and_store_discussion_evidence(
+                repository_id=repository_id,
+                canonical_url=parsed.canonical_url,
+                project_root=project_root,
+            )
+            _fetch_and_store_release_evidence(
+                repository_id=repository_id,
+                canonical_url=parsed.canonical_url,
+                project_root=project_root,
+            )
+            _fetch_and_store_advisory_evidence(
                 repository_id=repository_id,
                 canonical_url=parsed.canonical_url,
                 project_root=project_root,
