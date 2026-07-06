@@ -7,6 +7,7 @@ from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
+from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
 
 DEFAULT_AUDIENCE = "beginner"  # canonical audience default used across all layers
 
@@ -53,6 +54,9 @@ __all__ = [
     "LLMMessage",
     "OwnershipReader",
     "PatternSynthesisClient",
+    "ProjectDocContent",
+    "ProjectDocReader",
+    "ProjectDocWriter",
     "RepoContextReader",
     "RepositoryListReader",
     "RepositoryRecord",
@@ -132,6 +136,20 @@ class DefaultBranchReader(Protocol):
 
 class DefaultBranchWriter(Protocol):
     def save_default_branch(self, repository_id: str, default_branch: str) -> None: ...
+
+
+class ProjectDocReader(Protocol):
+    """Reads a repository's captured README/CHANGELOG excerpt (spec 025).
+
+    Implementations must never make a GitHub API call — this reads only from
+    the local git clone already required for commit mining.
+    """
+
+    def get_project_docs(self, repository_id: str) -> ProjectDocContent | None: ...
+
+
+class ProjectDocWriter(Protocol):
+    def save_project_docs(self, content: ProjectDocContent) -> None: ...
 
 
 class DiscussionEvidenceReader(Protocol):
