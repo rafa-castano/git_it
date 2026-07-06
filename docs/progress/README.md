@@ -106,6 +106,7 @@ One file per batch, organized by feature area.
 - [Batch 111 — Fetch and summarize discussions at ingest time (spec 022, slice 5)](api/batch-111-discussion-ingest-wiring.md)
 - [Batch 123 — Wire `search_similar_commits` RAG tool into GitItGPT chat (spec 023, slice 6)](api/batch-123-search-similar-commits-tool.md)
 - [Batch 141 — Wire release and advisory evidence into ingestion (spec 026, slice 5)](api/batch-141-releases-advisories-ingest-wiring.md)
+- [Batch 144 — Fix repository-delete orphan rows (discussion_evidence, embedding_vectors)](api/batch-144-deleter-orphan-rows-fix.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

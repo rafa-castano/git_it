@@ -78,6 +78,8 @@ class SqliteRepositoryDeleter:
                 "repo_metadata",
                 "default_branch_metadata",
                 "project_docs",
+                "discussion_evidence",
+                "embedding_vectors",
                 "release_evidence",
                 "advisory_evidence",
                 "ingestion_runs",

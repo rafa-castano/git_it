@@ -374,3 +374,90 @@ def test_delete_repo_with_minimal_db_succeeds(tmp_path: Path) -> None:
     body = response.json()
     assert body["deleted"] is True
     assert body["repository_id"] == "repo-min"
+
+
+# ---------------------------------------------------------------------------
+# Test 9: DELETE purges discussion evidence (spec 022) — regression for a
+# pre-existing deleter gap: discussion_evidence was never in the purge list,
+# so deleting a repo orphaned its summarized-discussion rows.
+# ---------------------------------------------------------------------------
+
+
+def test_delete_repo_removes_discussion_evidence(tmp_path: Path) -> None:
+    from datetime import UTC, datetime
+
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteDiscussionEvidenceStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db)
+    store = SqliteDiscussionEvidenceStore(db)
+    store.initialize()
+    store.save_discussion_evidence(
+        "repo-abc",
+        [
+            DiscussionEvidence(
+                discussion_id="D_1",
+                discussion_url="https://github.com/test/repo/discussions/1",
+                claim_type="design_rationale",
+                summary="Chose X for Y.",
+                confidence=0.8,
+                limitations=[],
+                source_inputs=["D_1"],
+                generated_at=datetime.now(UTC),
+                model="fake-model",
+            )
+        ],
+    )
+    assert store.get_discussion_evidence("repo-abc") != []
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    response = client.delete("/api/repos/repo-abc")
+    assert response.status_code == 200
+    assert store.get_discussion_evidence("repo-abc") == []
+
+
+# ---------------------------------------------------------------------------
+# Test 10: DELETE purges embedding vectors (spec 023) — regression for the
+# same class of gap: embedding_vectors was never in the purge list.
+# ---------------------------------------------------------------------------
+
+
+def test_delete_repo_removes_embeddings(tmp_path: Path) -> None:
+    from datetime import UTC, datetime
+
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteEmbeddingStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db)
+    store = SqliteEmbeddingStore(db)
+    store.initialize()
+    store.save_embeddings(
+        "repo-abc",
+        [
+            EmbeddedChunk(
+                repository_id="repo-abc",
+                source_type="commit_analysis",
+                source_id="abc123",
+                text="A summary.",
+                vector=[0.1, 0.2, 0.3],
+                model="fake-embed-model",
+                created_at=datetime.now(UTC),
+            )
+        ],
+    )
+    assert store.get_all_embeddings("repo-abc") != []
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    response = client.delete("/api/repos/repo-abc")
+    assert response.status_code == 200
+    assert store.get_all_embeddings("repo-abc") == []
