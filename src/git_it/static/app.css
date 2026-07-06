@@ -363,7 +363,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .ask-msg { max-width: 75%; padding: 0.55rem 0.8rem; border-radius: 8px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .ask-msg-user { align-self: flex-end; background: var(--accent); color: #fff; }
 .ask-msg-assistant { align-self: flex-start; max-width: 90%; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
-.ask-msg-assistant .markdown-body { max-width: none; }
+/* Reset .ask-msg's pre-wrap: it turns marked.js's CommonMark soft-break newlines into visible line breaks. */
+.ask-msg-assistant .markdown-body { max-width: none; white-space: normal; }
 .ask-msg-assistant .markdown-body > *:last-child { margin-bottom: 0; }
 .ask-thinking-dots { display: inline-flex; gap: 4px; padding: 0.15rem 0; }
 .ask-thinking-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: ask-thinking-bounce 1.2s infinite ease-in-out; }

@@ -146,3 +146,4 @@ One file per batch, organized by feature area.
 - [Batch 92 — Commit-categories donut multi-select (spec 018)](ui/batch-92-donut-category-multi-select.md)
 - [Batch 93 — Resizable repo sidebar (drag-to-resize)](ui/batch-93-resizable-sidebar.md)
 - [Batch 113 — Fix two defects found in the first live Playwright QA sweep](ui/batch-113-qa-sweep-fixes.md)
+- [Batch 125 — Fix blank-line-per-sentence rendering in Ask tab answers](ui/batch-125-ask-tab-blank-lines-fix.md)
