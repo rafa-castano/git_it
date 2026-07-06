@@ -1,7 +1,5 @@
 ![Git It Logo](src/git_it/static/git_it_logo_detail_eng.png)
 
-# Git It
-
 Git It turns the history of a public GitHub repository into an evidence-based engineering case study.
 
 Instead of only explaining what a codebase looks like today, Git It mines commits, file changes, contributors and repository context over time, then uses LLMs to explain how the project evolved, which patterns appeared, and what a learner or engineering team can take away from that history.
@@ -72,7 +70,6 @@ ANTHROPIC_API_KEY=your_anthropic_key
 Recommended setup if you also want semantic search in Ask:
 
 ```env
-ANTHROPIC_API_KEY=your_anthropic_key
 OPENAI_API_KEY=your_openai_key
 ```
 
@@ -154,7 +151,7 @@ If `GIT_IT_API_KEY` is enabled, delete actions are protected like other write en
 | `GIT_IT_API_KEY` | Shared/API deployment only | Protects write/cost endpoints with `Authorization: Bearer <token>`. Leave blank for local dashboard use. |
 | `GIT_IT_DATA_DIR` | Custom data root | Moves local app data when using `uvicorn`/API composition. `git-it serve` roots data at the current working directory. |
 | `DATABASE_URL` | PostgreSQL deployment | Selects PostgreSQL. Leave blank for local SQLite. No silent fallback if PostgreSQL is unreachable. |
-| `EMBEDDING_MODEL` | Advanced embedding override | Defaults to `text-embedding-3-small`. |
+| `EMBEDDING_MODEL` | Advanced embedding override | Defaults to OpenAI's `text-embedding-3-small`. |
 | `PROJECT_DOC_MAX_CHARS` | Advanced prompt-size tuning | Controls how much root README/CHANGELOG text is injected as repository context. |
 | `DISCUSSION_*`, `RELEASE_MAX_SUMMARIZED`, `ADVISORY_MAX_SUMMARIZED` | Advanced GitHub evidence tuning | Controls bounded GitHub evidence collection. Usually leave defaults. |
 
