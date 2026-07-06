@@ -65,7 +65,7 @@ class GitPythonProjectDocReader:
     def __init__(self, *, cache_path: Path) -> None:
         self._cache_path = cache_path
 
-    def read_project_docs(self, repository_id: str) -> ProjectDocContent | None:
+    def get_project_docs(self, repository_id: str) -> ProjectDocContent | None:
         try:
             repo = git.Repo(str(self._cache_path))
             tree = repo.head.commit.tree

@@ -93,16 +93,19 @@ skipped).
   `GitPythonDefaultBranchReader`) — this reader doesn't care about branch
   names, only the tree at whatever commit `HEAD` currently points to, so no
   detached-HEAD special-casing was needed here.
-- `GitPythonProjectDocReader`'s own method is named `read_project_docs`
-  (mirroring `GitPythonDefaultBranchReader`'s `read_default_branch` naming
-  for a git-clone-reading class), while the `ProjectDocReader` Protocol
-  method is `get_project_docs` (mirroring the "get_" prefix most other
-  reader ports in `ports.py` use). The two names are deliberately distinct
-  in this slice: `GitPythonProjectDocReader` is not wired as a
-  `ProjectDocReader` yet (that decision — capture-time git read vs.
-  persisted-store read — belongs to batch 132's service wiring). Flagging
-  this now so the next batch resolves it explicitly rather than assuming
-  structural conformance.
+- **Resolved during this batch's review**: `GitPythonProjectDocReader` was
+  initially built with a `read_project_docs` method (mirroring
+  `GitPythonDefaultBranchReader`'s `read_default_branch` naming), which did
+  not match the `ProjectDocReader` Protocol's `get_project_docs`. Renamed to
+  `get_project_docs` — unlike `DefaultBranchReader` (a git-clone-only concept;
+  the default-branch store uses its own unrelated `get_default_branch` method,
+  never matched against a shared Protocol), `ProjectDocContent`'s git-read and
+  persisted-store-read return the *exact same shape*
+  (`ProjectDocContent | None`), so unifying both under one `ProjectDocReader`
+  Protocol name is intentional here: `GitPythonProjectDocReader` (batch 130)
+  and the future `SqliteProjectDocStore`/`PostgresProjectDocStore` (batch 131)
+  both structurally satisfy it, and `RepositoryIngestionService` (batch 132)
+  can type its constructor port as `ProjectDocReader` without ambiguity.
 - mypy flagged `blob.data_stream.read().decode("utf-8")` as `Returning Any`
   (GitPython's stream read is typed loosely) — fixed with an explicit
   `bytes` annotation on the intermediate variable rather than a blanket

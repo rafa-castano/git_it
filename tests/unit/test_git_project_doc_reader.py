@@ -49,7 +49,7 @@ def test_reads_readme_from_bare_clone(tmp_path: Path) -> None:
     bare = _make_bare_repo(tmp_path, {"README.md": "# My Project\n\nDoes X."})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-1")
+    content = reader.get_project_docs("repo-1")
 
     assert content is not None
     assert content.repository_id == "repo-1"
@@ -63,7 +63,7 @@ def test_reads_changelog_independently_of_readme(tmp_path: Path) -> None:
     bare = _make_bare_repo(tmp_path, {"CHANGELOG.md": "## 1.0.0\n\n- Initial release"})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-2")
+    content = reader.get_project_docs("repo-2")
 
     assert content is not None
     assert content.readme_text is None
@@ -81,7 +81,7 @@ def test_reads_both_readme_and_changelog_in_same_content(tmp_path: Path) -> None
     )
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-3")
+    content = reader.get_project_docs("repo-3")
 
     assert content is not None
     assert content.readme_text == "# My Project"
@@ -95,7 +95,7 @@ def test_case_insensitive_and_extension_variants_for_readme(
     bare = _make_bare_repo(tmp_path, {readme_name: "content"})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-4")
+    content = reader.get_project_docs("repo-4")
 
     assert content is not None
     assert content.readme_text == "content"
@@ -105,7 +105,7 @@ def test_returns_none_when_neither_file_present(tmp_path: Path) -> None:
     bare = _make_bare_repo(tmp_path, {"a.txt": "unrelated file"})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    assert reader.read_project_docs("repo-5") is None
+    assert reader.get_project_docs("repo-5") is None
 
 
 def test_oversized_readme_is_truncated_with_flag_set(tmp_path: Path) -> None:
@@ -113,7 +113,7 @@ def test_oversized_readme_is_truncated_with_flag_set(tmp_path: Path) -> None:
     bare = _make_bare_repo(tmp_path, {"README.md": oversized})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-6")
+    content = reader.get_project_docs("repo-6")
 
     assert content is not None
     assert content.readme_text == oversized[:PROJECT_DOC_MAX_CHARS]
@@ -125,7 +125,7 @@ def test_under_budget_readme_is_not_marked_truncated(tmp_path: Path) -> None:
     bare = _make_bare_repo(tmp_path, {"README.md": under_budget})
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-7")
+    content = reader.get_project_docs("repo-7")
 
     assert content is not None
     assert content.readme_text == under_budget
@@ -142,7 +142,7 @@ def test_non_utf8_readme_is_skipped_not_raised(tmp_path: Path) -> None:
     )
     reader = GitPythonProjectDocReader(cache_path=bare)
 
-    content = reader.read_project_docs("repo-8")
+    content = reader.get_project_docs("repo-8")
 
     assert content is not None
     assert content.readme_text is None
@@ -152,4 +152,4 @@ def test_non_utf8_readme_is_skipped_not_raised(tmp_path: Path) -> None:
 def test_returns_none_when_clone_path_does_not_exist(tmp_path: Path) -> None:
     reader = GitPythonProjectDocReader(cache_path=tmp_path / "nonexistent.git")
 
-    assert reader.read_project_docs("repo-9") is None
+    assert reader.get_project_docs("repo-9") is None
