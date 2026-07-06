@@ -17,14 +17,17 @@ from git_it.repository_ingestion.application.ports import (
     CommitPersistenceResult,
     IngestionRunRecord,
 )
+from git_it.repository_ingestion.domain.advisories import AdvisoryEvidence
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory
 from git_it.repository_ingestion.domain.commits import ExtractedCommit, ExtractedFileChange
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
+from git_it.repository_ingestion.domain.releases import ReleaseEvidence
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
+    PostgresAdvisoryEvidenceStore,
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
     PostgresCommitStore,
@@ -36,6 +39,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
     PostgresProjectDocStore,
+    PostgresReleaseEvidenceStore,
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     initialize,
@@ -562,3 +566,113 @@ def test_postgres_embedding_store_upsert_overwrites(conninfo: str) -> None:
     result = store.get_all_embeddings("pg-repo-24")
     assert len(result) == 1
     assert result[0].text == "second"
+
+
+# ---------------------------------------------------------------------------
+# Spec 026 — release evidence store
+# ---------------------------------------------------------------------------
+
+
+def _make_release_evidence(tag_name: str, **overrides: object) -> ReleaseEvidence:
+    kwargs: dict[str, object] = {
+        "tag_name": tag_name,
+        "release_url": f"https://github.com/owner/repo/releases/tag/{tag_name}",
+        "claim_type": "feature_release",
+        "summary": "summary text",
+        "confidence": 0.8,
+        "limitations": [],
+        "source_inputs": [tag_name],
+        "generated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "model": "test-model",
+    }
+    kwargs.update(overrides)
+    return ReleaseEvidence(**kwargs)  # type: ignore[arg-type]
+
+
+def test_postgres_release_evidence_store_returns_empty_when_absent(conninfo: str) -> None:
+    store = PostgresReleaseEvidenceStore(conninfo)
+    assert store.get_release_evidence("pg-repo-25") == []
+
+
+def test_postgres_release_evidence_store_roundtrips(conninfo: str) -> None:
+    store = PostgresReleaseEvidenceStore(conninfo)
+    evidence = _make_release_evidence(
+        "pg-v1.0.0", limitations=["low confidence"], source_inputs=["pg-v1.0.0"]
+    )
+
+    store.save_release_evidence("pg-repo-26", [evidence])
+    retrieved = store.get_release_evidence("pg-repo-26")
+
+    assert retrieved == [evidence]
+
+
+def test_postgres_release_evidence_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresReleaseEvidenceStore(conninfo)
+    store.save_release_evidence(
+        "pg-repo-27", [_make_release_evidence("pg-v2.0.0", summary="first summary")]
+    )
+
+    store.save_release_evidence(
+        "pg-repo-27",
+        [_make_release_evidence("pg-v2.0.0", summary="second summary", confidence=0.9)],
+    )
+
+    result = store.get_release_evidence("pg-repo-27")
+    assert len(result) == 1
+    assert result[0].summary == "second summary"
+    assert result[0].confidence == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Spec 026 — advisory evidence store
+# ---------------------------------------------------------------------------
+
+
+def _make_advisory_evidence(ghsa_id: str, **overrides: object) -> AdvisoryEvidence:
+    kwargs: dict[str, object] = {
+        "ghsa_id": ghsa_id,
+        "advisory_url": f"https://github.com/owner/repo/security/advisories/{ghsa_id}",
+        "severity": "high",
+        "summary": "summary text",
+        "confidence": 0.8,
+        "limitations": [],
+        "source_inputs": [ghsa_id],
+        "generated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "model": "test-model",
+    }
+    kwargs.update(overrides)
+    return AdvisoryEvidence(**kwargs)  # type: ignore[arg-type]
+
+
+def test_postgres_advisory_evidence_store_returns_empty_when_absent(conninfo: str) -> None:
+    store = PostgresAdvisoryEvidenceStore(conninfo)
+    assert store.get_advisory_evidence("pg-repo-28") == []
+
+
+def test_postgres_advisory_evidence_store_roundtrips(conninfo: str) -> None:
+    store = PostgresAdvisoryEvidenceStore(conninfo)
+    evidence = _make_advisory_evidence(
+        "GHSA-pg01-0001-0001", limitations=["low confidence"], source_inputs=["GHSA-pg01-0001-0001"]
+    )
+
+    store.save_advisory_evidence("pg-repo-29", [evidence])
+    retrieved = store.get_advisory_evidence("pg-repo-29")
+
+    assert retrieved == [evidence]
+
+
+def test_postgres_advisory_evidence_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresAdvisoryEvidenceStore(conninfo)
+    store.save_advisory_evidence(
+        "pg-repo-30", [_make_advisory_evidence("GHSA-pg02-0002-0002", summary="first summary")]
+    )
+
+    store.save_advisory_evidence(
+        "pg-repo-30",
+        [_make_advisory_evidence("GHSA-pg02-0002-0002", summary="second summary", confidence=0.9)],
+    )
+
+    result = store.get_advisory_evidence("pg-repo-30")
+    assert len(result) == 1
+    assert result[0].summary == "second summary"
+    assert result[0].confidence == 0.9

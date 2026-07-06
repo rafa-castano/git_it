@@ -11,6 +11,7 @@ keeps working unchanged.
 """
 
 from ._common import initialize
+from .advisories import PostgresAdvisoryEvidenceStore
 from .analysis import PostgresCaseStudyStore, PostgresCommitAnalysisStore, PostgresSynopsisStore
 from .commits import (
     PostgresCommitCountReader,
@@ -29,9 +30,11 @@ from .github import (
 )
 from .ingestion import PostgresIngestionRunStore
 from .project_docs import PostgresProjectDocStore
+from .releases import PostgresReleaseEvidenceStore
 from .repository import PostgresRepositoryDeleter, PostgresRepositoryListReader
 
 __all__ = [
+    "PostgresAdvisoryEvidenceStore",
     "PostgresCaseStudyStore",
     "PostgresCommitAnalysisStore",
     "PostgresCommitCountReader",
@@ -47,6 +50,7 @@ __all__ = [
     "PostgresGithubContextCache",
     "PostgresIngestionRunStore",
     "PostgresProjectDocStore",
+    "PostgresReleaseEvidenceStore",
     "PostgresRepoMetadataStore",
     "PostgresRepositoryDeleter",
     "PostgresRepositoryListReader",

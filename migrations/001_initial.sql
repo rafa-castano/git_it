@@ -112,6 +112,34 @@ CREATE TABLE IF NOT EXISTS discussion_evidence (
     PRIMARY KEY (repository_id, discussion_id)
 );
 
+CREATE TABLE IF NOT EXISTS release_evidence (
+    repository_id  TEXT NOT NULL,
+    tag_name       TEXT NOT NULL,
+    release_url    TEXT NOT NULL,
+    claim_type     TEXT NOT NULL,
+    summary        TEXT NOT NULL,
+    confidence     DOUBLE PRECISION NOT NULL,
+    limitations    TEXT NOT NULL DEFAULT '[]',
+    source_inputs  TEXT NOT NULL DEFAULT '[]',
+    generated_at   TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    PRIMARY KEY (repository_id, tag_name)
+);
+
+CREATE TABLE IF NOT EXISTS advisory_evidence (
+    repository_id  TEXT NOT NULL,
+    ghsa_id        TEXT NOT NULL,
+    advisory_url   TEXT NOT NULL,
+    severity       TEXT NOT NULL,
+    summary        TEXT NOT NULL,
+    confidence     DOUBLE PRECISION NOT NULL,
+    limitations    TEXT NOT NULL DEFAULT '[]',
+    source_inputs  TEXT NOT NULL DEFAULT '[]',
+    generated_at   TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    PRIMARY KEY (repository_id, ghsa_id)
+);
+
 CREATE TABLE IF NOT EXISTS embedding_vectors (
     repository_id TEXT NOT NULL,
     source_type   TEXT NOT NULL,
