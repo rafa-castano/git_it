@@ -25,6 +25,7 @@ ADR source files live in `ADR/` at the project root. The table below lists all c
 | 013 | Sanitize All Client-Side Markdown Rendering with DOMPurify | Accepted |
 | 014 | Stream the GitItGPT Final Answer over SSE | Accepted |
 | 015 | Use GraphQL for GitHub Discussions and Summarize Untrusted Text Before Use | Accepted |
+| 016 | In-Process Embedding Retrieval Instead of pgvector, and a Second External LLM-Adjacent API Dependency (OpenAI) | Accepted |
 
 ## How to add a new ADR
 

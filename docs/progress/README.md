@@ -114,6 +114,7 @@ One file per batch, organized by feature area.
 ## Evals
 - [Batch 61 — Evaluation harness for LLM commit classification accuracy](evals/batch-61-evaluation-harness.md)
 - [Batch 112 — Discussion evidence eval and ADR 015 (spec 022, closing slice)](evals/batch-112-discussion-evidence-eval-and-adr.md)
+- [Batch 124 — Semantic search eval and ADR 016 (spec 023, closing batch)](evals/batch-124-semantic-search-eval-and-adr.md)
 
 ## Documentation
 - [Batch 62 — MkDocs Material documentation site with CI build check](docs/batch-62-documentation-engine.md)
