@@ -149,3 +149,4 @@ One file per batch, organized by feature area.
 - [Batch 125 — Fix blank-line-per-sentence rendering in Ask tab answers](ui/batch-125-ask-tab-blank-lines-fix.md)
 - [Batch 126 — Linkify commit SHAs and file/folder paths in Ask tab answers](ui/batch-126-ask-tab-commit-and-path-links.md)
 - [Batch 127 — Donut slice drill-to-Commits + Commits tab category multi-select](ui/batch-127-donut-drill-and-commits-multiselect.md)
+- [Batch 128 — Two /btw follow-ups: GitHub link underline, donut tooltip hint](ui/batch-128-btw-followups.md)

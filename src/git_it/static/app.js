@@ -1350,7 +1350,10 @@ async function loadOverview(repoId) {
       data: { labels: visible.map(c => c.category), datasets: [{ data: visible.map(c => c.count), backgroundColor: visible.map(c => catColor(c.category)), borderWidth: 1, borderColor: '#0f1117' }] },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { footer: () => 'Click to view commits for this category' } },
+        },
         onClick(evt, els) {
           if (!els.length) return;
           const cat = visible[els[0].index]?.category;
@@ -2541,7 +2544,7 @@ async function loadContributors(repoId) {
         <div class="cc-avatar" style="background:${bg}" aria-hidden="true">${esc(initials)}</div>
         <div style="flex:1">
           <div class="cc-name">${esc(c.author_name)}</div>
-          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;font-size:13px;font-weight:600;padding:0.1rem 0.3rem;border:1px solid var(--accent);border-radius:4px;white-space:nowrap">${ghLabel}</a>` : ''}</div>
+          <div class="cc-meta">${c.active_days} active day${c.active_days !== 1 ? 's' : ''}${isGitHub ? ` · <a href="${ghUrl}" target="_blank" rel="noopener" class="cc-gh-link">${ghLabel}</a>` : ''}</div>
         </div>
       </div>
       <div class="cc-stats">
