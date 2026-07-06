@@ -32,7 +32,7 @@ Spec source files live in `specs/` at the project root.
 | 022 | GitHub Discussions Ingestion and Narrative Evidence | Implemented |
 | 023 | RAG-Enhanced Semantic Search for the Ask Tab | Implemented |
 | 024 | LLM Call Observability (Structured Logging) | Implemented |
-| 025 | README/CHANGELOG Context for Case Study Narratives | Draft |
+| 025 | README/CHANGELOG Context for Case Study Narratives | Implemented |
 | 026 | GitHub Releases and Security Advisories as Cited Narrative Evidence | Draft |
 
 ## How specs relate to the codebase
