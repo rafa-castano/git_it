@@ -33,6 +33,7 @@ One file per batch, organized by feature area.
 - [Batch 130 — Project-doc domain model and GitPython README/CHANGELOG reader (spec 025, slice 1)](ingestion/batch-130-project-doc-domain-and-reader.md)
 - [Batch 131 — README/CHANGELOG persistence stores (spec 025, slice 2)](ingestion/batch-131-project-doc-stores.md)
 - [Batch 132 — Project-doc capture wired into RepositoryIngestionService (spec 025, slice 3)](ingestion/batch-132-project-doc-service-wiring.md)
+- [Batch 138 — GitHub Releases and Security Advisories REST fetchers (spec 026, slice 2)](ingestion/batch-138-releases-advisories-fetchers.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

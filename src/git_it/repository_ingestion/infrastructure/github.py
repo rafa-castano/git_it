@@ -12,8 +12,10 @@ import urllib.error
 import urllib.request
 from typing import Protocol
 
+from git_it.repository_ingestion.domain.advisories import SecurityAdvisory
 from git_it.repository_ingestion.domain.discussions import Discussion
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.releases import Release
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +33,11 @@ DISCUSSION_MIN_REPLY_COUNT = int(os.environ.get("DISCUSSION_MIN_REPLY_COUNT", "3
 DISCUSSION_MAX_SUMMARIZED = int(os.environ.get("DISCUSSION_MAX_SUMMARIZED", "20"))
 DISCUSSION_PAGE_SIZE = int(os.environ.get("DISCUSSION_PAGE_SIZE", "50"))
 DISCUSSION_MAX_PAGES = int(os.environ.get("DISCUSSION_MAX_PAGES", "10"))
+
+# Spec 026 (Releases + Security Advisories ingestion) config constants —
+# env-var-backed, following the same batch-74 convention.
+RELEASE_MAX_SUMMARIZED = int(os.environ.get("RELEASE_MAX_SUMMARIZED", "10"))
+ADVISORY_MAX_SUMMARIZED = int(os.environ.get("ADVISORY_MAX_SUMMARIZED", "10"))
 
 _GRAPHQL_URL = "https://api.github.com/graphql"
 
@@ -354,6 +361,84 @@ class GithubDiscussionsFetcher:
             return None
 
 
+class GithubReleasesFetcher:
+    """Fetches a bounded set of published, non-draft GitHub releases.
+
+    Uses the same urllib.request transport, Bearer token header, and 10s
+    timeout as the other REST-based fetchers in this module. Best-effort:
+    returns [] on missing token, non-GitHub URL, HTTP/network error, timeout,
+    rate limit, or malformed payload — never raises (spec 026). Draft releases
+    are filtered out before construction; prereleases are included.
+    """
+
+    def __init__(self, *, token: str | None = None) -> None:
+        self._token = token
+
+    def fetch_releases(self, canonical_url: str) -> list[Release]:
+        if self._token is None:
+            _logger.debug("releases fetch skipped: no token")
+            return []
+
+        parsed = _parse_owner_repo(canonical_url)
+        if parsed is None:
+            _logger.debug("releases fetch skipped: not a GitHub URL (%s)", canonical_url)
+            return []
+        owner, repo = parsed
+
+        url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+        items = _api_get_list(url, self._token)
+        if items is None:
+            return []
+
+        releases: list[Release] = []
+        for item in items:
+            if item.get("draft") is True:
+                continue
+            release = _parse_release(item)
+            if release is not None:
+                releases.append(release)
+        return releases[:RELEASE_MAX_SUMMARIZED]
+
+
+class GithubSecurityAdvisoriesFetcher:
+    """Fetches a bounded set of published, non-withdrawn security advisories.
+
+    Uses the same urllib.request transport, Bearer token header, and 10s
+    timeout as the other REST-based fetchers in this module. Best-effort:
+    returns [] on missing token, non-GitHub URL, HTTP/network error, timeout,
+    rate limit, or malformed payload — never raises (spec 026). Withdrawn
+    advisories are filtered out before construction.
+    """
+
+    def __init__(self, *, token: str | None = None) -> None:
+        self._token = token
+
+    def fetch_advisories(self, canonical_url: str) -> list[SecurityAdvisory]:
+        if self._token is None:
+            _logger.debug("security advisories fetch skipped: no token")
+            return []
+
+        parsed = _parse_owner_repo(canonical_url)
+        if parsed is None:
+            _logger.debug("security advisories fetch skipped: not a GitHub URL (%s)", canonical_url)
+            return []
+        owner, repo = parsed
+
+        url = f"https://api.github.com/repos/{owner}/{repo}/security-advisories"
+        items = _api_get_list(url, self._token)
+        if items is None:
+            return []
+
+        advisories: list[SecurityAdvisory] = []
+        for item in items:
+            if item.get("withdrawn_at") is not None:
+                continue
+            advisory = _parse_advisory(item)
+            if advisory is not None:
+                advisories.append(advisory)
+        return advisories[:ADVISORY_MAX_SUMMARIZED]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -443,6 +528,89 @@ def _parse_owner_repo(canonical_url: str) -> tuple[str, str] | None:
 def _parse_linked_issues(pr_body: str) -> list[int]:
     """Extract issue numbers referenced with closes/fixes/resolves keywords."""
     return [int(m) for m in _ISSUE_REF_RE.findall(pr_body)]
+
+
+def _api_get_list(url: str, token: str) -> list[dict[str, object]] | None:
+    """GET a JSON array endpoint, returning only well-formed dict elements.
+
+    Mirrors GithubRepoMetadataFetcher._api_get_dict's exact transport/header/
+    exception-handling, but for endpoints returning a top-level JSON array
+    (releases, security-advisories) rather than a single object.
+    """
+    req = urllib.request.Request(url)
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("User-Agent", "git-it/1.0")
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # type: ignore[arg-type]
+            raw = json.loads(resp.read())
+    except (
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        TimeoutError,
+        OSError,
+        json.JSONDecodeError,
+    ) as exc:
+        _logger.warning("github api error for %s: %s", url, type(exc).__name__)
+        return None
+    if not isinstance(raw, list):
+        _logger.warning("github api returned non-array payload for %s", url)
+        return None
+    return [item for item in raw if isinstance(item, dict)]
+
+
+def _parse_release(item: dict[str, object]) -> Release | None:
+    tag_name = item.get("tag_name")
+    html_url = item.get("html_url")
+    if not isinstance(tag_name, str) or not tag_name:
+        return None
+    if not isinstance(html_url, str) or not html_url:
+        return None
+    raw_name = item.get("name")
+    name = raw_name if isinstance(raw_name, str) else None
+    raw_body = item.get("body")
+    body = raw_body if isinstance(raw_body, str) else None
+    raw_published_at = item.get("published_at")
+    published_at = raw_published_at if isinstance(raw_published_at, str) else None
+    prerelease = bool(item.get("prerelease", False))
+    return Release(
+        tag_name=tag_name,
+        name=name,
+        body=body,
+        html_url=html_url,
+        published_at=published_at,
+        prerelease=prerelease,
+    )
+
+
+def _parse_advisory(item: dict[str, object]) -> SecurityAdvisory | None:
+    ghsa_id = item.get("ghsa_id")
+    html_url = item.get("html_url")
+    summary = item.get("summary")
+    description = item.get("description")
+    if not isinstance(ghsa_id, str) or not ghsa_id:
+        return None
+    if not isinstance(html_url, str) or not html_url:
+        return None
+    if not isinstance(summary, str) or not summary:
+        return None
+    if not isinstance(description, str) or not description:
+        return None
+    raw_cve_id = item.get("cve_id")
+    cve_id = raw_cve_id if isinstance(raw_cve_id, str) else None
+    raw_severity = item.get("severity")
+    severity = raw_severity if isinstance(raw_severity, str) else ""
+    raw_published_at = item.get("published_at")
+    published_at = raw_published_at if isinstance(raw_published_at, str) else None
+    return SecurityAdvisory(
+        ghsa_id=ghsa_id,
+        cve_id=cve_id,
+        summary=summary,
+        description=description,
+        severity=severity,
+        html_url=html_url,
+        published_at=published_at,
+    )
 
 
 def _fetch_issue_body(owner: str, repo: str, number: int, token: str) -> str | None:
