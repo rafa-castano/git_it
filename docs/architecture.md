@@ -115,11 +115,3 @@ between what's specified and what's shipped:
 - **Spec 005 — Documentation Engine**: automated generation of
   documentation from repository analysis. Not yet built. See
   `docs/specs/005-documentation-engine.md`.
-- **Spec 006 — MCP Strategy**: the broader MCP strategy document. The MCP
-  server itself is live (ADR 011, spec 011), but this strategy spec covering
-  the wider approach is still Draft. See `docs/specs/006-mcp-strategy.md`.
-- **Spec 008 — Repository Deletion**: the DELETE endpoint and delete UI are
-  built (`src/git_it/api/routes/repos.py`, `src/git_it/static/app.js`), but
-  the spec was never bumped past Draft and there is no integration test
-  covering the delete flow (`tests/integration/test_repo_lifecycle.py` has no
-  delete coverage). See `docs/specs/008-repository-deletion.md`.

@@ -154,3 +154,59 @@ discussion-evidence eval, there is no qualitative-only check here).
 This eval builds its fixtures and stubs entirely in-process (an in-memory
 stand-in satisfying the `EmbeddingReader` protocol) — no database is
 touched, and the only real network call is the embedding API itself.
+
+---
+
+## Release/Advisory evidence eval (spec 026)
+
+Checks that case-study narratives generated with GitHub Release and Security
+Advisory evidence respect the evidence-discipline properties
+`docs/specs/026-releases-and-security-advisories.md` requires: citation
+completeness, no raw-text leakage, and a severity-vs-confidence guard.
+
+### How to run
+
+```bash
+uv run python evals/release_advisory_eval.py
+```
+
+Options:
+
+```
+--model MODEL     LiteLLM model string  (default: anthropic/claude-haiku-4-5-20251001)
+--verbose         Print the full generated narrative
+```
+
+Requires an API key for the selected model (e.g. `ANTHROPIC_API_KEY`). If no key
+is configured, the eval prints a "skipped" message and exits `0` — it never
+hard-fails an environment with no LLM configured.
+
+### What it checks
+
+1. **Citation completeness** — the same practical, non-brittle heuristic as
+   `discussion_evidence_eval.py`: if a `ReleaseEvidence.summary` or
+   `AdvisoryEvidence.summary` appears to have been used in the narrative
+   (several of its distinctive words show up), its `release_url`/
+   `advisory_url` must also appear somewhere in the output.
+2. **No raw-text leakage** (deterministic, the strongest check) — each
+   fixture `Release`/`SecurityAdvisory` embeds a unique sentinel phrase in
+   its raw `body`/`description`. The eval asserts none of those sentinel
+   phrases (nor the raw fields verbatim, as defense-in-depth) appear
+   anywhere in the generated narrative — only the validated
+   `ReleaseEvidence.summary`/`AdvisoryEvidence.summary` and their
+   `release_url`/`advisory_url` may ever reach it.
+3. **Severity-vs-confidence guard** — severity and confidence are
+   independent axes. The fixture deliberately pairs a critical-severity
+   advisory with a *low-confidence* (0.35) summary. The deterministic
+   `severity_intact` check asserts that once that evidence appears used in
+   the narrative, the word "critical" is still present — i.e. the low
+   confidence in the summary was not allowed to silently downgrade or drop
+   the severity label. A companion qualitative-only check
+   (`severity_confidence_independence_qualitative`) reports whether hedged
+   language also appears nearby, informational only and never a hard
+   failure.
+
+The eval exits non-zero only if the deterministic checks (no raw-text
+leakage, citation completeness, severity intact) fail; the qualitative
+severity/confidence-independence observation is reported but never fails
+the run.

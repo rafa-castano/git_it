@@ -33,7 +33,7 @@ Spec source files live in this directory (`docs/specs/`), alongside this index.
 | 023 | RAG-Enhanced Semantic Search for the Ask Tab | Implemented |
 | 024 | LLM Call Observability (Structured Logging) | Implemented |
 | 025 | README/CHANGELOG Context for Case Study Narratives | Implemented |
-| 026 | GitHub Releases and Security Advisories as Cited Narrative Evidence | Draft |
+| 026 | GitHub Releases and Security Advisories as Cited Narrative Evidence | Implemented |
 
 ## How specs relate to the codebase
 
