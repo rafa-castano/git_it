@@ -1,167 +1,96 @@
 ![Git It Logo](src/git_it/static/git_it_logo_detail_eng.png)
 
-Git It turns the history of a public GitHub repository into an evidence-based engineering case study.
+**Git It turns the history of a public GitHub repository into an evidence-based engineering case study.**
 
-Instead of only explaining what a codebase looks like today, Git It mines commits, file changes, contributors and repository context over time, then uses LLMs to explain how the project evolved, which patterns appeared, and what a learner or engineering team can take away from that history.
+It mines commits, file changes, contributors and repository context over time, then uses LLMs to explain *how* a project evolved, which patterns emerged, and what a learner or engineering team can take from that history — every claim linked back to the commits, patterns, discussions, releases or advisories that support it.
 
 ## Screenshots
 
-### Home (dark mode)
+| Home (dark) | Repository overview (light) |
+|---|---|
+| ![Git It home dashboard](docs/assets/screenshots/readme-home.png) | ![Repository overview](docs/assets/screenshots/readme-overview.png) |
+| **Case study (light)** | **Ask assistant (light)** |
+| ![Generated case study](docs/assets/screenshots/readme-case-study.png) | ![Ask assistant](docs/assets/screenshots/readme-ask.png) |
 
-![Git It home dashboard](docs/assets/screenshots/readme-home.png)
+---
 
-### Repository overview (light mode)
+## Get started in 5 steps
 
-![Repository overview with commit categories, activity and hotspots](docs/assets/screenshots/readme-overview.png)
+This is the complete path from nothing to your first case study. You need **Python 3.12+**, **Git**, and [**uv**](https://docs.astral.sh/uv/) on your `PATH`, plus an **Anthropic API key** (the LLM features run on Anthropic by default).
 
-### Case study (light mode)
-
-![Generated repository case study](docs/assets/screenshots/readme-case-study.png)
-
-### Ask assistant (light mode)
-
-![Ask assistant for repository questions](docs/assets/screenshots/readme-ask.png)
-
-## What you can do with it
-
-- Ingest public GitHub HTTPS repositories into a local bare Git cache.
-- Extract commit facts: SHA, dates, messages, authors, parents and changed files.
-- Analyze selected commits with structured LLM outputs.
-- Detect evolution patterns: hotspots, refactor waves, reverts, test-growth signals, recurring bugfixes, ownership concentration, dependency migrations and architectural shifts.
-- Generate narrative case studies for different audiences.
-- Ask questions about an analyzed repository through a tool-using assistant.
-- Use the same stored analysis through the browser dashboard, CLI, REST API and read-only MCP server.
-
-## Quick start: local dashboard
-
-Use this path if you cloned the repository and want to analyze repositories locally.
-
-### 1. Requirements
-
-- Python 3.12 or newer.
-- Git available in `PATH`.
-- [`uv`](https://docs.astral.sh/uv/) for dependency management.
-- At least one LLM provider key:
-  - `ANTHROPIC_API_KEY` is required for commit analysis, case-study generation and the Ask tab LLM.
-  - `OPENAI_API_KEY` is required only if you want embedding-backed semantic search in Ask.
-
-### 2. Install
+**1. Clone and install**
 
 ```bash
 git clone <repository-url>
-cd <repository-folder>
+cd git_it
 uv sync
 ```
 
-### 3. Configure environment variables
+**2. Add your API key**
 
-Copy the example file and fill the variables for your use case:
+Copy the template and open `.env` in an editor:
 
 ```bash
 cp .env.example .env
 ```
 
-Minimum local setup:
+Set just this one line to get running (Git It loads `.env` automatically — you don't need to export anything):
 
 ```env
 ANTHROPIC_API_KEY=your_anthropic_key
 ```
 
-Recommended setup if you also want semantic search in Ask:
+> Everything else in `.env` is optional. Leave `GIT_IT_API_KEY` **blank** for local use — if you set it, the dashboard's buttons stop working because they don't send an auth header (see [Environment variables](#environment-variables)).
 
-```env
-OPENAI_API_KEY=your_openai_key
-```
-
-Do **not** set `GIT_IT_API_KEY` for normal local dashboard usage. When that variable is set, protected endpoints require an `Authorization: Bearer ...` header, and the current static dashboard does not send that header.
-
-See [Environment variables](#environment-variables) for every supported variable.
-
-### 4. Run
+**3. Start the app**
 
 ```bash
 uv run git-it serve --host 127.0.0.1 --port 8000
 ```
 
-Open:
+**4. Open the dashboard** at <http://localhost:8000> (API docs live at <http://localhost:8000/docs>).
 
-- Dashboard: <http://localhost:8000>
-- OpenAPI docs: <http://localhost:8000/docs>
+**5. Analyze your first repository**
 
-Alternative development entry point:
+1. Paste a public GitHub URL (`https://github.com/owner/repo`, or just `owner/repo`) and click **Analyze**. Git It clones the repo as a local bare cache and extracts commit facts.
+2. Open the repository from the list, click **+ Analyze**, and pick how many commits to analyze — **start with 10–20**. More commits means richer analysis but more time and more LLM calls.
+3. When the background job finishes, explore the **Overview**, **Commits**, **Case Study**, **Contributors** and **Ask** tabs.
 
-```bash
-uv run uvicorn git_it.api.app:app --reload
-```
+That's it. The two actions are deliberately separate: **Analyze on the home page** downloads Git data (free); **+ Analyze inside a repo** spends LLM calls on not-yet-analyzed commits.
 
-## Main user flows
+---
 
-### Analyze a repository for the first time
+## What you can do
 
-Use this flow when the repository has never been analyzed by your local Git It instance.
+- **Ingest** any public GitHub HTTPS repository into a local bare Git cache.
+- **Analyze** selected commits into structured, LLM-generated summaries (beginner and expert audiences).
+- **Detect patterns**: hotspots, refactor waves, reverts, test-growth, recurring bugfixes, ownership concentration, dependency migrations and architectural shifts.
+- **Generate narrative case studies**, grounded in cited evidence (commits, GitHub discussions, releases and security advisories).
+- **Ask questions** about an analyzed repository through a tool-using assistant.
+- Reach the same stored analysis through the **dashboard, CLI, REST API and a read-only MCP server**.
 
-1. Open <http://localhost:8000>.
-2. Paste a public GitHub repository URL, for example `https://github.com/owner/repo`. The dashboard also accepts `owner/repo`.
-3. Click `Analyze` on the home page. This starts ingestion: Git It clones the repository as a local bare Git cache and extracts commit facts.
-4. Open the repository detail page once ingestion appears in the list.
-5. Click `+ Analyze` and choose how many commits to analyze with the LLM.
-6. Wait for the background analysis to finish. The dashboard will then populate commit summaries, patterns, contributors and the case study.
+## Everyday use
 
-For a first run, start with 10 or 20 commits. Larger limits produce richer analysis, but they take longer and spend more LLM calls.
-
-### Update an existing repository with new commits
-
-Use this flow when the repository already exists in Git It but new commits were pushed to GitHub.
-
-1. Paste the same repository URL again in the home form.
-2. Git It detects the existing local bare cache and runs `git fetch` to update remote refs and stored commit facts.
-3. Open the repository detail page.
-4. Click `+ Analyze` to process commits that do not have analysis yet.
-
-The split is intentional: **ingest/fetch** updates local Git data; **Analyze** spends LLM calls on not-yet-analyzed commits.
-
-### Use Ask
-
-The Ask tab has two levels:
-
-- **Basic Ask** requires `ANTHROPIC_API_KEY`. It can answer using stored commits, patterns, contributors and case studies through read-only repository tools.
-- **Semantic Ask / RAG** additionally requires `OPENAI_API_KEY`. When configured, Git It generates embeddings during analysis and enables semantic search over embedded commit/discussion summaries.
-
-Important: embeddings are created when commits are analyzed. If commits were analyzed before `OPENAI_API_KEY` was configured, those old analyses are not automatically backfilled with embeddings by the current workflow. Configure OpenAI before analyzing if semantic Ask matters for that repository.
-
-### Regenerate or change the case-study audience
-
-Case studies are generated from stored commit analysis and pattern data. If you change the audience in the Case Study tab, Git It may reuse a cached narrative or start a regeneration for that audience. This uses LLM calls, so `ANTHROPIC_API_KEY` must be configured.
-
-### Delete local repository data
-
-The dashboard includes delete actions for locally stored repository data. This removes Git It's stored analysis for that repository; it does not mutate the upstream GitHub repository.
-
-If `GIT_IT_API_KEY` is enabled, delete actions are protected like other write endpoints and require direct API calls with `Authorization: Bearer <token>`.
+- **Add new commits from GitHub** — paste the same repository URL on the home page again. Git It runs `git fetch` to update the local cache, then click **+ Analyze** to process the pending commits.
+- **Ask** — the Ask tab answers from stored commits, patterns, contributors and case studies (needs `ANTHROPIC_API_KEY`). Add `OPENAI_API_KEY` to also enable **semantic search** over embedded summaries. Embeddings are created *during analysis*, so configure OpenAI **before** analyzing a repo if you want semantic Ask for it — old analyses are not backfilled automatically.
+- **Case study audience** — switching audience in the Case Study tab reuses a cached narrative or regenerates one (an LLM call).
+- **Delete** — removes Git It's stored analysis for a repository. It never touches the upstream GitHub repo.
 
 ## Environment variables
 
-`.env.example` lists every supported variable with comments. The most common cases are:
+`.env.example` documents every variable with inline comments — it's the full reference. The ones you'll actually think about:
 
-| Variable | Required when | What it does |
+| Variable | Set it when… | Effect |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Commit analysis, case studies, Ask LLM | Used by LiteLLM for the default Anthropic chat models. |
-| `OPENAI_API_KEY` | Semantic Ask / embeddings | Enables embedding generation and `search_similar_commits`. |
-| `GITHUB_TOKEN` | Optional GitHub enrichment | Fetches stars/languages, PR/issues context and discussion evidence where available. It does not enable private repo cloning. |
-| `GIT_IT_API_KEY` | Shared/API deployment only | Protects write/cost endpoints with `Authorization: Bearer <token>`. Leave blank for local dashboard use. |
-| `GIT_IT_DATA_DIR` | Custom data root | Moves local app data when using `uvicorn`/API composition. `git-it serve` roots data at the current working directory. |
-| `DATABASE_URL` | PostgreSQL deployment | Selects PostgreSQL. Leave blank for local SQLite. No silent fallback if PostgreSQL is unreachable. |
-| `EMBEDDING_MODEL` | Advanced embedding override | Defaults to OpenAI's `text-embedding-3-small`. |
-| `PROJECT_DOC_MAX_CHARS` | Advanced prompt-size tuning | Controls how much root README/CHANGELOG text is injected as repository context. |
-| `DISCUSSION_*`, `RELEASE_MAX_SUMMARIZED`, `ADVISORY_MAX_SUMMARIZED` | Advanced GitHub evidence tuning | Controls bounded GitHub evidence collection. Usually leave defaults. |
+| `ANTHROPIC_API_KEY` | Always (for any LLM feature) | Powers commit analysis, case studies, and the Ask tab. |
+| `OPENAI_API_KEY` | You want semantic search in Ask | Enables embeddings + `search_similar_commits`. |
+| `GITHUB_TOKEN` | You want richer GitHub evidence | Adds stars/languages, PR/issue context, discussions, releases and security advisories. **Not** a private-repo credential. |
+| `DATABASE_URL` | You want PostgreSQL | Selects Postgres; otherwise Git It uses local SQLite. No silent fallback if Postgres is unreachable. |
+| `GIT_IT_API_KEY` | You expose the API to others | Requires `Authorization: Bearer <token>` on write/cost endpoints. **Leave blank for local dashboard use.** |
 
-### API authentication with `GIT_IT_API_KEY`
+Advanced tuning knobs (`EMBEDDING_MODEL`, `PROJECT_DOC_MAX_CHARS`, `GIT_IT_DATA_DIR`, the `DISCUSSION_*` / `RELEASE_MAX_SUMMARIZED` / `ADVISORY_MAX_SUMMARIZED` limits) have sensible defaults — see `.env.example`.
 
-Do not set this for normal local dashboard usage.
-
-Set it only if you expose the API to someone else or run Git It in a shared environment. When set, these actions require a bearer token: ingesting repositories, analyzing commits, regenerating case studies, using Ask and deleting repositories.
-
-Example direct API call:
+**Direct API call** when `GIT_IT_API_KEY` is set:
 
 ```bash
 curl -X POST http://localhost:8000/api/repos/{repository_id}/analyze \
@@ -170,107 +99,61 @@ curl -X POST http://localhost:8000/api/repos/{repository_id}/analyze \
   -d '{"limit": 50, "audience": "beginner"}'
 ```
 
-## CLI usage
+## CLI
 
-The CLI expects full public GitHub repository URLs.
+Everything the dashboard does is also scriptable. Commands take a full public GitHub URL.
 
 ```bash
 REPO=https://github.com/owner/repo
+
+uv run git-it run "$REPO" --limit 20 --yes   # full pipeline: ingest + analyze + case study
 ```
 
-First ingest a repository:
+Or run the stages individually:
 
 ```bash
-uv run git-it ingest "$REPO"
-```
-
-Analyze commits:
-
-```bash
+uv run git-it ingest "$REPO"                     # clone/fetch + extract commit facts
 uv run git-it analyze-commits "$REPO" --limit 20 --yes
-```
-
-Generate patterns and a case study:
-
-```bash
 uv run git-it patterns "$REPO"
 uv run git-it case-study "$REPO"
 ```
 
-Run the common pipeline in one command:
-
-```bash
-uv run git-it run "$REPO" --limit 20 --yes
-```
-
-Useful query commands:
+Query stored data:
 
 ```bash
 uv run git-it commits "$REPO" --limit 50
 uv run git-it list-analyses "$REPO"
 ```
 
-Server commands:
+Servers: `uv run git-it serve` (dashboard/API) and `uv run git-it mcp` (read-only MCP over stdio).
 
-```bash
-uv run git-it serve
-uv run git-it mcp
-```
+## Data and databases
 
-## Data storage and databases
+By default Git It uses **SQLite**, storing the database and the bare Git cache under `.data/git-it/ingestion/`.
 
-By default, Git It uses SQLite and stores local data under:
-
-```text
-.data/git-it/ingestion/
-```
-
-That directory contains the SQLite database and the bare Git repository cache.
-
-Set `DATABASE_URL` only when you want PostgreSQL:
+For **PostgreSQL**, set `DATABASE_URL`:
 
 ```env
 DATABASE_URL=postgresql://gitit:gitit@localhost:5432/gitit
 ```
 
-If `DATABASE_URL` starts with `postgresql://` or `postgres://`, Git It selects PostgreSQL and expects it to be reachable. It will not silently fall back to SQLite.
-
-A Docker Compose file is provided for a PostgreSQL-backed setup:
-
-```bash
-docker compose up
-```
-
-If you use Docker Compose for LLM-backed features, make sure the API container receives the provider keys as environment variables.
+A `docker compose up` setup is provided for a Postgres-backed run — pass your LLM provider keys to the API container as environment variables.
 
 ## MCP server
 
-Git It can also run as a read-only MCP server over stdio:
+`uv run git-it mcp` exposes stored analysis as read-only MCP tools over stdio: `list_repositories`, `get_case_study`, `get_patterns`, `search_commits`, `get_contributors`. They only read already-stored data — no ingestion, no LLM calls, no writes.
 
-```bash
-uv run git-it mcp
-```
+## Troubleshooting
 
-Available tools:
-
-- `list_repositories`
-- `get_case_study`
-- `get_patterns`
-- `search_commits`
-- `get_contributors`
-
-These tools expose already stored Git It analysis data. They do not ingest repositories, trigger LLM analysis, regenerate narratives, delete data or mutate Git history.
+- **Dashboard buttons return 401/403** → `GIT_IT_API_KEY` is set. Leave it blank for local use.
+- **Semantic Ask finds nothing** → set `OPENAI_API_KEY`, then re-analyze the repo (old analyses aren't backfilled with embeddings).
+- **New GitHub commits don't show up** → paste the repo URL again on the home page to fetch, then **+ Analyze**.
+- **PostgreSQL errors on startup** → unset `DATABASE_URL` for SQLite, or start/fix Postgres. Git It won't fall back silently.
+- **Private repo fails** → ingestion targets public GitHub HTTPS repos; `GITHUB_TOKEN` enriches metadata but is not used as clone credentials.
 
 ## Tech stack
 
-- **Language:** Python 3.12+
-- **API:** FastAPI + Uvicorn
-- **Git analysis:** GitPython and the local Git CLI
-- **Persistence:** SQLite by default; PostgreSQL optional via SQLAlchemy/psycopg
-- **LLM layer:** LiteLLM + Instructor
-- **Frontend:** static HTML/CSS/JavaScript dashboard with Chart.js
-- **MCP:** Python MCP SDK
-- **Quality tools:** pytest, pytest-cov, ruff, mypy and pre-commit
+Python 3.12+ · FastAPI + Uvicorn · GitPython + Git CLI · SQLite (PostgreSQL optional via psycopg) · LiteLLM + Instructor · static HTML/CSS/JS dashboard with Chart.js · Python MCP SDK · pytest, ruff, mypy, pre-commit.
 
 ## Project structure
 
@@ -287,41 +170,25 @@ src/git_it/
   static/                 Browser dashboard assets
   tools/                  Shared read-only tool definitions
 
-docs/                     Architecture, ADRs, MCP notes and user docs
+docs/                     User docs, architecture, ADRs (docs/adr/), specs (docs/specs/), progress log
 migrations/               Database schema migrations
-scripts/                  Local helper scripts
-specs/                    Product/engineering specifications
 tests/                    Unit and integration tests
 ```
 
-The core module follows a ports-and-adapters style: domain and application code stay independent from FastAPI, Git providers, databases and LLM clients. Concrete adapters are composed at the edges.
+The core follows a ports-and-adapters style: domain and application code stay independent of FastAPI, Git, databases and LLM clients; concrete adapters are composed at the edges.
 
-## Development checks
+## Development
 
 ```bash
 uv run pytest
 uv run ruff check .
 uv run mypy src
+uv sync --group docs && uv run mkdocs serve   # docs site at http://localhost:8000
 ```
 
-Documentation can be served locally with:
+## Scope and limitations
 
-```bash
-uv sync --group docs
-uv run mkdocs serve
-```
-
-## Troubleshooting
-
-- **Dashboard actions return 401/403:** `GIT_IT_API_KEY` is probably set. Leave it blank for local dashboard use, or call the API directly with `Authorization: Bearer <token>`.
-- **Ask works but semantic search returns no similar commits:** configure `OPENAI_API_KEY` before analyzing commits. Existing analyzed commits are not automatically backfilled with embeddings.
-- **New GitHub commits do not appear:** paste the same repository URL again on the home page to trigger fetch/ingestion, then run `+ Analyze` for pending commits.
-- **PostgreSQL errors on startup:** unset `DATABASE_URL` to use SQLite locally, or start/fix the PostgreSQL instance. Git It does not fall back to SQLite when PostgreSQL is selected.
-- **Private repository fails:** current ingestion is focused on public GitHub HTTPS repositories. `GITHUB_TOKEN` enriches metadata/context; it is not used as Git clone credentials.
-
-## Current scope and limitations
-
-- Repository ingestion is focused on public GitHub HTTPS repositories.
-- LLM-backed features require provider credentials and may incur external API costs.
-- MCP exposure is intentionally read-only.
-- Local development defaults to SQLite; shared deployments should use explicit API authentication and a managed database.
+- Ingestion targets **public** GitHub HTTPS repositories.
+- LLM-backed features need provider credentials and can incur external API costs.
+- MCP exposure is intentionally **read-only**.
+- Local defaults to SQLite; shared deployments should use `GIT_IT_API_KEY` and a managed database.
