@@ -28,6 +28,7 @@ from git_it.repository_ingestion.domain.patterns import (
     PatternReport,
     RefactorWave,
 )
+from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
 
 
 def _make_analysis(sha: str = "abc1234", summary: str = "Added feature") -> CommitAnalysis:
@@ -125,6 +126,31 @@ class FakeDiscussionReader:
 
     def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]:
         return list(self._evidence)
+
+
+def _make_project_docs(
+    repository_id: str = "repo-1",
+    readme_text: str | None = "This project does X.",
+    readme_truncated: bool = False,
+    changelog_text: str | None = None,
+    changelog_truncated: bool = False,
+) -> ProjectDocContent:
+    return ProjectDocContent(
+        repository_id=repository_id,
+        readme_text=readme_text,
+        readme_truncated=readme_truncated,
+        changelog_text=changelog_text,
+        changelog_truncated=changelog_truncated,
+        captured_at=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+
+
+class FakeProjectDocReader:
+    def __init__(self, docs: ProjectDocContent | None = None) -> None:
+        self._docs = docs
+
+    def get_project_docs(self, repository_id: str) -> ProjectDocContent | None:
+        return self._docs
 
 
 def _make_service(
@@ -625,3 +651,147 @@ def test_both_system_prompts_instruct_discussion_source_url_fidelity() -> None:
     incremental_lowered = incremental_system_text.lower()
     assert "discussion evidence" in incremental_lowered
     assert "source" in incremental_lowered
+
+
+# ---------------------------------------------------------------------------
+# Project documentation integration (Batch 133 / spec 025)
+# ---------------------------------------------------------------------------
+
+
+def test_build_user_message_includes_project_doc_block_when_present() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text="Git It analyzes GitHub repository history.")
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    assert "## Project Documentation" in message
+    assert "Git It analyzes GitHub repository history." in message
+
+
+def test_build_user_message_omits_project_doc_block_when_none() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_user_message(items, report, [], None)
+    assert "## Project Documentation" not in message
+
+
+def test_build_incremental_user_message_includes_project_doc_block_when_present() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text="Git It analyzes GitHub repository history.")
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        project_docs=docs,
+    )
+    assert "## Project Documentation" in message
+    assert "Git It analyzes GitHub repository history." in message
+
+
+def test_build_incremental_user_message_omits_project_doc_block_when_none() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        project_docs=None,
+    )
+    assert "## Project Documentation" not in message
+
+
+def test_generate_with_project_doc_reader_includes_docs_in_user_message() -> None:
+    docs = _make_project_docs(readme_text="Git It analyzes GitHub repository history.")
+    client = FakeLLMClient()
+    service = NarrativeService(
+        temporal_reader=FakeTemporalReader([_make_item()]),
+        pattern_service=FakePatternService(),
+        llm_client=client,
+        project_doc_reader=FakeProjectDocReader(docs),
+    )
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Project Documentation" in user_msgs[0].content
+    assert "Git It analyzes GitHub repository history." in user_msgs[0].content
+
+
+def test_generate_without_project_doc_reader_omits_project_doc_block() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Project Documentation" not in user_msgs[0].content
+
+
+def test_generate_when_reader_returns_none_omits_project_doc_block() -> None:
+    client = FakeLLMClient()
+    service = NarrativeService(
+        temporal_reader=FakeTemporalReader([_make_item()]),
+        pattern_service=FakePatternService(),
+        llm_client=client,
+        project_doc_reader=FakeProjectDocReader(None),
+    )
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Project Documentation" not in user_msgs[0].content
+
+
+def test_project_doc_block_renders_readme_only() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text="README purpose statement.", changelog_text=None)
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    assert "### README" in message
+    assert "README purpose statement." in message
+    assert "### CHANGELOG" not in message
+
+
+def test_project_doc_block_renders_changelog_only() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text=None, changelog_text="## 1.0.0 - Initial release")
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    assert "### CHANGELOG" in message
+    assert "## 1.0.0 - Initial release" in message
+    assert "### README" not in message
+
+
+def test_project_doc_block_renders_both_readme_and_changelog() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(
+        readme_text="README purpose statement.",
+        changelog_text="## 1.0.0 - Initial release",
+    )
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    assert "### README" in message
+    assert "README purpose statement." in message
+    assert "### CHANGELOG" in message
+    assert "## 1.0.0 - Initial release" in message
+
+
+def test_project_doc_block_frames_content_as_project_own_documentation() -> None:
+    """The block must not present README/CHANGELOG text as an independently-verified
+    fact — it must be framed as the project's own stated description (spec 025)."""
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text="Some project purpose.")
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    lowered = message.lower()
+    assert "project documentation" in lowered
+    assert "own" in lowered
+    assert "not an independently-verified fact" in lowered
+
+
+def test_project_doc_block_has_no_source_citation_suffix() -> None:
+    """Unlike Discussion Evidence, Project Documentation has no evidence_ref/URL — no
+    '(source: ...)' suffix should appear for this block (spec 025 locked decision)."""
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    docs = _make_project_docs(readme_text="Some project purpose.")
+    message = NarrativeService._build_user_message(items, report, [], docs)
+    doc_section_start = message.index("## Project Documentation")
+    doc_section = message[doc_section_start:]
+    assert "(source:" not in doc_section

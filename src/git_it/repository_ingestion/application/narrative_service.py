@@ -10,12 +10,14 @@ from git_it.repository_ingestion.application.ports import (
     DiscussionEvidenceReader,
     LLMClient,
     LLMMessage,
+    ProjectDocReader,
     SynopsisStore,
     TemporalAnalysisReader,
     TimestampedAnalysis,
 )
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.patterns import PatternReport
+from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
 
 _logger = logging.getLogger(__name__)
 
@@ -145,6 +147,35 @@ def _append_discussion_evidence_block(
         lines.append(f"- [{item.claim_type}] {item.summary}  (source: {item.discussion_url})")
 
 
+def _append_project_doc_block(lines: list[str], project_docs: ProjectDocContent | None) -> None:
+    """Append a "## Project Documentation" block with the project's own README/CHANGELOG
+    excerpt, or nothing when neither was captured (spec 025).
+
+    Framed explicitly as the project's own stated description, not an independently-verified
+    fact — there is no evidence_ref for this content (unlike Discussion Evidence), by design:
+    this is background/framing context, not a discrete cited claim (spec 025's locked
+    truncate-only decision).
+    """
+    if project_docs is None:
+        return
+    if project_docs.readme_text is None and project_docs.changelog_text is None:
+        return
+    lines.append("")
+    lines.append("## Project Documentation")
+    lines.append(
+        "(the project's own README/CHANGELOG excerpt below — treat as the maintainers' own "
+        "stated description, not an independently-verified fact)"
+    )
+    if project_docs.readme_text is not None:
+        lines.append("")
+        lines.append("### README")
+        lines.append(project_docs.readme_text)
+    if project_docs.changelog_text is not None:
+        lines.append("")
+        lines.append("### CHANGELOG")
+        lines.append(project_docs.changelog_text)
+
+
 def _build_system_prompt(audience: str) -> str:
     block = _AUDIENCE_BLOCKS.get(audience, _AUDIENCE_BLOCKS["beginner"])
     return _BASE_PROMPT.format(
@@ -261,6 +292,7 @@ class NarrativeService:
         case_study_store: CaseStudyStore | None = None,
         synopsis_store: SynopsisStore | None = None,
         discussion_reader: DiscussionEvidenceReader | None = None,
+        project_doc_reader: ProjectDocReader | None = None,
     ) -> None:
         self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
@@ -268,6 +300,7 @@ class NarrativeService:
         self._case_study_store = case_study_store
         self._synopsis_store = synopsis_store
         self._discussion_reader = discussion_reader
+        self._project_doc_reader = project_doc_reader
 
     def generate(
         self,
@@ -340,7 +373,12 @@ class NarrativeService:
             if self._discussion_reader is not None
             else []
         )
-        user_content = self._build_user_message(items, report, discussion_evidence)
+        project_docs = (
+            self._project_doc_reader.get_project_docs(repository_id)
+            if self._project_doc_reader is not None
+            else None
+        )
+        user_content = self._build_user_message(items, report, discussion_evidence, project_docs)
         messages = [
             LLMMessage(role="system", content=_build_system_prompt(audience)),
             LLMMessage(role="user", content=user_content),
@@ -385,12 +423,18 @@ class NarrativeService:
             if self._discussion_reader is not None
             else []
         )
+        project_docs = (
+            self._project_doc_reader.get_project_docs(repository_id)
+            if self._project_doc_reader is not None
+            else None
+        )
         user_content = self._build_incremental_user_message(
             new_items=new_items,
             prior_context=prior_context,
             use_synopsis=use_synopsis,
             report=report,
             discussion_evidence=discussion_evidence,
+            project_docs=project_docs,
         )
         messages = [
             LLMMessage(role="system", content=_build_incremental_system_prompt(audience)),
@@ -445,6 +489,7 @@ class NarrativeService:
         items: list[TimestampedAnalysis],
         report: PatternReport,
         discussion_evidence: list[DiscussionEvidence],
+        project_docs: ProjectDocContent | None = None,
     ) -> str:
         lines = [
             f"Generate a case study for a repository with {len(items)} analyzed commits.\n",
@@ -507,6 +552,7 @@ class NarrativeService:
                     f"- {oc.file_path}  (authors: {oc.author_count}, commits: {oc.commit_count})"
                 )
         _append_discussion_evidence_block(lines, discussion_evidence)
+        _append_project_doc_block(lines, project_docs)
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)
@@ -517,6 +563,7 @@ class NarrativeService:
         prior_context: str,
         report: PatternReport,
         discussion_evidence: list[DiscussionEvidence],
+        project_docs: ProjectDocContent | None = None,
         use_synopsis: bool = False,
     ) -> str:
         context_label = "## Prior Summary" if use_synopsis else "## Existing Case Study"
@@ -546,6 +593,7 @@ class NarrativeService:
                     f" churn: +{h.total_insertions}/-{h.total_deletions})"
                 )
         _append_discussion_evidence_block(lines, discussion_evidence)
+        _append_project_doc_block(lines, project_docs)
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)

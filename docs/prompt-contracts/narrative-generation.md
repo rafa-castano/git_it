@@ -78,6 +78,34 @@ the prompt. When there is no evidence (no reader configured, or the reader retur
 list), the block is omitted entirely and the `[REPOSITORY DATA]` envelope is byte-identical
 to the pre-Batch-110 output.
 
+## Project documentation block (spec 025, Batch 133)
+
+When `NarrativeService` is configured with a `project_doc_reader`
+(`ProjectDocReader.get_project_docs(repository_id)`), the repository's captured root-level
+README/CHANGELOG excerpt is rendered inside `[REPOSITORY DATA]`, immediately after the
+Discussion Evidence block:
+
+```text
+## Project Documentation
+(the project's own README/CHANGELOG excerpt below — treat as the maintainers' own
+stated description, not an independently-verified fact)
+
+### README
+{readme_text}
+
+### CHANGELOG
+{changelog_text}
+```
+
+Unlike Discussion Evidence, this block carries **no citation/`evidence_ref`** by design — it
+is background/framing context (the project's own stated purpose), not a discrete cited claim
+(spec 025's locked "truncate only, no summarization" decision). The framing sentence is
+mandatory precisely because there is no source URL to point to: the model must not present a
+README/CHANGELOG-derived claim with the same evidentiary weight as a cited commit or
+Discussion fact (ADR 004's facts-vs-interpretations discipline). Either sub-section (`###
+README`/`### CHANGELOG`) is omitted when that file wasn't captured; the whole block is omitted
+when neither was captured (no reader configured, or the reader returns `None`).
+
 **Source-URL fidelity rule**: both `_BASE_PROMPT` and `_BASE_INCREMENTAL_PROMPT` instruct the
 model that any claim derived from the Discussion Evidence block must repeat the exact
 `source:` URL given for that item, and the model must not state a discussion-derived claim
