@@ -640,6 +640,8 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
             synopsis_store=pg_synopsis_store,
             discussion_reader=build_discussion_evidence_store(project_root=project_root),
             project_doc_reader=build_project_doc_store(project_root=project_root),
+            release_evidence_reader=build_release_evidence_store(project_root=project_root),
+            advisory_evidence_reader=build_advisory_evidence_store(project_root=project_root),
         )
 
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
@@ -661,4 +663,6 @@ def build_narrative_service(*, project_root: Path, model: str) -> NarrativeServi
         synopsis_store=synopsis_store,
         discussion_reader=build_discussion_evidence_store(project_root=project_root),
         project_doc_reader=build_project_doc_store(project_root=project_root),
+        release_evidence_reader=build_release_evidence_store(project_root=project_root),
+        advisory_evidence_reader=build_advisory_evidence_store(project_root=project_root),
     )

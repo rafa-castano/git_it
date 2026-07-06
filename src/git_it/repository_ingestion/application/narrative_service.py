@@ -5,19 +5,23 @@ from typing import Protocol
 
 from git_it.repository_ingestion.application.ports import (
     DEFAULT_AUDIENCE,
+    AdvisoryEvidenceReader,
     CaseStudyRecord,
     CaseStudyStore,
     DiscussionEvidenceReader,
     LLMClient,
     LLMMessage,
     ProjectDocReader,
+    ReleaseEvidenceReader,
     SynopsisStore,
     TemporalAnalysisReader,
     TimestampedAnalysis,
 )
+from git_it.repository_ingestion.domain.advisories import AdvisoryEvidence
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.patterns import PatternReport
 from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
+from git_it.repository_ingestion.domain.releases import ReleaseEvidence
 
 _logger = logging.getLogger(__name__)
 
@@ -84,9 +88,10 @@ Write a structured case study in Markdown using these sections:
 {opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent. Any claim derived from the Discussion Evidence block must \
-repeat the exact `source:` URL given for that item, and you must not state a discussion-derived \
-claim for which no source URL was provided.
+commit. Do not overstate intent. Any claim derived from the Discussion Evidence, Release \
+History, or Security Advisories blocks must repeat the exact `source:` URL given for that \
+item, and you must not state a claim derived from any of those blocks for which no source URL \
+was provided.
 
 {synopsis_instruction}"""
 
@@ -110,9 +115,10 @@ commits. Output the full updated case study in Markdown using these sections:
 {opening_instruction}
 
 Express uncertainty when evidence is weak. Every major claim must cite at least one supporting \
-commit. Do not overstate intent. Any claim derived from the Discussion Evidence block must \
-repeat the exact `source:` URL given for that item, and you must not state a discussion-derived \
-claim for which no source URL was provided.
+commit. Do not overstate intent. Any claim derived from the Discussion Evidence, Release \
+History, or Security Advisories blocks must repeat the exact `source:` URL given for that \
+item, and you must not state a claim derived from any of those blocks for which no source URL \
+was provided.
 
 {synopsis_instruction}"""
 
@@ -145,6 +151,39 @@ def _append_discussion_evidence_block(
     lines.append("## Discussion Evidence")
     for item in discussion_evidence:
         lines.append(f"- [{item.claim_type}] {item.summary}  (source: {item.discussion_url})")
+
+
+def _append_release_evidence_block(
+    lines: list[str], release_evidence: list[ReleaseEvidence]
+) -> None:
+    """Append a ``## Release History`` block, or nothing when there is no evidence.
+
+    Only ``ReleaseEvidence`` fields are used — never raw ``Release`` body/notes text — so
+    this can never leak untrusted release-notes content into the prompt (spec 026).
+    """
+    if not release_evidence:
+        return
+    lines.append("")
+    lines.append("## Release History")
+    for item in release_evidence:
+        lines.append(f"- [{item.claim_type}] {item.summary}  (source: {item.release_url})")
+
+
+def _append_advisory_evidence_block(
+    lines: list[str], advisory_evidence: list[AdvisoryEvidence]
+) -> None:
+    """Append a ``## Security Advisories`` block, or nothing when there is no evidence.
+
+    Only ``AdvisoryEvidence`` fields are used — never raw ``SecurityAdvisory`` description
+    text — so this can never leak untrusted advisory-description content into the prompt
+    (spec 026).
+    """
+    if not advisory_evidence:
+        return
+    lines.append("")
+    lines.append("## Security Advisories")
+    for item in advisory_evidence:
+        lines.append(f"- [{item.severity}] {item.summary}  (source: {item.advisory_url})")
 
 
 def _append_project_doc_block(lines: list[str], project_docs: ProjectDocContent | None) -> None:
@@ -293,6 +332,8 @@ class NarrativeService:
         synopsis_store: SynopsisStore | None = None,
         discussion_reader: DiscussionEvidenceReader | None = None,
         project_doc_reader: ProjectDocReader | None = None,
+        release_evidence_reader: ReleaseEvidenceReader | None = None,
+        advisory_evidence_reader: AdvisoryEvidenceReader | None = None,
     ) -> None:
         self._temporal_reader = temporal_reader
         self._pattern_service = pattern_service
@@ -301,6 +342,8 @@ class NarrativeService:
         self._synopsis_store = synopsis_store
         self._discussion_reader = discussion_reader
         self._project_doc_reader = project_doc_reader
+        self._release_evidence_reader = release_evidence_reader
+        self._advisory_evidence_reader = advisory_evidence_reader
 
     def generate(
         self,
@@ -378,7 +421,19 @@ class NarrativeService:
             if self._project_doc_reader is not None
             else None
         )
-        user_content = self._build_user_message(items, report, discussion_evidence, project_docs)
+        release_evidence = (
+            self._release_evidence_reader.get_release_evidence(repository_id)
+            if self._release_evidence_reader is not None
+            else []
+        )
+        advisory_evidence = (
+            self._advisory_evidence_reader.get_advisory_evidence(repository_id)
+            if self._advisory_evidence_reader is not None
+            else []
+        )
+        user_content = self._build_user_message(
+            items, report, discussion_evidence, project_docs, release_evidence, advisory_evidence
+        )
         messages = [
             LLMMessage(role="system", content=_build_system_prompt(audience)),
             LLMMessage(role="user", content=user_content),
@@ -428,6 +483,16 @@ class NarrativeService:
             if self._project_doc_reader is not None
             else None
         )
+        release_evidence = (
+            self._release_evidence_reader.get_release_evidence(repository_id)
+            if self._release_evidence_reader is not None
+            else []
+        )
+        advisory_evidence = (
+            self._advisory_evidence_reader.get_advisory_evidence(repository_id)
+            if self._advisory_evidence_reader is not None
+            else []
+        )
         user_content = self._build_incremental_user_message(
             new_items=new_items,
             prior_context=prior_context,
@@ -435,6 +500,8 @@ class NarrativeService:
             report=report,
             discussion_evidence=discussion_evidence,
             project_docs=project_docs,
+            release_evidence=release_evidence,
+            advisory_evidence=advisory_evidence,
         )
         messages = [
             LLMMessage(role="system", content=_build_incremental_system_prompt(audience)),
@@ -490,6 +557,8 @@ class NarrativeService:
         report: PatternReport,
         discussion_evidence: list[DiscussionEvidence],
         project_docs: ProjectDocContent | None = None,
+        release_evidence: list[ReleaseEvidence] | None = None,
+        advisory_evidence: list[AdvisoryEvidence] | None = None,
     ) -> str:
         lines = [
             f"Generate a case study for a repository with {len(items)} analyzed commits.\n",
@@ -553,6 +622,8 @@ class NarrativeService:
                 )
         _append_discussion_evidence_block(lines, discussion_evidence)
         _append_project_doc_block(lines, project_docs)
+        _append_release_evidence_block(lines, release_evidence or [])
+        _append_advisory_evidence_block(lines, advisory_evidence or [])
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)
@@ -564,6 +635,8 @@ class NarrativeService:
         report: PatternReport,
         discussion_evidence: list[DiscussionEvidence],
         project_docs: ProjectDocContent | None = None,
+        release_evidence: list[ReleaseEvidence] | None = None,
+        advisory_evidence: list[AdvisoryEvidence] | None = None,
         use_synopsis: bool = False,
     ) -> str:
         context_label = "## Prior Summary" if use_synopsis else "## Existing Case Study"
@@ -594,6 +667,8 @@ class NarrativeService:
                 )
         _append_discussion_evidence_block(lines, discussion_evidence)
         _append_project_doc_block(lines, project_docs)
+        _append_release_evidence_block(lines, release_evidence or [])
+        _append_advisory_evidence_block(lines, advisory_evidence or [])
         lines.append("")
         lines.append("[/REPOSITORY DATA]")
         return "\n".join(lines)

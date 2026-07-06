@@ -14,6 +14,7 @@ from git_it.repository_ingestion.application.ports import (
     LLMMessage,
     TimestampedAnalysis,
 )
+from git_it.repository_ingestion.domain.advisories import AdvisoryEvidence
 from git_it.repository_ingestion.domain.analysis import (
     CommitAnalysis,
     CommitCategory,
@@ -29,6 +30,7 @@ from git_it.repository_ingestion.domain.patterns import (
     RefactorWave,
 )
 from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
+from git_it.repository_ingestion.domain.releases import ReleaseEvidence
 
 
 def _make_analysis(sha: str = "abc1234", summary: str = "Added feature") -> CommitAnalysis:
@@ -125,6 +127,60 @@ class FakeDiscussionReader:
         self._evidence = evidence or []
 
     def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]:
+        return list(self._evidence)
+
+
+def _make_release_evidence(
+    tag_name: str = "v1.0.0",
+    release_url: str = "https://github.com/owner/repo/releases/tag/v1.0.0",
+    claim_type: str = "feature_release",
+    summary: str = "Added support for pgvector-based semantic search.",
+) -> ReleaseEvidence:
+    return ReleaseEvidence(
+        tag_name=tag_name,
+        release_url=release_url,
+        claim_type=claim_type,  # type: ignore[arg-type]
+        summary=summary,
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[tag_name],
+        generated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        model="test-model",
+    )
+
+
+class FakeReleaseReader:
+    def __init__(self, evidence: list[ReleaseEvidence] | None = None) -> None:
+        self._evidence = evidence or []
+
+    def get_release_evidence(self, repository_id: str) -> list[ReleaseEvidence]:
+        return list(self._evidence)
+
+
+def _make_advisory_evidence(
+    ghsa_id: str = "GHSA-aaaa-bbbb-cccc",
+    advisory_url: str = "https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc",
+    severity: str = "high",
+    summary: str = "A path traversal vulnerability was patched in file upload handling.",
+) -> AdvisoryEvidence:
+    return AdvisoryEvidence(
+        ghsa_id=ghsa_id,
+        advisory_url=advisory_url,
+        severity=severity,  # type: ignore[arg-type]
+        summary=summary,
+        confidence=0.8,
+        limitations=[],
+        source_inputs=[ghsa_id],
+        generated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        model="test-model",
+    )
+
+
+class FakeAdvisoryReader:
+    def __init__(self, evidence: list[AdvisoryEvidence] | None = None) -> None:
+        self._evidence = evidence or []
+
+    def get_advisory_evidence(self, repository_id: str) -> list[AdvisoryEvidence]:
         return list(self._evidence)
 
 
@@ -795,3 +851,286 @@ def test_project_doc_block_has_no_source_citation_suffix() -> None:
     doc_section_start = message.index("## Project Documentation")
     doc_section = message[doc_section_start:]
     assert "(source:" not in doc_section
+
+
+# ---------------------------------------------------------------------------
+# Release and Security Advisory evidence integration (Batch 142 / spec 026)
+# ---------------------------------------------------------------------------
+
+
+def test_build_user_message_includes_release_evidence_block() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_release_evidence(
+            tag_name="v1.0.0",
+            release_url="https://github.com/owner/repo/releases/tag/v1.0.0",
+            claim_type="feature_release",
+            summary="Added support for pgvector-based semantic search.",
+        ),
+        _make_release_evidence(
+            tag_name="v2.0.0",
+            release_url="https://github.com/owner/repo/releases/tag/v2.0.0",
+            claim_type="breaking_change",
+            summary="Removed the legacy v1 REST endpoints.",
+        ),
+    ]
+    message = NarrativeService._build_user_message(
+        items, report, [], None, release_evidence=evidence
+    )
+    assert "## Release History" in message
+    assert "[feature_release] Added support for pgvector-based semantic search." in message
+    assert "(source: https://github.com/owner/repo/releases/tag/v1.0.0)" in message
+    assert "[breaking_change] Removed the legacy v1 REST endpoints." in message
+    assert "(source: https://github.com/owner/repo/releases/tag/v2.0.0)" in message
+
+
+def test_build_user_message_omits_release_evidence_block_when_empty() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_user_message(items, report, [], None, release_evidence=[])
+    assert "## Release History" not in message
+
+
+def test_build_incremental_user_message_includes_release_evidence_block() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_release_evidence(
+            tag_name="v1.0.0",
+            release_url="https://github.com/owner/repo/releases/tag/v1.0.0",
+            claim_type="feature_release",
+            summary="Added support for pgvector-based semantic search.",
+        )
+    ]
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        release_evidence=evidence,
+    )
+    assert "## Release History" in message
+    assert "[feature_release] Added support for pgvector-based semantic search." in message
+    assert "(source: https://github.com/owner/repo/releases/tag/v1.0.0)" in message
+
+
+def test_build_incremental_user_message_omits_release_evidence_block_when_empty() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        release_evidence=[],
+    )
+    assert "## Release History" not in message
+
+
+def test_build_user_message_includes_advisory_evidence_block() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_advisory_evidence(
+            ghsa_id="GHSA-aaaa-bbbb-cccc",
+            advisory_url=("https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc"),
+            severity="high",
+            summary="A path traversal vulnerability was patched in file upload handling.",
+        ),
+        _make_advisory_evidence(
+            ghsa_id="GHSA-dddd-eeee-ffff",
+            advisory_url=("https://github.com/owner/repo/security/advisories/GHSA-dddd-eeee-ffff"),
+            severity="critical",
+            summary="A remote code execution vulnerability was patched.",
+        ),
+    ]
+    message = NarrativeService._build_user_message(
+        items, report, [], None, advisory_evidence=evidence
+    )
+    assert "## Security Advisories" in message
+    assert "[high] A path traversal vulnerability was patched in file upload handling." in message
+    assert (
+        "(source: https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc)" in message
+    )
+    assert "[critical] A remote code execution vulnerability was patched." in message
+    assert (
+        "(source: https://github.com/owner/repo/security/advisories/GHSA-dddd-eeee-ffff)" in message
+    )
+
+
+def test_build_user_message_omits_advisory_evidence_block_when_empty() -> None:
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_user_message(items, report, [], None, advisory_evidence=[])
+    assert "## Security Advisories" not in message
+
+
+def test_build_incremental_user_message_includes_advisory_evidence_block() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_advisory_evidence(
+            ghsa_id="GHSA-aaaa-bbbb-cccc",
+            advisory_url=("https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc"),
+            severity="high",
+            summary="A path traversal vulnerability was patched in file upload handling.",
+        )
+    ]
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        advisory_evidence=evidence,
+    )
+    assert "## Security Advisories" in message
+    assert "[high] A path traversal vulnerability was patched in file upload handling." in message
+    assert (
+        "(source: https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc)" in message
+    )
+
+
+def test_build_incremental_user_message_omits_advisory_evidence_block_when_empty() -> None:
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    message = NarrativeService._build_incremental_user_message(
+        new_items=[_make_item()],
+        prior_context="Prior narrative content.",
+        report=report,
+        discussion_evidence=[],
+        advisory_evidence=[],
+    )
+    assert "## Security Advisories" not in message
+
+
+def test_generate_with_release_and_advisory_readers_includes_both_blocks() -> None:
+    release_evidence = [
+        _make_release_evidence(
+            tag_name="v1.0.0",
+            release_url="https://github.com/owner/repo/releases/tag/v1.0.0",
+            claim_type="feature_release",
+            summary="Added support for pgvector-based semantic search.",
+        )
+    ]
+    advisory_evidence = [
+        _make_advisory_evidence(
+            ghsa_id="GHSA-aaaa-bbbb-cccc",
+            advisory_url=("https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc"),
+            severity="high",
+            summary="A path traversal vulnerability was patched in file upload handling.",
+        )
+    ]
+    client = FakeLLMClient()
+    service = NarrativeService(
+        temporal_reader=FakeTemporalReader([_make_item()]),
+        pattern_service=FakePatternService(),
+        llm_client=client,
+        release_evidence_reader=FakeReleaseReader(release_evidence),
+        advisory_evidence_reader=FakeAdvisoryReader(advisory_evidence),
+    )
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Release History" in user_msgs[0].content
+    assert "(source: https://github.com/owner/repo/releases/tag/v1.0.0)" in user_msgs[0].content
+    assert "## Security Advisories" in user_msgs[0].content
+    assert (
+        "(source: https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc)"
+        in user_msgs[0].content
+    )
+
+
+def test_generate_without_release_or_advisory_readers_omits_both_blocks() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    user_msgs = [m for m in client.calls[0] if m.role == "user"]
+    assert user_msgs
+    assert "## Release History" not in user_msgs[0].content
+    assert "## Security Advisories" not in user_msgs[0].content
+
+
+def test_release_evidence_lines_use_only_evidence_fields_no_raw_release_body() -> None:
+    """The rendered line shape is exactly '[claim_type] summary  (source: url)' — no raw
+    Release body/notes text ever exists at this layer to leak."""
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_release_evidence(
+            tag_name="v1.0.0",
+            release_url="https://github.com/owner/repo/releases/tag/v1.0.0",
+            claim_type="feature_release",
+            summary="Added semantic search.",
+        )
+    ]
+    message = NarrativeService._build_user_message(
+        items, report, [], None, release_evidence=evidence
+    )
+    evidence_lines = [
+        line for line in message.splitlines() if line.strip().startswith("- [feature_release]")
+    ]
+    assert evidence_lines == [
+        "- [feature_release] Added semantic search."
+        "  (source: https://github.com/owner/repo/releases/tag/v1.0.0)"
+    ]
+
+
+def test_advisory_evidence_lines_use_only_evidence_fields_no_raw_description() -> None:
+    """The rendered line shape is exactly '[severity] summary  (source: url)' — no raw
+    SecurityAdvisory description text ever exists at this layer to leak."""
+    items = [_make_item()]
+    report = PatternReport(repository_id="repo-1", hotspots=[])
+    evidence = [
+        _make_advisory_evidence(
+            ghsa_id="GHSA-aaaa-bbbb-cccc",
+            advisory_url=("https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc"),
+            severity="high",
+            summary="Path traversal patched.",
+        )
+    ]
+    message = NarrativeService._build_user_message(
+        items, report, [], None, advisory_evidence=evidence
+    )
+    evidence_lines = [line for line in message.splitlines() if line.strip().startswith("- [high]")]
+    assert evidence_lines == [
+        "- [high] Path traversal patched."
+        "  (source: https://github.com/owner/repo/security/advisories/GHSA-aaaa-bbbb-cccc)"
+    ]
+
+
+def test_both_system_prompts_instruct_release_and_advisory_source_url_fidelity() -> None:
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    lowered = system_text.lower()
+    assert "release history" in lowered
+    assert "security advisories" in lowered
+    assert "source" in lowered
+
+    incremental_client = FakeLLMClient()
+    incremental_service = NarrativeService(
+        temporal_reader=FakeTemporalReader(
+            [
+                _make_item(date="2024-01-01T00:00:00"),
+                _make_item(sha="def5678", date="2024-06-01T00:00:00"),
+            ]
+        ),
+        pattern_service=FakePatternService(),
+        llm_client=incremental_client,
+    )
+    existing = CaseStudyRecord(
+        repository_id="repo-1",
+        narrative="Existing narrative",
+        commit_count=1,
+        hotspot_count=0,
+        generated_at="2024-01-02T00:00:00",
+        audience="beginner",
+    )
+    incremental_service._generate_incremental(
+        "repo-1",
+        new_items=[_make_item(sha="def5678", date="2024-06-01T00:00:00")],
+        existing=existing,
+    )
+    incremental_system_text = next(
+        m.content for m in incremental_client.calls[0] if m.role == "system"
+    )
+    incremental_lowered = incremental_system_text.lower()
+    assert "release history" in incremental_lowered
+    assert "security advisories" in incremental_lowered
+    assert "source" in incremental_lowered

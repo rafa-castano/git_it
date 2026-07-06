@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from git_it.repository_ingestion.domain.advisories import AdvisoryEvidence
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis
 from git_it.repository_ingestion.domain.commits import ExtractedCommit
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
@@ -8,10 +9,13 @@ from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
 from git_it.repository_ingestion.domain.patterns import PatternExplanation, PatternReport
 from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
+from git_it.repository_ingestion.domain.releases import ReleaseEvidence
 
 DEFAULT_AUDIENCE = "beginner"  # canonical audience default used across all layers
 
 __all__ = [
+    "AdvisoryEvidence",
+    "AdvisoryEvidenceReader",
     "CaseStudyRecord",
     "CaseStudyStore",
     "CommitAnalysis",
@@ -57,6 +61,8 @@ __all__ = [
     "ProjectDocContent",
     "ProjectDocReader",
     "ProjectDocWriter",
+    "ReleaseEvidence",
+    "ReleaseEvidenceReader",
     "RepoContextReader",
     "RepositoryListReader",
     "RepositoryRecord",
@@ -161,6 +167,27 @@ class DiscussionEvidenceReader(Protocol):
     """
 
     def get_discussion_evidence(self, repository_id: str) -> list[DiscussionEvidence]: ...
+
+
+class ReleaseEvidenceReader(Protocol):
+    """Reads stored, schema-validated release evidence for a repository (spec 026).
+
+    Returns the full currently-stored set — mirrors ``DiscussionEvidenceReader``'s
+    scope (no incremental "new since last generation" filtering).
+    """
+
+    def get_release_evidence(self, repository_id: str) -> list[ReleaseEvidence]: ...
+
+
+class AdvisoryEvidenceReader(Protocol):
+    """Reads stored, schema-validated security-advisory evidence for a repository
+    (spec 026).
+
+    Returns the full currently-stored set — mirrors ``DiscussionEvidenceReader``'s
+    scope (no incremental "new since last generation" filtering).
+    """
+
+    def get_advisory_evidence(self, repository_id: str) -> list[AdvisoryEvidence]: ...
 
 
 class EmbeddingClient(Protocol):

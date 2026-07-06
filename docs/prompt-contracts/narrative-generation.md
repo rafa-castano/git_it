@@ -107,10 +107,50 @@ README`/`### CHANGELOG`) is omitted when that file wasn't captured; the whole bl
 when neither was captured (no reader configured, or the reader returns `None`).
 
 **Source-URL fidelity rule**: both `_BASE_PROMPT` and `_BASE_INCREMENTAL_PROMPT` instruct the
-model that any claim derived from the Discussion Evidence block must repeat the exact
-`source:` URL given for that item, and the model must not state a discussion-derived claim
-for which no source URL was provided. This extends the existing commit-citation rule to
-discussion-sourced claims.
+model that any claim derived from the Discussion Evidence, Release History, or Security
+Advisories blocks must repeat the exact `source:` URL given for that item, and the model must
+not state a claim derived from any of those blocks for which no source URL was provided. This
+extends the existing commit-citation rule to discussion-, release-, and advisory-sourced
+claims.
+
+## Release history block (spec 026, Batch 142)
+
+When `NarrativeService` is configured with a `release_evidence_reader`
+(`ReleaseEvidenceReader.get_release_evidence(repository_id)`), each stored `ReleaseEvidence`
+item is rendered as one line inside `[REPOSITORY DATA]`, immediately after the Project
+Documentation block:
+
+```text
+## Release History
+- [{claim_type}] {summary}  (source: {release_url})
+```
+
+Only `ReleaseEvidence` fields (`claim_type`, `summary`, `release_url`) are used — the raw
+`Release` (name/body/release-notes markdown) never reaches this layer, so it cannot leak into
+the prompt. `release_url` is the item's validated `evidence_ref` (spec 026): a
+`https://github.com/{owner}/{repo}/releases/tag/{tag}` URL. When there is no evidence (no
+reader configured, or the reader returns an empty list), the block is omitted entirely.
+
+## Security advisories block (spec 026, Batch 142)
+
+When `NarrativeService` is configured with an `advisory_evidence_reader`
+(`AdvisoryEvidenceReader.get_advisory_evidence(repository_id)`), each stored
+`AdvisoryEvidence` item is rendered as one line inside `[REPOSITORY DATA]`, immediately after
+the Release History block:
+
+```text
+## Security Advisories
+- [{severity}] {summary}  (source: {advisory_url})
+```
+
+Only `AdvisoryEvidence` fields (`severity`, `summary`, `advisory_url`) are used — the raw
+`SecurityAdvisory` (description) never reaches this layer, so it cannot leak into the prompt.
+`advisory_url` is the item's validated `evidence_ref` (spec 026): a
+`https://github.com/{owner}/{repo}/security/advisories/{ghsa_id}` URL. Unlike the other
+evidence blocks, each line is labeled by `severity` (`low`/`medium`/`high`/`critical`, GitHub's
+own enum) rather than `claim_type` — deliberately, so a prompt-injected advisory description
+cannot inflate or deflate the reported severity by construction. When there is no evidence (no
+reader configured, or the reader returns an empty list), the block is omitted entirely.
 
 ## Rule
 
