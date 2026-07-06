@@ -248,3 +248,19 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+
+
+# ---------------------------------------------------------------------------
+# Semantic search (spec 023) -- search_similar_commits chat tool
+# ---------------------------------------------------------------------------
+
+
+class SimilaritySearchResult(BaseModel):
+    source_type: str
+    evidence_ref: str
+    summary_text: str
+    score: float
+
+
+class SimilaritySearchResponse(BaseModel):
+    results: list[SimilaritySearchResult] = []

@@ -22,12 +22,20 @@ from git_it.api.schemas import (
     PatternReportResponse,
     RepoListResponse,
     RepoSummary,
+    SimilaritySearchResponse,
+    SimilaritySearchResult,
 )
 from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
+from git_it.repository_ingestion.application.semantic_search_service import (
+    DEFAULT_TOP_K,
+    SemanticSearchService,
+)
 from git_it.repository_ingestion.composition import (
     build_case_study_reader,
     build_commit_with_analysis_reader,
     build_contributor_reader,
+    build_embedding_client,
+    build_embedding_store,
     build_pattern_detection_service_reader,
     build_repository_list_reader,
     database_is_provisioned,
@@ -196,4 +204,32 @@ def get_contributors(project_root: Path, repository_id: str) -> ContributorsResp
     ]
     return ContributorsResponse(
         repository_id=repository_id, contributors=contributors, total=len(contributors)
+    )
+
+
+def search_similar_commits(
+    project_root: Path, repository_id: str, query: str, top_k: int = DEFAULT_TOP_K
+) -> SimilaritySearchResponse:
+    """Semantic search over embedded commit-analysis/discussion summaries (spec 023).
+    Returns an empty response if the RAG feature is unavailable (no OPENAI_API_KEY)
+    or the query is empty/invalid -- never raises to the caller."""
+    embedding_client = build_embedding_client()
+    if embedding_client is None:
+        return SimilaritySearchResponse(results=[])
+    embedding_store = build_embedding_store(project_root=project_root)
+    service = SemanticSearchService(embedding_client, embedding_store)
+    try:
+        results = service.search(repository_id, query, top_k=top_k)
+    except ValueError:
+        return SimilaritySearchResponse(results=[])
+    return SimilaritySearchResponse(
+        results=[
+            SimilaritySearchResult(
+                source_type=r.source_type,
+                evidence_ref=r.evidence_ref,
+                summary_text=r.summary_text,
+                score=r.score,
+            )
+            for r in results
+        ]
     )

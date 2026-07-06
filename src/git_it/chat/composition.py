@@ -9,14 +9,17 @@ from pathlib import Path
 
 from git_it.chat.litellm_client import LiteLLMChatClient
 from git_it.chat.service import ChatService
+from git_it.repository_ingestion.composition import build_embedding_client
 from git_it.repository_ingestion.infrastructure.llm import DEFAULT_MODEL
 
 
 def build_chat_service(
     project_root: Path, *, model: str = DEFAULT_MODEL, turn_cap: int = 6
 ) -> ChatService:
+    include_semantic_search = build_embedding_client() is not None
     return ChatService(
         llm=LiteLLMChatClient(model=model),
         project_root=project_root,
         turn_cap=turn_cap,
+        include_semantic_search=include_semantic_search,
     )

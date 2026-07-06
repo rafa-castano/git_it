@@ -405,3 +405,132 @@ def test_chat_collapses_excess_blank_lines_in_final_reply(tmp_path: Path) -> Non
     result = service.chat(repository_id="repo-abc", message="what happened?")
 
     assert result.reply == "First paragraph.\n\nSecond paragraph."
+
+
+# ---------------------------------------------------------------------------
+# Spec 023 (batch 123) -- conditional `search_similar_commits` registration
+# ---------------------------------------------------------------------------
+
+
+class _ToolsRecordingLLM:
+    """A fake ChatLLM that records the exact `tools=` schema list it was
+    offered on each `respond` call, so tests can prove a tool is present or
+    absent from what's shown to the model -- not just from the dispatch
+    table."""
+
+    def __init__(self, turns: list[LLMTurn]) -> None:
+        self._turns = list(turns)
+        self.calls = 0
+        self.tools_snapshots: list[list[dict[str, Any]]] = []
+        self.message_snapshots: list[list[dict[str, Any]]] = []
+
+    def respond(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LLMTurn:
+        self.calls += 1
+        self.tools_snapshots.append([dict(t) for t in tools])
+        self.message_snapshots.append([dict(m) for m in messages])
+        if self._turns:
+            return self._turns.pop(0)
+        return LLMTurn(text="(no more scripted turns)")
+
+    def respond_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> Iterator[StreamPart]:
+        turn = self.respond(system=system, messages=messages, tools=tools)
+        if turn.text:
+            yield StreamPart(text_delta=turn.text)
+        yield StreamPart(turn=turn)
+
+    def tool_messages(self, call_index: int) -> list[dict[str, Any]]:
+        return [m for m in self.message_snapshots[call_index] if m.get("role") == "tool"]
+
+
+def test_default_service_offers_only_the_four_existing_tools(tmp_path: Path) -> None:
+    """`include_semantic_search` defaults to False -- behavior must be
+    byte-for-byte identical to before this batch: the 5th tool is absent from
+    both the schemas offered to the model and the dispatch table."""
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+
+    llm = _ToolsRecordingLLM([LLMTurn(text="done")])
+    service = ChatService(llm=llm, project_root=tmp_path)
+
+    service.chat(repository_id="repo-abc", message="hello")
+
+    offered_names = {t["name"] for t in llm.tools_snapshots[0]}
+    assert offered_names == {
+        "search_commits",
+        "get_patterns",
+        "get_contributors",
+        "get_case_study",
+    }
+    assert "search_similar_commits" not in service._tools
+    assert set(service._tools) == {
+        "search_commits",
+        "get_patterns",
+        "get_contributors",
+        "get_case_study",
+    }
+
+
+def test_include_semantic_search_true_offers_fifth_tool_and_dispatches(
+    tmp_path: Path,
+) -> None:
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+
+    from git_it.api.schemas import SimilaritySearchResponse
+    from git_it.tools import registry as tools_registry
+
+    def _fake_search_similar_commits(
+        project_root: Path, repository_id: str, query: str, top_k: int = 10
+    ) -> SimilaritySearchResponse:
+        assert repository_id == "repo-abc"
+        assert query == "security mistakes"
+        return SimilaritySearchResponse(results=[])
+
+    original = tools_registry.search_similar_commits
+    tools_registry.search_similar_commits = _fake_search_similar_commits  # type: ignore[attr-defined]
+    try:
+        llm = _ScriptedLLM(
+            [
+                LLMTurn(
+                    tool_calls=(
+                        ToolCall(
+                            id="c1",
+                            name="search_similar_commits",
+                            arguments={"query": "security mistakes"},
+                        ),
+                    )
+                ),
+                LLMTurn(text="Found no strong matches."),
+            ]
+        )
+        service = ChatService(llm=llm, project_root=tmp_path, include_semantic_search=True)
+
+        result = service.chat(repository_id="repo-abc", message="what went wrong?")
+
+        assert "search_similar_commits" in service._tools
+        assert any(s["name"] == "search_similar_commits" for s in service._tool_schemas)
+        assert result.tool_calls_made == 1
+        tool_msgs = llm.tool_messages(1)
+        assert any(m.get("name") == "search_similar_commits" for m in tool_msgs)
+    finally:
+        tools_registry.search_similar_commits = original  # type: ignore[attr-defined]
+
+
+def test_system_prompt_requires_citing_evidence_ref_for_similarity_results() -> None:
+    lowered = SYSTEM_PROMPT.lower()
+    assert "evidence_ref" in lowered
+    assert "search_similar_commits" in lowered

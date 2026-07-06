@@ -121,6 +121,9 @@ exclamation mark before the next sentence starts — never join two sentences
 directly (for example, never write "backed by evidence.The next commit", write
 "backed by evidence. The next commit" instead). Do not leave more than one
 blank line between paragraphs, list items, or headings.
+
+If you use search_similar_commits, always cite each result's evidence_ref when
+reporting it.
 """
 
 _CAP_NOTE = (
@@ -238,10 +241,31 @@ class _Loop:
 class ChatService:
     """Runs the bounded agentic loop for one repository per `chat` call."""
 
-    def __init__(self, *, llm: ChatLLM, project_root: Path, turn_cap: int = 6) -> None:
+    def __init__(
+        self,
+        *,
+        llm: ChatLLM,
+        project_root: Path,
+        turn_cap: int = 6,
+        include_semantic_search: bool = False,
+    ) -> None:
         self._llm = llm
         self._project_root = project_root
         self._turn_cap = turn_cap
+        self._tools: dict[str, Callable[..., Any]] = dict(READ_ONLY_TOOLS)
+        self._tool_schemas: list[dict[str, Any]] = _tool_schemas()
+        if include_semantic_search:
+            self._tools["search_similar_commits"] = registry.search_similar_commits
+            self._tool_schemas.append(
+                {
+                    "name": "search_similar_commits",
+                    "description": (
+                        "Semantic search over embedded commit and discussion summaries; "
+                        "cite results by evidence_ref."
+                    ),
+                    "parameters": {"query": "string (required)", "top_k": "integer (optional)"},
+                }
+            )
 
     def chat(
         self,
@@ -252,7 +276,7 @@ class ChatService:
     ) -> ChatResult:
         loop = _Loop(messages=[{"role": m.role, "content": m.content} for m in history])
         loop.messages.append({"role": "user", "content": message})
-        tools = _tool_schemas()
+        tools = self._tool_schemas
 
         for turn in range(1, self._turn_cap + 1):
             reply = self._llm.respond(system=SYSTEM_PROMPT, messages=loop.messages, tools=tools)
@@ -288,7 +312,7 @@ class ChatService:
         synchronously, invisibly, no delta forwarded."""
         loop = _Loop(messages=[{"role": m.role, "content": m.content} for m in history])
         loop.messages.append({"role": "user", "content": message})
-        tools = _tool_schemas()
+        tools = self._tool_schemas
 
         for _turn in range(1, self._turn_cap + 1):
             assembled: LLMTurn | None = None
@@ -338,7 +362,7 @@ class ChatService:
             )
 
     def _dispatch(self, repository_id: str, call: ToolCall) -> str:
-        func = READ_ONLY_TOOLS.get(call.name)
+        func = self._tools.get(call.name)
         if func is None:
             return json.dumps({"error": "unknown_tool", "tool": call.name})
         # Bind repository_id ourselves; drop any model attempt to set it or the root.
