@@ -123,6 +123,7 @@ One file per batch, organized by feature area.
 - [Batch 106 — Spec 022: GitHub Discussions ingestion and narrative evidence](docs/batch-106-spec-022-github-discussions.md)
 - [Batch 114 — Sync docs/specs/index.md with real implementation status](docs/batch-114-specs-index-sync.md)
 - [Batch 115 — Specs 023 (RAG semantic search) and 024 (LLM call observability)](docs/batch-115-rag-and-observability-specs.md)
+- [Batch 129 — Specs 025 (README/CHANGELOG context) and 026 (Releases + Security Advisories)](docs/batch-129-readme-releases-advisories-specs.md)
 
 ## Infrastructure
 - [Batch 63 — PostgreSQL backend as alternative to SQLite via DATABASE_URL](infrastructure/batch-63-postgresql-migration.md)
