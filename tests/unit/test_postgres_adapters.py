@@ -22,6 +22,7 @@ from git_it.repository_ingestion.domain.commits import ExtractedCommit, Extracte
 from git_it.repository_ingestion.domain.discussions import DiscussionEvidence
 from git_it.repository_ingestion.domain.embeddings import EmbeddedChunk
 from git_it.repository_ingestion.domain.github_context import GithubContext
+from git_it.repository_ingestion.domain.project_docs import ProjectDocContent
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresCaseStudyStore,
@@ -34,6 +35,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresFileFactStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
+    PostgresProjectDocStore,
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     initialize,
@@ -405,6 +407,53 @@ def test_postgres_default_branch_store_upsert_overwrites(conninfo: str) -> None:
     store.save_default_branch("pg-repo-18", "main")
     store.save_default_branch("pg-repo-18", "develop")
     assert store.get_default_branch("pg-repo-18") == "develop"
+
+
+# ---------------------------------------------------------------------------
+# Spec 025 — project doc store
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_project_doc_store_returns_none_when_absent(conninfo: str) -> None:
+    store = PostgresProjectDocStore(conninfo)
+    assert store.get_project_docs("pg-repo-19") is None
+
+
+def test_postgres_project_doc_store_roundtrips(conninfo: str) -> None:
+    store = PostgresProjectDocStore(conninfo)
+    content = ProjectDocContent(
+        repository_id="pg-repo-20",
+        readme_text="# Hello",
+        readme_truncated=False,
+        changelog_text="## v1.0.0",
+        changelog_truncated=True,
+        captured_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    store.save_project_docs(content)
+    assert store.get_project_docs("pg-repo-20") == content
+
+
+def test_postgres_project_doc_store_upsert_overwrites(conninfo: str) -> None:
+    store = PostgresProjectDocStore(conninfo)
+    first = ProjectDocContent(
+        repository_id="pg-repo-21",
+        readme_text="first",
+        readme_truncated=False,
+        changelog_text=None,
+        changelog_truncated=False,
+        captured_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    second = ProjectDocContent(
+        repository_id="pg-repo-21",
+        readme_text="second",
+        readme_truncated=True,
+        changelog_text="changed",
+        changelog_truncated=False,
+        captured_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    store.save_project_docs(first)
+    store.save_project_docs(second)
+    assert store.get_project_docs("pg-repo-21") == second
 
 
 # ---------------------------------------------------------------------------

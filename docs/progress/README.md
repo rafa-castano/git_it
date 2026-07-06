@@ -31,6 +31,7 @@ One file per batch, organized by feature area.
 - [Batch 118 — RAG semantic search embedding foundation (spec 023, slice 1)](ingestion/batch-118-embedding-foundation.md)
 - [Batch 119 — LiteLLMEmbeddingClient (spec 023, slice 2)](ingestion/batch-119-litellm-embedding-client.md)
 - [Batch 130 — Project-doc domain model and GitPython README/CHANGELOG reader (spec 025, slice 1)](ingestion/batch-130-project-doc-domain-and-reader.md)
+- [Batch 131 — README/CHANGELOG persistence stores (spec 025, slice 2)](ingestion/batch-131-project-doc-stores.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

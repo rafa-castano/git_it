@@ -19,6 +19,7 @@ from .embeddings import SqliteEmbeddingStore
 from .files import SqliteFileFactReader, SqliteFileFactStore
 from .github import SqliteDefaultBranchStore, SqliteGithubContextCache, SqliteRepoMetadataStore
 from .ingestion import SqliteIngestionRunStore
+from .project_docs import SqliteProjectDocStore
 from .repository import SqliteRepositoryDeleter, SqliteRepositoryListReader
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "SqliteFileFactStore",
     "SqliteGithubContextCache",
     "SqliteIngestionRunStore",
+    "SqliteProjectDocStore",
     "SqliteRepoMetadataStore",
     "SqliteRepositoryDeleter",
     "SqliteRepositoryListReader",

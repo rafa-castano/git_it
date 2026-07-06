@@ -28,6 +28,7 @@ from .github import (
     PostgresRepoMetadataStore,
 )
 from .ingestion import PostgresIngestionRunStore
+from .project_docs import PostgresProjectDocStore
 from .repository import PostgresRepositoryDeleter, PostgresRepositoryListReader
 
 __all__ = [
@@ -45,6 +46,7 @@ __all__ = [
     "PostgresFileFactStore",
     "PostgresGithubContextCache",
     "PostgresIngestionRunStore",
+    "PostgresProjectDocStore",
     "PostgresRepoMetadataStore",
     "PostgresRepositoryDeleter",
     "PostgresRepositoryListReader",

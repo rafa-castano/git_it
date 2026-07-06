@@ -77,6 +77,7 @@ class SqliteRepositoryDeleter:
                 "repository_synopsis",
                 "repo_metadata",
                 "default_branch_metadata",
+                "project_docs",
                 "ingestion_runs",
             ):
                 if table in existing_tables:
