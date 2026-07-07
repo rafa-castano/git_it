@@ -169,3 +169,4 @@ One file per batch, organized by feature area.
 - [Batch 127 — Donut slice drill-to-Commits + Commits tab category multi-select](ui/batch-127-donut-drill-and-commits-multiselect.md)
 - [Batch 128 — Two /btw follow-ups: GitHub link underline, donut tooltip hint](ui/batch-128-btw-followups.md)
 - [Batch 135 — Explain why the Beginner/Expert selector has no effect on legacy commits](ui/batch-135-audience-selector-legacy-note.md)
+- [Batch 148 — Embedding backfill dashboard button (spec 027, slice 4 — final)](ui/batch-148-backfill-embeddings-button.md)

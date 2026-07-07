@@ -796,6 +796,8 @@ function goHome() {
   document.getElementById('btn-tips').style.display = 'none';
   const delBtn = document.getElementById('sh-delete-btn');
   if (delBtn) delBtn.style.display = 'none';
+  const backfillBtn = document.getElementById('sh-backfill-btn');
+  if (backfillBtn) backfillBtn.style.display = 'none';
   document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
   renderRepoCards();
 }
@@ -817,6 +819,7 @@ function renderHeaderRepoMeta() {
     const analyzed = document.getElementById('sh-analyzed');
     analyzed.textContent = currentRepoMeta.analysis_count + ' analyzed';
     _loadAnalyzeEstimate(currentRepo, currentRepoMeta);
+    _loadBackfillStatus(currentRepo);
     const delBtn = document.getElementById('sh-delete-btn');
     if (delBtn) delBtn.style.display = '';
   }
@@ -834,6 +837,81 @@ async function _loadAnalyzeEstimate(repoId, meta) {
       btn.setAttribute('data-tip-override', `${unanalyzed} unanalyzed commits. Click to analyze${cost}.`);
     }
   } catch { /* non-critical */ }
+}
+
+/* =========================================================
+   Embedding backfill (spec 027) — per-repo dashboard control.
+   Visibility rule (LOCKED): shown only when the status endpoint reports
+   available === true (an OPENAI_API_KEY is configured) AND missing > 0
+   (at least one already-analyzed item still lacks an embedding). Hidden
+   in every other case (no key, or nothing missing) — never an error state.
+   ========================================================= */
+async function _loadBackfillStatus(repoId) {
+  const btn = document.getElementById('sh-backfill-btn');
+  if (!btn) return;
+  // Hide immediately so a stale label from a previously selected repo never
+  // flashes while this repo's status is in flight.
+  btn.style.display = 'none';
+  let status;
+  try {
+    status = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/backfill-embeddings`);
+  } catch {
+    return; // non-critical — leave the control hidden
+  }
+  if (currentRepo !== repoId) return; // repo changed while the request was in flight
+  if (status.available && status.missing > 0) {
+    btn.textContent = `Enable semantic search (${status.missing})`;
+    btn.title = `Compute embeddings for ${status.missing} already-analyzed item(s) missing them`;
+    btn.disabled = false;
+    btn.style.color = '';
+    btn.style.display = '';
+  }
+}
+
+/** Triggered by the "Enable semantic search" header button. POSTs to the
+ * backfill endpoint (synchronous — the backend computes and persists
+ * embeddings for every already-analyzed item missing one, then returns
+ * counts directly, no polling needed). On success, shows a concise
+ * embedded/already-present/failed summary, then re-checks status so the
+ * button hides once nothing is missing anymore. On a 503 (no OPENAI_API_KEY)
+ * or any other error, shows a non-alarming message and re-enables the
+ * button rather than leaving it stuck in a busy state. */
+async function _doBackfillEmbeddings() {
+  if (!currentRepo) return;
+  const repoId = currentRepo;
+  const btn = document.getElementById('sh-backfill-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.style.color = 'var(--yellow)';
+  btn.textContent = 'Computing embeddings…';
+  let res;
+  try {
+    res = await fetch(`/api/repos/${encodeURIComponent(repoId)}/backfill-embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch {
+    btn.textContent = 'Backfill failed — check the server and try again';
+    btn.style.color = 'var(--red)';
+    btn.disabled = false;
+    return;
+  }
+  if (res.status === 503) {
+    btn.textContent = 'Semantic search needs an OpenAI key';
+    btn.style.color = 'var(--muted)';
+    btn.disabled = true;
+    return;
+  }
+  if (!res.ok) {
+    btn.textContent = `Backfill failed (HTTP ${res.status}) — try again`;
+    btn.style.color = 'var(--red)';
+    btn.disabled = false;
+    return;
+  }
+  const data = await res.json();
+  btn.textContent = `Embedded ${data.embedded}, ${data.already_present} already present, ${data.failed} failed`;
+  btn.style.color = 'var(--green)';
+  if (currentRepo === repoId) _loadBackfillStatus(repoId);
 }
 
 async function refreshCurrentRepoMeta(repoId) {
