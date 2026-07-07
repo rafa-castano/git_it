@@ -543,15 +543,8 @@ function buildActivityData(commits, scale) {
    Repo loading & sidebar
    ========================================================= */
 let reposCache = [];
-async function loadRepos() {
-  let data;
-  try { data = await apiFetch('/api/repos'); }
-  catch {
-    document.getElementById('sidebar-list').innerHTML =
-      '<div class="empty-state" role="alert">Could not load repositories.</div>';
-    return;
-  }
-  reposCache = data.repos || [];
+
+function renderSidebarRepos() {
   const sidebar = document.getElementById('sidebar-list');
   sidebar.innerHTML = '';
   reposCache.forEach(repo => {
@@ -568,6 +561,18 @@ async function loadRepos() {
     item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
     sidebar.appendChild(item);
   });
+}
+
+async function loadRepos() {
+  let data;
+  try { data = await apiFetch('/api/repos'); }
+  catch {
+    document.getElementById('sidebar-list').innerHTML =
+      '<div class="empty-state" role="alert">Could not load repositories.</div>';
+    return;
+  }
+  reposCache = data.repos || [];
+  renderSidebarRepos();
 }
 
 /* =========================================================
@@ -2815,6 +2820,7 @@ async function deleteRepo(repoId, repoUrl, cardEl) {
     if (res.ok) {
       // Remove from local cache
       reposCache = reposCache.filter(r => r.repository_id !== repoId);
+      renderSidebarRepos();
       if (cardEl) {
         // Home page: remove card from DOM without reloading
         cardEl.remove();

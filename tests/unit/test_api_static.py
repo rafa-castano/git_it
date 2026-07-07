@@ -541,6 +541,24 @@ def test_static_app_js_refreshes_current_repo_meta_after_analysis(tmp_path: Path
     assert "renderHeaderRepoMeta()" in on_done_body
 
 
+def test_static_app_js_delete_repo_refreshes_sidebar_from_cache(tmp_path: Path) -> None:
+    # Regression: deleting from the home cards removed the card and updated
+    # reposCache, but left the already-rendered sidebar DOM stale. Selecting
+    # another repo then still showed the deleted repository in the sidebar.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "function renderSidebarRepos()" in text
+
+    delete_success_body = text.split("if (res.ok) {", 1)[1].split(
+        "} else if (res.status === 409)",
+        1,
+    )[0]
+    assert "reposCache = reposCache.filter(r => r.repository_id !== repoId)" in delete_success_body
+    assert "renderSidebarRepos()" in delete_success_body
+
+
 def test_static_app_marks_analysis_updated_tabs_until_opened(tmp_path: Path) -> None:
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
