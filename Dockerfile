@@ -18,6 +18,10 @@ FROM python:3.12-slim AS runner
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy the virtualenv created by uv in the builder stage
