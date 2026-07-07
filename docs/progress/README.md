@@ -111,6 +111,7 @@ One file per batch, organized by feature area.
 - [Batch 144 — Fix repository-delete orphan rows (discussion_evidence, embedding_vectors)](api/batch-144-deleter-orphan-rows-fix.md)
 - [Batch 147 — Embedding backfill status/run API endpoints (spec 027, slice 3)](api/batch-147-backfill-embeddings-endpoint.md)
 - [Batch 149 — Spec 027 closure (embedding backfill: mark Implemented, update roadmap and README)](api/batch-149-spec-027-closure.md)
+- [Batch 152 — `POST /api/repos/refresh-all` API endpoint (spec 028, slice 3)](api/batch-152-refresh-all-endpoint.md)
 
 ## Analysis
 - [Bug fix — commit SHA truncation breaking JOIN queries](analysis/bugfix-commit-sha-truncation.md)

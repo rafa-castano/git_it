@@ -280,3 +280,25 @@ class BackfillEmbeddingsResponse(BaseModel):
     embedded: int
     already_present: int
     failed: int
+
+
+# ---------------------------------------------------------------------------
+# Refresh all repositories (spec 028)
+# ---------------------------------------------------------------------------
+
+
+class RefreshRepositoryResult(BaseModel):
+    repository_id: str
+    canonical_url: str
+    status: str
+    new_commits: int
+    error_code: str | None = None
+    safe_message: str | None = None
+
+
+class RefreshAllResponse(BaseModel):
+    total_repositories: int
+    refreshed_count: int
+    failed_count: int
+    total_new_commits: int
+    repositories: list[RefreshRepositoryResult] = []

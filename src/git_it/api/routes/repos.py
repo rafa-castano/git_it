@@ -35,6 +35,8 @@ from git_it.api.schemas import (
     IngestRequest,
     IngestResponse,
     PatternReportResponse,
+    RefreshAllResponse,
+    RefreshRepositoryResult,
     RegenerateRequest,
     RegenStatusResponse,
     RepoListResponse,
@@ -59,6 +61,7 @@ from git_it.repository_ingestion.composition import (
     build_embedding_store,
     build_ingestion_run_store,
     build_narrative_service,
+    build_refresh_all_service,
     build_release_evidence_store,
     build_release_summarizer,
     build_repo_metadata_store,
@@ -362,6 +365,64 @@ def ingest_repo(
         repository_id=repo_id,
         canonical_url=parsed.canonical_url,
         status="INGESTING",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/repos/refresh-all (spec 028)
+# ---------------------------------------------------------------------------
+
+_EMPTY_REFRESH_ALL_RESPONSE = RefreshAllResponse(
+    total_repositories=0,
+    refreshed_count=0,
+    failed_count=0,
+    total_new_commits=0,
+    repositories=[],
+)
+
+
+@router.post("/refresh-all", response_model=RefreshAllResponse)
+@limiter.limit("5/minute")
+def refresh_all_repos(
+    request: Request,
+    project_root: ProjectRoot,
+    _: None = Depends(require_api_key),
+) -> RefreshAllResponse:
+    """Refresh the commit corpus of every already-ingested repository (spec 028).
+
+    A collection-level action -- NOT scoped to one ``{repository_id}`` -- registered
+    as a literal path so it is never shadowed by a ``{repository_id}``-style route.
+    Free (no LLM calls): only ``git fetch`` + commit-fact re-extraction per repository,
+    synchronous like the embedding-backfill POST (batch 147), since refresh cost is
+    bounded by git-fetch latency across the tracked repositories, not LLM billing. A
+    large multi-repo refresh could later move to a background job if that latency
+    becomes a problem -- kept synchronous for this slice.
+
+    Mirrors ``list_repos``'s own ``database_is_provisioned`` gate: with no database yet,
+    there is nothing to refresh, so this returns a zeroed 200 -- never a 404, since
+    refreshing zero repositories is a success, not an error.
+    """
+    if not database_is_provisioned(project_root=project_root):
+        return _EMPTY_REFRESH_ALL_RESPONSE
+
+    service = build_refresh_all_service(project_root=project_root)
+    result = service.refresh_all()
+    return RefreshAllResponse(
+        total_repositories=result.total_repositories,
+        refreshed_count=result.refreshed_count,
+        failed_count=result.failed_count,
+        total_new_commits=result.total_new_commits,
+        repositories=[
+            RefreshRepositoryResult(
+                repository_id=r.repository_id,
+                canonical_url=r.canonical_url,
+                status=r.status,
+                new_commits=r.new_commits,
+                error_code=r.error_code,
+                safe_message=r.safe_message,
+            )
+            for r in result.repositories
+        ],
     )
 
 
