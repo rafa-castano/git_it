@@ -614,6 +614,41 @@ def test_static_app_refreshes_overview_after_analysis_completion(tmp_path: Path)
     assert "if (currentRepo === repoId) loadOverview(repoId)" in on_done_body
 
 
+def test_static_app_has_analyze_stop_button_and_cancel_endpoint(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    html = client.get("/static/index.html").text
+    js = client.get("/static/app.js").text
+
+    assert 'id="sh-analyze-stop-btn"' in html
+    assert 'onclick="_cancelAnalyze()"' in html
+    assert "async function _cancelAnalyze()" in js
+    assert "/analyze/cancel" in js
+    assert "res.status === 409" in js
+    assert "Stopping…" in js
+    assert "cancel_requested" in js
+
+
+def test_static_app_cancelled_analysis_refreshes_only_overview_and_commits(
+    tmp_path: Path,
+) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    poll_body = text.split("function _pollAnalyzeStatus(repoId)", 1)[1]
+    cancelled_body = poll_body.split("if (finalStatus?.cancelled)", 1)[1].split(
+        "return;",
+        1,
+    )[0]
+    assert "loadTimeline(repoId)" in cancelled_body
+    assert "loadOverview(repoId)" in cancelled_body
+    assert "markUpdatedTabs(['overview', 'commits'])" in cancelled_body
+    assert "loadCaseStudy(repoId)" not in cancelled_body
+    assert "markUpdatedTabs(['overview', 'case-study', 'commits'])" not in cancelled_body
+
+
 def test_static_app_css_has_updated_tab_dot_indicator(tmp_path: Path) -> None:
     app = create_app(project_root=tmp_path)
     client = TestClient(app)

@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from git_it.repository_ingestion.application.commit_analysis_service import CommitAnalysisService
 from git_it.repository_ingestion.application.commit_query_service import CommitRecord
 from git_it.repository_ingestion.application.ports import LLMMessage
@@ -189,3 +191,34 @@ def test_self_explanatory_analysis_with_empty_string_is_skipped() -> None:
     assert client.calls == [], (
         "Empty-string summary_beginner means 'analyzed, no text needed' — skip"
     )
+
+
+def test_progress_total_with_max_new_counts_only_planned_new_analyses() -> None:
+    store = FakeAnalysisStore(cached={"cached": _make_dual_analysis("cached")})
+    client = FakeClient()
+    progress: list[tuple[int, int]] = []
+    skipped = replace(
+        _make_record("skipped"),
+        message="Bump lodash from 4.17.20 to 4.17.21",
+    )
+    service = CommitAnalysisService(
+        reader=FakeCommitReader(
+            [
+                _make_record("cached"),
+                skipped,
+                _make_record("new-1"),
+                _make_record("new-2"),
+            ]
+        ),
+        client=client,
+        analysis_reader=store,
+    )
+
+    service.analyze_commits(
+        "repo-1",
+        max_new=9999,
+        on_progress=lambda done, total: progress.append((done, total)),
+    )
+
+    assert len(client.calls) == 2
+    assert progress == [(1, 2), (2, 2)]

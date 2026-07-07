@@ -192,6 +192,8 @@ class AnalyzeStatusResponse(BaseModel):
     done: int
     total: int
     pct: int
+    cancel_requested: bool = False
+    cancelled: bool = False
     error: str | None = None
 
 

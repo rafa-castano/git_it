@@ -126,6 +126,7 @@ class CommitAnalysisService:
         since: str | None = None,
         until: str | None = None,
         on_progress: Callable[[int, int], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
         canonical_url: str | None = None,
     ) -> list[CommitAnalysis]:
         # Fetch context once — avoid per-commit reader calls.
@@ -137,15 +138,31 @@ class CommitAnalysisService:
         commits = self._reader.list_commits_for_repository(
             repository_id, limit=limit, order=order, since=since, until=until
         )
-        # When max_new is set, progress reports new analyses done / max_new target.
-        # When not set, progress reports position in the fetched commit list.
-        total = max_new if max_new is not None else len(commits)
         pre_classifier = CommitPreClassifier()
+        # When max_new is set, progress reports new analyses done / real planned
+        # analyses, not the requested upper bound. Cached and skipped commits do
+        # not consume analysis work in this execution.
+        total = (
+            self._count_planned_new_analyses(
+                repository_id=repository_id,
+                commits=commits,
+                pre_classifier=pre_classifier,
+                max_new=max_new,
+            )
+            if max_new is not None
+            else len(commits)
+        )
         results: list[CommitAnalysis] = []
         cached_count = 0
         skipped_count = 0
         new_count = 0
         for i, commit in enumerate(commits):
+            if should_cancel is not None and should_cancel():
+                _logger.info(
+                    "batch cancelled before next commit",
+                    extra={"repository_id": repository_id},
+                )
+                break
             if self._analysis_reader is not None:
                 cached = self._analysis_reader.get_analysis(
                     repository_id=repository_id, commit_sha=commit.sha
@@ -199,6 +216,30 @@ class CommitAnalysisService:
             extra={"repository_id": repository_id},
         )
         return results
+
+    def _count_planned_new_analyses(
+        self,
+        *,
+        repository_id: str,
+        commits: list[CommitRecord],
+        pre_classifier: CommitPreClassifier,
+        max_new: int,
+    ) -> int:
+        planned = 0
+        for commit in commits:
+            if self._analysis_reader is not None:
+                cached = self._analysis_reader.get_analysis(
+                    repository_id=repository_id, commit_sha=commit.sha
+                )
+                if cached is not None and cached.summary_beginner is not None:
+                    continue
+            classification = pre_classifier.classify(commit)
+            if classification.decision == "skip":
+                continue
+            planned += 1
+            if planned >= max_new:
+                break
+        return planned
 
     async def analyze_commits_async(
         self,

@@ -13,7 +13,9 @@ No network, no external services, fully deterministic.
 import hashlib
 import json
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -452,6 +454,103 @@ def test_analyze_status_pct_100_when_complete(tmp_path: Path) -> None:
         assert response.json()["pct"] == 100
     finally:
         _analyze_progress.pop(repo_id, None)
+
+
+def test_cancel_analyze_marks_cancel_requested_for_running_analysis(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+    from git_it.api.routes.repos import _analyze_progress
+
+    repo_id = "repo-cancel-running"
+    _analyze_progress[repo_id] = {
+        "running": True,
+        "done": 1,
+        "total": 3,
+        "cancel_requested": False,
+        "cancelled": False,
+    }
+    try:
+        app = create_app(project_root=tmp_path)
+        client = TestClient(app)
+        response = client.post(f"/api/repos/{repo_id}/analyze/cancel")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["running"] is True
+        assert body["cancel_requested"] is True
+        assert body["cancelled"] is False
+    finally:
+        _analyze_progress.pop(repo_id, None)
+
+
+def test_cancel_analyze_requires_auth_when_api_key_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.app import create_app
+
+    monkeypatch.setenv("GIT_IT_API_KEY", "secret")
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.post("/api/repos/repo-abc/analyze/cancel")
+    assert response.status_code == 401
+
+
+def test_analyze_status_exposes_cancel_flags(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+    from git_it.api.routes.repos import _analyze_progress
+
+    repo_id = "repo-cancel-status"
+    _analyze_progress[repo_id] = {
+        "running": False,
+        "done": 1,
+        "total": 3,
+        "cancel_requested": True,
+        "cancelled": True,
+    }
+    try:
+        app = create_app(project_root=tmp_path)
+        client = TestClient(app)
+        response = client.get(f"/api/repos/{repo_id}/analyze/status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["cancel_requested"] is True
+        assert body["cancelled"] is True
+    finally:
+        _analyze_progress.pop(repo_id, None)
+
+
+def test_analyze_bg_skips_case_study_when_cancel_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import git_it.api.routes.repos as repos_module
+
+    narrative_calls = 0
+
+    class _FakeAnalysisService:
+        def analyze_commits(self, *args: object, **kwargs: object) -> None:
+            should_cancel = cast(Callable[[], bool], kwargs["should_cancel"])
+            with repos_module._analyze_progress_lock:
+                repos_module._analyze_progress["repo-abc"]["cancel_requested"] = True
+            assert should_cancel() is True
+
+    class _FakeNarrativeService:
+        def generate(self, *args: object, **kwargs: object) -> None:
+            nonlocal narrative_calls
+            narrative_calls += 1
+
+    monkeypatch.setattr(
+        repos_module, "build_commit_analysis_service", lambda **kwargs: _FakeAnalysisService()
+    )
+    monkeypatch.setattr(
+        repos_module, "build_narrative_service", lambda **kwargs: _FakeNarrativeService()
+    )
+
+    repos_module._analyze_bg("repo-abc", 10, "gpt-4o-mini", tmp_path)
+
+    assert narrative_calls == 0
+    assert repos_module._analyze_progress["repo-abc"]["running"] is False
+    assert repos_module._analyze_progress["repo-abc"]["cancelled"] is True
+    repos_module._analyze_progress.pop("repo-abc", None)
 
 
 # ---------------------------------------------------------------------------

@@ -237,6 +237,7 @@ let _evidenceShaFilter = null;
 let patternsData = null;
 let detailLoaded = false;
 let _ingestPoll = null;
+let _analyzePoll = null;
 let _analyzePrefetch = null;
 const UPDATED_ANALYSIS_TABS = new Set(['overview', 'case-study', 'commits']);
 let _updatedTabs = new Set();
@@ -851,6 +852,9 @@ function goHome() {
   if (delBtn) delBtn.style.display = 'none';
   const backfillBtn = document.getElementById('sh-backfill-btn');
   if (backfillBtn) backfillBtn.style.display = 'none';
+  const stopBtn = document.getElementById('sh-analyze-stop-btn');
+  if (stopBtn) stopBtn.style.display = 'none';
+  if (_analyzePoll) { clearInterval(_analyzePoll); _analyzePoll = null; }
   document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('active'));
   renderRepoCards();
 }
@@ -993,6 +997,7 @@ function selectRepo(repoId) {
   document.getElementById('btn-tips').style.display = '';
 
   renderHeaderRepoMeta();
+  _syncAnalyzeStatus(repoId);
 
   detailLoaded = true;
   switchTab('overview');
@@ -2581,10 +2586,51 @@ function _hideAnalyzePicker() {
 
 async function triggerAnalyze() { _showAnalyzePicker(); }
 
+function _setAnalyzeStopState(visible, stopping = false) {
+  const stopBtn = document.getElementById('sh-analyze-stop-btn');
+  if (!stopBtn) return;
+  stopBtn.style.display = visible ? '' : 'none';
+  stopBtn.disabled = stopping;
+  stopBtn.textContent = stopping ? 'Stopping…' : 'Stop';
+  stopBtn.title = stopping ? 'Analysis stop requested' : 'Stop running analysis';
+}
+
+function _setAnalyzeProgressState(status) {
+  const btn = document.getElementById('sh-analyze-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.style.color = 'var(--yellow)';
+  btn.style.display = '';
+  if (status.cancel_requested) {
+    btn.textContent = 'Stopping…';
+  } else if (status.total > 0 && status.done >= status.total) {
+    btn.textContent = 'Updating case study…';
+  } else if (status.total > 0) {
+    btn.textContent = `${status.done}/${status.total} analyzed`;
+  } else {
+    btn.textContent = 'Running…';
+  }
+  _setAnalyzeStopState(true, Boolean(status.cancel_requested));
+}
+
+async function _syncAnalyzeStatus(repoId) {
+  try {
+    const status = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/status`);
+    if (currentRepo !== repoId) return;
+    if (status.running) {
+      _setAnalyzeProgressState(status);
+      _pollAnalyzeStatus(repoId);
+    } else {
+      _setAnalyzeStopState(false);
+    }
+  } catch { /* non-critical */ }
+}
+
 async function _doAnalyze(limit) {
   if (!currentRepo) return;
   _hideAnalyzePicker();
   const btn = document.getElementById('sh-analyze-btn');
+  _setAnalyzeStopState(false);
 
   // Use pre-fetched estimate (available instantly); fall back to API only if not ready yet
   let est = _analyzePrefetch;
@@ -2611,39 +2657,62 @@ async function _doAnalyze(limit) {
       body: JSON.stringify({ limit, audience: localStorage.getItem('cs-audience') || 'beginner' }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _setAnalyzeStopState(true);
     _pollAnalyzeStatus(currentRepo);
   } catch (e) {
     alert(`Analysis failed: ${e.message}`);
     if (btn) { btn.textContent = '+ Analyze'; btn.disabled = false; btn.style.color = ''; }
+    _setAnalyzeStopState(false);
+  }
+}
+
+async function _cancelAnalyze() {
+  if (!currentRepo) return;
+  const repoId = currentRepo;
+  _setAnalyzeStopState(true, true);
+  const btn = document.getElementById('sh-analyze-btn');
+  if (btn) { btn.textContent = 'Stopping…'; btn.disabled = true; btn.style.color = 'var(--yellow)'; }
+  try {
+    const res = await fetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok || res.status === 409) {
+      _pollAnalyzeStatus(repoId);
+      return;
+    }
+    throw new Error(`HTTP ${res.status}`);
+  } catch (e) {
+    alert(`Could not stop analysis: ${e.message}`);
+    _setAnalyzeStopState(true, false);
   }
 }
 
 function _pollAnalyzeStatus(repoId) {
   const btn = document.getElementById('sh-analyze-btn');
+  if (_analyzePoll) clearInterval(_analyzePoll);
   // spec 021: a background job that stops with a non-null error must surface as a
   // FAILED state, not be silently treated as success. Captured here across ticks.
   let failedError = null;
-  pollUntilDone({
+  let finalStatus = null;
+  _analyzePoll = pollUntilDone({
     url: `/api/repos/${encodeURIComponent(repoId)}/analyze/status`,
     interval: 2000,
     onTick: (s) => {
       if (!btn) return true;  // button removed from DOM — stop silently
       if (s.running) {
-        if (s.total > 0 && s.done >= s.total) {
-          btn.textContent = 'Updating case study…';
-        } else if (s.total > 0) {
-          btn.textContent = `${s.done}/${s.total} analyzed`;
-        } else {
-          btn.textContent = 'Running…';
-        }
+        _setAnalyzeProgressState(s);
         return false;
       }
+      finalStatus = s;
       if (s.error) failedError = s.error;  // job stopped with a failure
       return true;
     },
     onDone: async () => {
+      _analyzePoll = null;
       if (!btn) return;  // guard: button removed while polling
       if (failedError) {
+        _setAnalyzeStopState(false);
         btn.textContent = 'Analysis failed';
         btn.style.color = 'var(--red)';
         btn.disabled = false;
@@ -2653,6 +2722,28 @@ function _pollAnalyzeStatus(repoId) {
         }, 6000);
         return;
       }
+      if (finalStatus?.cancelled) {
+        _setAnalyzeStopState(false);
+        btn.textContent = 'Stopped';
+        btn.style.color = 'var(--yellow)';
+        btn.disabled = false;
+        try {
+          await refreshCurrentRepoMeta(repoId);
+          renderHeaderRepoMeta();
+          const updated = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=9999`);
+          _analyzePrefetch = updated;
+        } catch {}
+        if (currentRepo === repoId && (finalStatus.done || 0) > 0) {
+          loadTimeline(repoId);
+          loadOverview(repoId);
+          markUpdatedTabs(['overview', 'commits']);
+        }
+        setTimeout(() => {
+          if (btn) { btn.textContent = '+ Analyze'; btn.style.color = ''; }
+        }, 3000);
+        return;
+      }
+      _setAnalyzeStopState(false);
       btn.textContent = '✓ Done!';
       btn.style.color = 'var(--green)';
       btn.disabled = false;
@@ -2676,7 +2767,9 @@ function _pollAnalyzeStatus(repoId) {
       }, 3000);
     },
     onError: () => {
+      _analyzePoll = null;
       if (btn) { btn.textContent = '+ Analyze'; btn.disabled = false; btn.style.color = ''; }
+      _setAnalyzeStopState(false);
     },
   });
 }

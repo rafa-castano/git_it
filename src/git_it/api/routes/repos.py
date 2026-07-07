@@ -652,12 +652,32 @@ def _analyze_bg(
 ) -> None:
     _logger.info("analysis started", extra={"repository_id": repository_id})
     with _analyze_progress_lock:
-        _analyze_progress[repository_id] = {"running": True, "done": 0, "total": 0, "error": None}
+        _analyze_progress[repository_id] = {
+            "running": True,
+            "done": 0,
+            "total": 0,
+            "cancel_requested": False,
+            "cancelled": False,
+            "error": None,
+        }
     error_type: str | None = None
+    cancelled = False
 
     def _on_progress(done: int, total: int) -> None:
         with _analyze_progress_lock:
-            _analyze_progress[repository_id] = {"running": True, "done": done, "total": total}
+            prev = _analyze_progress.get(repository_id, {})
+            _analyze_progress[repository_id] = {
+                "running": True,
+                "done": done,
+                "total": total,
+                "cancel_requested": prev.get("cancel_requested", False),
+                "cancelled": prev.get("cancelled", False),
+                "error": None,
+            }
+
+    def _should_cancel() -> bool:
+        with _analyze_progress_lock:
+            return bool(_analyze_progress.get(repository_id, {}).get("cancel_requested", False))
 
     try:
         canonical_url = _resolve_canonical_url(repository_id, project_root)
@@ -671,8 +691,13 @@ def _analyze_bg(
             max_new=limit,
             order="oldest",
             on_progress=_on_progress,
+            should_cancel=_should_cancel,
             canonical_url=canonical_url,
         )
+        cancelled = _should_cancel()
+        if cancelled:
+            _logger.info("analysis cancelled", extra={"repository_id": repository_id})
+            return
         _logger.info("analysis completed", extra={"repository_id": repository_id})
         try:
             narrative_svc = build_narrative_service(project_root=project_root, model=model)
@@ -694,6 +719,8 @@ def _analyze_bg(
                 "running": False,
                 "done": prev.get("done", 0),
                 "total": prev.get("total", 0),
+                "cancel_requested": prev.get("cancel_requested", False),
+                "cancelled": cancelled or prev.get("cancelled", False),
                 "error": error_type,
             }
 
@@ -746,6 +773,32 @@ def trigger_analyze(
     return AnalyzeResponse(status="ANALYZING", limit=payload.limit)
 
 
+@router.post("/{repository_id}/analyze/cancel", response_model=AnalyzeStatusResponse)
+@limiter.limit("10/minute")
+def cancel_analyze(
+    request: Request,
+    repository_id: str,
+    _: None = Depends(require_api_key),
+) -> AnalyzeStatusResponse:
+    with _analyze_progress_lock:
+        p = _analyze_progress.get(repository_id)
+        if p is None or not p.get("running", False):
+            raise HTTPException(status_code=409, detail="No analysis in progress.")
+        p["cancel_requested"] = True
+        total = p.get("total", 0)
+        done = p.get("done", 0)
+        pct = round(done / total * 100) if total > 0 else 0
+        return AnalyzeStatusResponse(
+            running=True,
+            done=done,
+            total=total,
+            pct=pct,
+            cancel_requested=True,
+            cancelled=bool(p.get("cancelled", False)),
+            error=p.get("error"),
+        )
+
+
 @router.get("/{repository_id}/analyze/status", response_model=AnalyzeStatusResponse)
 def get_analyze_status(repository_id: str) -> AnalyzeStatusResponse:
     with _analyze_progress_lock:
@@ -756,7 +809,13 @@ def get_analyze_status(repository_id: str) -> AnalyzeStatusResponse:
     done = p["done"]
     pct = round(done / total * 100) if total > 0 else 0
     return AnalyzeStatusResponse(
-        running=p["running"], done=done, total=total, pct=pct, error=p.get("error")
+        running=p["running"],
+        done=done,
+        total=total,
+        pct=pct,
+        cancel_requested=p.get("cancel_requested", False),
+        cancelled=p.get("cancelled", False),
+        error=p.get("error"),
     )
 
 

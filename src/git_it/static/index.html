@@ -27,6 +27,7 @@
         <span id="sh-status" class="hdr-status" tabindex="0" data-tip="shStatus"></span>
         <span id="sh-analyzed" class="hdr-badge" tabindex="0" data-tip="shAnalyzed"></span>
         <button id="sh-analyze-btn" class="analyze-btn" onclick="_showAnalyzePicker()" aria-label="Analyze more commits" title="Analyze more commits">+ Analyze</button>
+        <button id="sh-analyze-stop-btn" class="analyze-stop-btn" onclick="_cancelAnalyze()" aria-label="Stop running analysis" title="Stop running analysis" style="display:none">Stop</button>
         <button id="sh-backfill-btn" class="analyze-btn" onclick="_doBackfillEmbeddings()" aria-label="Enable semantic search" title="Compute embeddings for already-analyzed evidence" style="display:none">Enable semantic search</button>
         <button id="sh-delete-btn" class="delete-btn" onclick="_confirmDeleteCurrentRepo()" aria-label="Delete this repository" title="Delete this repository" style="display:none">&#x1F5D1; Delete</button>
         <div id="sh-analyze-picker" style="display:none;align-items:center;gap:0.3rem;background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:0.2rem 0.4rem">

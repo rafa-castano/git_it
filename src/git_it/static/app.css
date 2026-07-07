@@ -431,6 +431,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 /* ── Analyze button ── */
 .analyze-btn { font-size: 14px; font-weight: 700; color: var(--text); background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
 .analyze-btn:hover { background: var(--accent); color: #fff; }
+.analyze-stop-btn { font-size: 14px; font-weight: 700; color: var(--text); background: none; border: 1px solid var(--muted); border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.1s; margin-left: 0.25rem; }
+.analyze-stop-btn:hover:not(:disabled) { background: var(--muted); color: var(--bg); }
+.analyze-stop-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
 /* ── Fix 3: Status label classes ── */
 .status-full { color: var(--green) !important; font-weight: 700 !important; border-color: var(--green) !important; }

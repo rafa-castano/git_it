@@ -149,6 +149,23 @@ def test_analyze_commits_stores_full_sha_not_llm_sha() -> None:
     assert results[0].commit_sha == full_sha
 
 
+def test_analyze_commits_stops_before_next_commit_when_cancel_requested() -> None:
+    records = [_make_record("sha1"), _make_record("sha2")]
+    service, _, client = _make_service(records=records)
+    calls = 0
+
+    def _should_cancel() -> bool:
+        nonlocal calls
+        calls += 1
+        return calls > 1
+
+    results = service.analyze_commits("repo-1", should_cancel=_should_cancel)
+
+    assert len(results) == 1
+    assert results[0].commit_sha == "sha1"
+    assert len(client.calls) == 1
+
+
 # ---------------------------------------------------------------------------
 # Pre-classifier wiring tests
 # ---------------------------------------------------------------------------
