@@ -29,10 +29,12 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Make the venv available on PATH
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
 
 # Copy application source
 COPY src/ ./src/
 COPY migrations/ ./migrations/
+COPY seed-data/ ./seed-data/
 
 EXPOSE 8000
 

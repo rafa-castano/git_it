@@ -1,0 +1,11 @@
+# pack-refs with: peeled fully-peeled sorted 
+170560fbccd3d0960e91784cec60dc62ceeeccad refs/heads/chore/silent-except-logging-sweep
+4371425514af250d747a031799de3225b55fb47c refs/heads/cleanup/dead-workspace-confinement
+93569b141b92780e6f175282a195ec9727ba42f5 refs/heads/dev
+f552269718f502827e4070568b367b683e9a1789 refs/heads/feat/per-todo-agent-solve
+68f19a889a2b25b91f09b52bb2d0058919fc47c3 refs/heads/fix/api-chat-webhook-stub-fire-and-forget
+9c1affe9f5636573a4c36e684cffc973f64f3551 refs/heads/fix/internal-base-port-env
+bd0c67b6d3db7d9a5de2e62b69369e134d6507e2 refs/heads/fix/native-agent-loop-guard-signals
+d9ebdd6fbba31b5f3c2cbae90f650f183958660e refs/heads/main
+94d2754f412666d379b8c0aaed4d6b2cd1e17a99 refs/heads/refactor/upload-limits-3364
+b0ade9964d82a686b4588e10fb88bf4161d38713 refs/heads/test/oversized-test-split-plan-3983
