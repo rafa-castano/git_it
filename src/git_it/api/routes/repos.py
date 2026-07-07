@@ -264,17 +264,40 @@ def _fetch_and_store_advisory_evidence(
 
 
 def _ingest_bg(url: str, project_root: Path) -> None:
-    _logger.info("ingestion started", extra={"url": url})
+    _logger.info("[INGEST] started url=%s project_root=%s", url, project_root)
     try:
         parsed = parse_repository_url(url)
         repository_id = _canonical_repo_id(parsed.canonical_url)
+        _logger.info(
+            "[INGEST] parsed url=%s canonical_url=%s repository_id=%s",
+            url,
+            parsed.canonical_url,
+            repository_id,
+        )
         svc = build_repository_ingestion_service(
             project_root=project_root,
             repository_id=repository_id,
         )
+        _logger.info(
+            "[INGEST] service-built repository_id=%s canonical_url=%s",
+            repository_id,
+            parsed.canonical_url,
+        )
         result = svc.ingest(url)
-        _logger.info("ingestion completed", extra={"repository_id": repository_id})
+        _logger.info(
+            "[INGEST] completed repository_id=%s canonical_url=%s status=%s stage=%s error_code=%s",
+            repository_id,
+            parsed.canonical_url,
+            result.status,
+            result.stage,
+            result.error_code,
+        )
         if result.status == "COMPLETED":
+            _logger.info(
+                "[INGEST] enrichment-started repository_id=%s canonical_url=%s",
+                repository_id,
+                parsed.canonical_url,
+            )
             _fetch_and_store_repo_metadata(
                 repository_id=repository_id,
                 canonical_url=parsed.canonical_url,
@@ -295,8 +318,13 @@ def _ingest_bg(url: str, project_root: Path) -> None:
                 canonical_url=parsed.canonical_url,
                 project_root=project_root,
             )
+            _logger.info(
+                "[INGEST] enrichment-completed repository_id=%s canonical_url=%s",
+                repository_id,
+                parsed.canonical_url,
+            )
     except Exception as e:
-        _logger.warning("ingestion failed: %s", type(e).__name__, extra={"url": url})
+        _logger.exception("[INGEST] failed url=%s error_type=%s", url, type(e).__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +347,12 @@ def ingest_repo(
         raise HTTPException(status_code=422, detail=exc.error_code) from exc
 
     repo_id = _canonical_repo_id(parsed.canonical_url)
+    _logger.info(
+        "[INGEST] accepted url=%s canonical_url=%s repository_id=%s",
+        url,
+        parsed.canonical_url,
+        repo_id,
+    )
     t = threading.Thread(target=_ingest_bg, args=(url, project_root), daemon=True)
     t.start()
     return IngestResponse(
@@ -335,30 +369,39 @@ def ingest_repo(
 
 @router.get("", response_model=RepoListResponse)
 def list_repos(project_root: ProjectRoot) -> RepoListResponse:
-    if not database_is_provisioned(project_root=project_root):
-        return RepoListResponse(repos=[], total=0)
-
-    reader = build_repository_list_reader(project_root=project_root)
-    metadata_store = build_repo_metadata_store(project_root=project_root)
-    branch_store = build_default_branch_store(project_root=project_root)
-    records = reader.list_repositories()
-    repos = []
-    for r in records:
-        metadata = metadata_store.get_repo_metadata(r.repository_id)
-        repos.append(
-            RepoSummary(
-                repository_id=r.repository_id,
-                canonical_url=r.canonical_url,
-                status=r.status,
-                commit_count=r.commit_count,
-                analysis_count=r.analysis_count,
-                has_case_study=r.has_case_study,
-                stars=metadata.stars if metadata is not None else None,
-                languages=map_languages(metadata.languages) if metadata is not None else [],
-                default_branch=branch_store.get_default_branch(r.repository_id),
+    _logger.info("[REPOS] list-started project_root=%s", project_root)
+    try:
+        if not database_is_provisioned(project_root=project_root):
+            _logger.info(
+                "[REPOS] list-empty database-not-provisioned project_root=%s", project_root
             )
-        )
-    return RepoListResponse(repos=repos, total=len(repos))
+            return RepoListResponse(repos=[], total=0)
+
+        reader = build_repository_list_reader(project_root=project_root)
+        metadata_store = build_repo_metadata_store(project_root=project_root)
+        branch_store = build_default_branch_store(project_root=project_root)
+        records = reader.list_repositories()
+        repos = []
+        for r in records:
+            metadata = metadata_store.get_repo_metadata(r.repository_id)
+            repos.append(
+                RepoSummary(
+                    repository_id=r.repository_id,
+                    canonical_url=r.canonical_url,
+                    status=r.status,
+                    commit_count=r.commit_count,
+                    analysis_count=r.analysis_count,
+                    has_case_study=r.has_case_study,
+                    stars=metadata.stars if metadata is not None else None,
+                    languages=map_languages(metadata.languages) if metadata is not None else [],
+                    default_branch=branch_store.get_default_branch(r.repository_id),
+                )
+            )
+        _logger.info("[REPOS] list-completed total=%s", len(repos))
+        return RepoListResponse(repos=repos, total=len(repos))
+    except Exception as e:
+        _logger.exception("[REPOS] list-failed error_type=%s", type(e).__name__)
+        raise
 
 
 # ---------------------------------------------------------------------------

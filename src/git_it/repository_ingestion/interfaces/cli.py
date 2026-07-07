@@ -12,11 +12,16 @@ from git_it.repository_ingestion.application.commit_query_service import (
     CommitRecord,
     RepositoryCommitQueryService,
 )
+from git_it.repository_ingestion.application.embedding_backfill_service import (
+    EmbeddingBackfillResult,
+)
 from git_it.repository_ingestion.application.narrative_service import NarrativeResult
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_reader,
     build_commit_analysis_service,
+    build_embedding_backfill_service,
+    build_embedding_client,
     build_narrative_service,
     build_pattern_detection_service,
     build_repository_analysis_service,
@@ -139,6 +144,16 @@ class ListAnalysesFactory(Protocol):
     def __call__(self, *, project_root: Path, repository_id: str) -> AnalysisStoreReader: ...
 
 
+class BackfillService(Protocol):
+    def estimate_backfill_calls(self, repository_id: str) -> int: ...
+
+    def backfill(self, repository_id: str) -> EmbeddingBackfillResult: ...
+
+
+class BackfillFactory(Protocol):
+    def __call__(self, *, project_root: Path) -> BackfillService | None: ...
+
+
 _DEFAULT_BUDGET_THRESHOLD = 50
 
 
@@ -214,6 +229,20 @@ def _default_list_analyses_factory(
     return build_commit_analysis_reader(project_root=project_root)
 
 
+def _default_backfill_factory(*, project_root: Path) -> "BackfillService | None":
+    """No-key is a clean no-op: build_embedding_client() is the single source of truth.
+
+    build_embedding_backfill_service always returns a service instance (its internal
+    embedder is None without a key), but the CLI needs a distinguishable "no embedding
+    client" signal separate from "estimate is 0 because nothing is missing" -- so this
+    default factory checks availability itself via the same public gate every other
+    RAG call site uses, and returns None to signal unavailability.
+    """
+    if build_embedding_client() is None:
+        return None
+    return build_embedding_backfill_service(project_root=project_root)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -225,6 +254,7 @@ def main(
     pattern_factory: PatternFactory = _default_pattern_factory,
     narrative_factory: NarrativeFactory = _default_narrative_factory,
     list_analyses_factory: ListAnalysesFactory = _default_list_analyses_factory,
+    backfill_factory: BackfillFactory = _default_backfill_factory,
     budget_confirm_fn: Callable[[int], bool] = _default_budget_confirm,
     budget_threshold: int = _DEFAULT_BUDGET_THRESHOLD,
 ) -> int:
@@ -309,6 +339,15 @@ def main(
     list_analyses_parser = subparsers.add_parser("list-analyses")
     list_analyses_parser.add_argument("repository_url")
     list_analyses_parser.add_argument("--limit", type=int, default=None)
+
+    backfill_embeddings_parser = subparsers.add_parser(
+        "backfill-embeddings",
+        help="Compute embeddings for already-analyzed evidence missing one (spec 027)",
+    )
+    backfill_embeddings_parser.add_argument("repository_url")
+    backfill_embeddings_parser.add_argument(
+        "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
+    )
 
     run_parser = subparsers.add_parser(
         "run", help="Run full pipeline: ingest + analyze + case study"
@@ -430,6 +469,16 @@ def main(
             limit=args.limit,
             project_root=resolved_root,
             list_analyses_factory=list_analyses_factory,
+        )
+
+    if args.command == "backfill-embeddings":
+        return _run_backfill_embeddings(
+            raw_url=args.repository_url,
+            yes=args.yes,
+            project_root=resolved_root,
+            backfill_factory=backfill_factory,
+            budget_confirm_fn=budget_confirm_fn,
+            budget_threshold=budget_threshold,
         )
 
     if args.command == "run":
@@ -814,6 +863,47 @@ def _run_list_analyses(
     analyses = store.list_analyses(repository_id, limit=limit)
     _print_commit_analyses(analyses)
     return 0
+
+
+def _run_backfill_embeddings(
+    *,
+    raw_url: str,
+    yes: bool,
+    project_root: Path,
+    backfill_factory: BackfillFactory,
+    budget_confirm_fn: Callable[[int], bool],
+    budget_threshold: int,
+) -> int:
+    repository_id = repository_id_for_url(raw_url)
+    service = backfill_factory(project_root=project_root)
+    if service is None:
+        print(
+            "OPENAI_API_KEY is not configured; semantic-search embeddings are"
+            " unavailable, nothing to backfill."
+        )
+        return 0
+
+    estimate = service.estimate_backfill_calls(repository_id)
+    if estimate == 0:
+        print("All analyzed evidence already has embeddings — nothing to backfill.")
+        return 0
+
+    print(f"  {estimate} embedding calls planned.")
+    if estimate > budget_threshold and not yes:
+        if not budget_confirm_fn(estimate):
+            print("Aborted.")
+            return 1
+
+    result = service.backfill(repository_id)
+    _print_backfill_result(result)
+    return 0
+
+
+def _print_backfill_result(result: EmbeddingBackfillResult) -> None:
+    print(
+        f"Backfill complete: {result.embedded} embedded, "
+        f"{result.already_present} already present, {result.failed} failed."
+    )
 
 
 def _print_narrative(result: NarrativeResult) -> None:
