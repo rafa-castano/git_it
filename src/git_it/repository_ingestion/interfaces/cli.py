@@ -145,6 +145,9 @@ class ListAnalysesFactory(Protocol):
 
 
 class BackfillService(Protocol):
+    @property
+    def is_available(self) -> bool: ...
+
     def estimate_backfill_calls(self, repository_id: str) -> int: ...
 
     def backfill(self, repository_id: str) -> EmbeddingBackfillResult: ...
@@ -876,7 +879,7 @@ def _run_backfill_embeddings(
 ) -> int:
     repository_id = repository_id_for_url(raw_url)
     service = backfill_factory(project_root=project_root)
-    if service is None:
+    if service is None or not service.is_available:
         print(
             "OPENAI_API_KEY is not configured; semantic-search embeddings are"
             " unavailable, nothing to backfill."

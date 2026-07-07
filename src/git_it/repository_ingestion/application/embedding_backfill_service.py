@@ -90,6 +90,16 @@ class EmbeddingBackfillService:
         self._embedding_writer = embedding_writer
         self._embedder = embedder
 
+    @property
+    def is_available(self) -> bool:
+        """True when an embedder is configured (i.e. ``OPENAI_API_KEY`` is set).
+
+        Callers use this to distinguish "backfill is unavailable (no key)" from
+        "nothing to backfill (all evidence already embedded)" -- both otherwise yield a
+        zero ``estimate_backfill_calls`` and are indistinguishable to a caller.
+        """
+        return self._embedder is not None
+
     def estimate_backfill_calls(self, repository_id: str) -> int:
         """Count already-stored items lacking a persisted embedding.
 

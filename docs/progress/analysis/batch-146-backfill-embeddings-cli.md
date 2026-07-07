@@ -110,6 +110,28 @@ new tests, no regressions).
 - Did not touch `api/routes/` or `static/` — out of scope for this slice, deferred to
   batch 147 per spec 027's build order.
 
+### Follow-up fix — misleading no-key message
+
+The no-key handling described above did not actually work. The Gotcha claimed the default
+factory gated on `build_embedding_client()` and returned `None` without a key, but the
+committed `_default_backfill_factory` returns `build_embedding_backfill_service(...)`
+directly — and that factory is typed `-> EmbeddingBackfillService` and **always** returns a
+service instance (with an internal `None` embedder). So in production the CLI's
+`if service is None` branch was dead code: without `OPENAI_API_KEY`,
+`estimate_backfill_calls` returned `0` and the user saw *"All analyzed evidence already has
+embeddings — nothing to backfill"* instead of the missing-key message. The existing test
+passed only because it injects a `None`-returning fake factory the real one never produces.
+
+Fixed test-first (RED → GREEN): added `EmbeddingBackfillService.is_available` (`True` when an
+embedder is configured), exposed it on the CLI's `BackfillService` Protocol, and changed the
+guard to `if service is None or not service.is_available`. Regression tests:
+`test_is_available_reflects_embedder_presence` (service) and
+`test_backfill_embeddings_unavailable_service_prints_no_key_message` (CLI, asserts the
+missing-key message and that `backfill` is never called). `is_available` will also drive the
+batch-147 dashboard button's visibility (show only when a key is configured).
+
 ### Commits
 
-- (staged, not committed by this batch — orchestrator will review and commit)
+- `feat: add EmbeddingBackfillService for already-stored evidence (spec 027, slice 1)` (batch 145)
+- `batch 146, logging added` (CLI slice committed alongside unrelated deployment logging)
+- Follow-up fix committed separately by the orchestrator after independent verification.

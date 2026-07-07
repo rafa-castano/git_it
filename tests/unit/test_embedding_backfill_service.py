@@ -284,6 +284,32 @@ def test_backfill_with_no_embedder_is_a_clean_no_op() -> None:
     assert service.estimate_backfill_calls(repo) == 0
 
 
+def test_is_available_reflects_embedder_presence() -> None:
+    """is_available distinguishes 'no OPENAI_API_KEY' (embedder None) from 'nothing missing'.
+
+    Regression: without this, a no-key run is indistinguishable from an all-embedded run,
+    because estimate_backfill_calls returns 0 in both cases.
+    """
+    store = _FakeEmbeddingStore()
+    with_embedder = EmbeddingBackfillService(
+        commit_analysis_reader=_StubCommitAnalysisReader({}),
+        discussion_evidence_reader=_StubDiscussionEvidenceReader({}),
+        embedding_reader=store,
+        embedding_writer=store,
+        embedder=_FakeEmbedder(),
+    )
+    without_embedder = EmbeddingBackfillService(
+        commit_analysis_reader=_StubCommitAnalysisReader({}),
+        discussion_evidence_reader=_StubDiscussionEvidenceReader({}),
+        embedding_reader=store,
+        embedding_writer=store,
+        embedder=None,
+    )
+
+    assert with_embedder.is_available is True
+    assert without_embedder.is_available is False
+
+
 def test_missing_item_in_one_repository_does_not_affect_another() -> None:
     repo_a = "repo-a"
     repo_b = "repo-b"

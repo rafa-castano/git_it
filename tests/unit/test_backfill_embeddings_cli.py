@@ -14,11 +14,17 @@ class FakeBackfillService:
         *,
         estimate: int = 0,
         result: EmbeddingBackfillResult | None = None,
+        available: bool = True,
     ) -> None:
         self._estimate = estimate
         self._result = result or EmbeddingBackfillResult(embedded=0, already_present=0, failed=0)
+        self._available = available
         self.estimate_calls: list[str] = []
         self.backfill_calls: list[str] = []
+
+    @property
+    def is_available(self) -> bool:
+        return self._available
 
     def estimate_backfill_calls(self, repository_id: str) -> int:
         self.estimate_calls.append(repository_id)
@@ -48,6 +54,26 @@ def test_backfill_embeddings_no_key_prints_message_and_exits_zero(
     captured = capsys.readouterr()
     assert code == 0
     assert "OPENAI_API_KEY" in captured.out
+
+
+def test_backfill_embeddings_unavailable_service_prints_no_key_message(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Regression: the REAL factory always returns a service (never None); without
+    OPENAI_API_KEY that service has no embedder and estimate is 0. It must report the
+    missing key, not the misleading 'already embedded / nothing to backfill' message.
+    """
+    service = FakeBackfillService(estimate=0, available=False)
+    code = main(
+        ["backfill-embeddings", "https://github.com/owner/repo"],
+        project_root=tmp_path,
+        backfill_factory=_factory(service),
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "OPENAI_API_KEY" in captured.out
+    assert "already" not in captured.out.lower()
+    assert service.backfill_calls == []
 
 
 def test_backfill_embeddings_zero_estimate_prints_nothing_to_backfill(
