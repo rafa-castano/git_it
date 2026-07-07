@@ -121,6 +121,7 @@ One file per batch, organized by feature area.
 - [Batch 137 — Releases and Security Advisories domain model (spec 026, slice 1)](analysis/batch-137-releases-advisories-domain.md)
 - [Batch 139 — Release and Advisory summarizers with injection-safe URL/severity boundaries (spec 026, slice 3)](analysis/batch-139-releases-advisories-summarizers.md)
 - [Batch 142 — Cite release and advisory evidence in the case-study narrative (spec 026, slice 6)](analysis/batch-142-releases-advisories-narrative.md)
+- [Batch 145 — EmbeddingBackfillService and composition wiring (spec 027, slice 1)](analysis/batch-145-embedding-backfill-service.md)
 
 ## Evals
 - [Batch 61 — Evaluation harness for LLM commit classification accuracy](evals/batch-61-evaluation-harness.md)

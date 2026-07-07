@@ -8,6 +8,9 @@ from git_it.repository_ingestion.application.commit_query_service import (
     RepositoryCommitQueryService,
 )
 from git_it.repository_ingestion.application.discussion_summarizer import DiscussionSummarizer
+from git_it.repository_ingestion.application.embedding_backfill_service import (
+    EmbeddingBackfillService,
+)
 from git_it.repository_ingestion.application.embedding_service import EmbeddingService
 from git_it.repository_ingestion.application.narrative_service import NarrativeService
 from git_it.repository_ingestion.application.pattern_detection_service import (
@@ -600,6 +603,28 @@ def build_embedding_client() -> LiteLLMEmbeddingClient | None:
     if not os.environ.get("OPENAI_API_KEY"):
         return None
     return LiteLLMEmbeddingClient()
+
+
+def build_embedding_backfill_service(
+    *,
+    project_root: Path,
+) -> EmbeddingBackfillService:
+    """Backend-aware factory for the spec 027 embedding backfill service.
+
+    Mirrors ``build_commit_analysis_service``'s embedding-wiring pattern: the embedder
+    is ``None`` (and the service becomes a clean no-op) whenever ``build_embedding_client()``
+    returns ``None`` -- i.e. without ``OPENAI_API_KEY``.
+    """
+    embedding_client = build_embedding_client()
+    embedder = EmbeddingService(embedding_client) if embedding_client is not None else None
+    embedding_store = build_embedding_store(project_root=project_root)
+    return EmbeddingBackfillService(
+        commit_analysis_reader=build_commit_analysis_reader(project_root=project_root),
+        discussion_evidence_reader=build_discussion_evidence_store(project_root=project_root),
+        embedding_reader=embedding_store,
+        embedding_writer=embedding_store,
+        embedder=embedder,
+    )
 
 
 def build_discussion_summarizer(*, model: str) -> DiscussionSummarizer:

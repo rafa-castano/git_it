@@ -8,6 +8,7 @@ from git_it.repository_ingestion.application.ports import ExtractedCommit, LLMMe
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_service,
     build_discussion_summarizer,
+    build_embedding_backfill_service,
     build_embedding_client,
     build_narrative_service,
     build_repository_ingestion_service,
@@ -253,3 +254,34 @@ def test_build_commit_analysis_service_embedding_dependencies_none_when_key_abse
 
     assert service._embedding_service is None
     assert service._embedding_writer is None
+
+
+# ---------------------------------------------------------------------------
+# Batch 145 — build_embedding_backfill_service wires the backfill dependencies
+# when OPENAI_API_KEY is set, and is a clean no-op when absent (spec 027, slice 1).
+# ---------------------------------------------------------------------------
+
+
+def test_build_embedding_backfill_service_wires_embedder_when_key_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-test-key")
+
+    service = build_embedding_backfill_service(project_root=tmp_path)
+
+    assert isinstance(service._embedder, EmbeddingService)
+
+
+def test_build_embedding_backfill_service_embedder_none_when_key_absent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    service = build_embedding_backfill_service(project_root=tmp_path)
+
+    assert service._embedder is None
+    assert service.estimate_backfill_calls("repo-1") == 0
