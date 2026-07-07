@@ -309,15 +309,17 @@ class CommitAnalysisService:
         commits = self._reader.list_commits_for_repository(
             repository_id, limit=limit, order=order, since=since, until=until
         )
+        cached_shas: set[str] = set()
+        if self._analysis_reader is not None:
+            cached_shas = {
+                analysis.commit_sha
+                for analysis in self._analysis_reader.list_analyses(repository_id)
+            }
         count = 0
         classifier = CommitPreClassifier()
         for commit in commits:
-            if self._analysis_reader is not None:
-                cached = self._analysis_reader.get_analysis(
-                    repository_id=repository_id, commit_sha=commit.sha
-                )
-                if cached is not None:
-                    continue
+            if commit.sha in cached_shas:
+                continue
             if classifier.classify(commit).decision == "skip":
                 continue
             count += 1

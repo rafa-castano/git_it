@@ -77,8 +77,11 @@ class FakeCacheReader:
 
     def __init__(self, cached_shas: set[str] | None = None) -> None:
         self._cached: set[str] = cached_shas or set()
+        self.get_analysis_calls: list[str] = []
+        self.list_analyses_calls: int = 0
 
     def get_analysis(self, *, repository_id: str, commit_sha: str) -> CommitAnalysis | None:
+        self.get_analysis_calls.append(commit_sha)
         if commit_sha in self._cached:
             return _make_analysis(sha=commit_sha)
         return None
@@ -86,6 +89,7 @@ class FakeCacheReader:
     def list_analyses(
         self, repository_id: str, *, limit: int | None = None
     ) -> list[CommitAnalysis]:
+        self.list_analyses_calls += 1
         analyses = [_make_analysis(sha=sha) for sha in sorted(self._cached)]
         return analyses[:limit] if limit is not None else analyses
 
@@ -142,6 +146,16 @@ def test_counts_uncached_unskipped_commits() -> None:
     cache = FakeCacheReader(cached_shas={"sha1"})
     service = _make_service(records=records, cache_reader=cache)
     assert service.estimate_llm_calls("repo-1") == 2
+
+
+def test_estimate_uses_bulk_cache_lookup_instead_of_per_commit_lookup() -> None:
+    records = [_make_record(f"sha{i}", message=f"feat: feature {i}") for i in range(100)]
+    cache = FakeCacheReader(cached_shas={"sha0", "sha2", "sha4"})
+    service = _make_service(records=records, cache_reader=cache)
+
+    assert service.estimate_llm_calls("repo-1") == 97
+    assert cache.list_analyses_calls == 1
+    assert cache.get_analysis_calls == []
 
 
 def test_respects_limit_parameter() -> None:
