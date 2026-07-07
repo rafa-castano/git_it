@@ -4,6 +4,8 @@
 
 It mines commits, file changes, contributors and repository context over time, then uses LLMs to explain *how* a project evolved, which patterns emerged, and what a learner or engineering team can take from that history — every claim linked back to the commits, patterns, discussions, releases or advisories that support it.
 
+## Project Slides --> [here!](https://drive.google.com/file/d/1gIX0bZooUeZmkVGP0kwp4o3Noqf9bGgU/view?usp=drive_link)
+
 ## Screenshots
 
 | Home (dark) | Repository overview (light) |
