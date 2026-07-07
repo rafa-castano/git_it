@@ -32,6 +32,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application source
 COPY src/ ./src/
+COPY migrations/ ./migrations/
 
 EXPOSE 8000
 

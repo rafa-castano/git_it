@@ -18,22 +18,46 @@ class SqliteRepositoryListReader:
         # analyses) instead of O(commits + analyses). Verified ~1855ms -> ~0.1ms
         # on a repo with 1548 commits / 231 analyses.
         with sqlite3.connect(self._database_path) as conn:
+            existing_tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "ingestion_runs" not in existing_tables:
+                return []
+
+            commit_count_sql = (
+                """(SELECT COUNT(*) FROM commit_facts cf
+                        WHERE cf.repository_id = ir.repository_id)"""
+                if "commit_facts" in existing_tables
+                else "0"
+            )
+            analysis_count_sql = (
+                """(SELECT COUNT(*) FROM commit_analyses ca
+                        WHERE ca.repository_id = ir.repository_id)"""
+                if "commit_analyses" in existing_tables
+                else "0"
+            )
+            has_case_study_sql = (
+                """EXISTS(SELECT 1 FROM case_studies cs
+                        WHERE cs.repository_id = ir.repository_id)"""
+                if "case_studies" in existing_tables
+                else "0"
+            )
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     ir.repository_id,
                     ir.canonical_url,
                     ir.status,
-                    (SELECT COUNT(*) FROM commit_facts cf
-                        WHERE cf.repository_id = ir.repository_id)     AS commit_count,
-                    (SELECT COUNT(*) FROM commit_analyses ca
-                        WHERE ca.repository_id = ir.repository_id)     AS analysis_count,
-                    EXISTS(SELECT 1 FROM case_studies cs
-                        WHERE cs.repository_id = ir.repository_id)     AS has_case_study
+                    {commit_count_sql}     AS commit_count,
+                    {analysis_count_sql}   AS analysis_count,
+                    {has_case_study_sql}   AS has_case_study
                 FROM ingestion_runs ir
                 GROUP BY ir.repository_id, ir.canonical_url, ir.status
                 ORDER BY ir.repository_id
-                """
+                """  # noqa: S608
             ).fetchall()
         return [
             RepositoryRecord(

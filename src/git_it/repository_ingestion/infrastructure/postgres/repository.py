@@ -1,6 +1,7 @@
 import psycopg
 
 from git_it.repository_ingestion.application.ports import RepositoryRecord
+from git_it.repository_ingestion.infrastructure.postgres._common import initialize
 
 
 class PostgresRepositoryListReader:
@@ -8,6 +9,7 @@ class PostgresRepositoryListReader:
         self._conninfo = conninfo
 
     def list_repositories(self) -> list[RepositoryRecord]:
+        initialize(self._conninfo)
         with psycopg.connect(self._conninfo) as conn:
             rows = conn.execute(
                 """

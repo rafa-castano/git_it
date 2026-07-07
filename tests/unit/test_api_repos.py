@@ -271,6 +271,75 @@ def test_list_repos_returns_ingested_repo(tmp_path: Path) -> None:
     assert repo["commit_count"] == 2
 
 
+def test_list_repos_handles_partial_sqlite_schema_after_ingest(tmp_path: Path) -> None:
+    """Regression for Railway SQLite deploys after bare ingestion.
+
+    Ingestion creates ingestion_runs/commit_facts/file_facts before any analysis
+    happens. The repository list endpoint must not crash if analysis-only tables
+    such as commit_analyses and case_studies do not exist yet.
+    """
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE ingestion_runs (
+                run_id TEXT PRIMARY KEY,
+                repository_id TEXT NOT NULL,
+                canonical_url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                error_code TEXT,
+                error_stage TEXT,
+                retryable INTEGER,
+                safe_message TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE commit_facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repository_id TEXT NOT NULL,
+                sha TEXT NOT NULL,
+                committed_at TEXT NOT NULL,
+                message TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                committer_name TEXT NOT NULL,
+                parent_shas TEXT NOT NULL,
+                UNIQUE(repository_id, sha)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE file_facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repository_id TEXT NOT NULL,
+                commit_sha TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                insertions INTEGER NOT NULL,
+                deletions INTEGER NOT NULL,
+                UNIQUE(repository_id, commit_sha, file_path)
+            )
+            """
+        )
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    _insert_commit(db, repository_id="repo-abc")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos")
+
+    assert response.status_code == 200
+    repo = response.json()["repos"][0]
+    assert repo["commit_count"] == 1
+    assert repo["analysis_count"] == 0
+    assert repo["has_case_study"] is False
+
+
 def test_list_repos_has_case_study_flag(tmp_path: Path) -> None:
     from git_it.api.app import create_app
 
