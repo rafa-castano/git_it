@@ -72,7 +72,7 @@ That's it. The two actions are deliberately separate: **Analyze on the home page
 ## Everyday use
 
 - **Add new commits from GitHub** — paste the same repository URL on the home page again. Git It runs `git fetch` to update the local cache, then click **+ Analyze** to process the pending commits.
-- **Ask** — the Ask tab answers from stored commits, patterns, contributors and case studies (needs `ANTHROPIC_API_KEY`). Add `OPENAI_API_KEY` to also enable **semantic search** over embedded summaries. Embeddings are created *during analysis*, so configure OpenAI **before** analyzing a repo if you want semantic Ask for it — old analyses are not backfilled automatically.
+- **Ask** — the Ask tab answers from stored commits, patterns, contributors and case studies (needs `ANTHROPIC_API_KEY`). Add `OPENAI_API_KEY` to also enable **semantic search** over embedded summaries. Embeddings are created *during analysis*; if you add `OPENAI_API_KEY` **after** already analyzing a repo, backfill the missing embeddings with `git-it backfill-embeddings <repo>` or the **Enable semantic search** button on the repository page — no need to re-analyze.
 - **Case study audience** — switching audience in the Case Study tab reuses a cached narrative or regenerates one (an LLM call).
 - **Delete** — removes Git It's stored analysis for a repository. It never touches the upstream GitHub repo.
 
@@ -146,7 +146,7 @@ A `docker compose up` setup is provided for a Postgres-backed run — pass your 
 ## Troubleshooting
 
 - **Dashboard buttons return 401/403** → `GIT_IT_API_KEY` is set. Leave it blank for local use.
-- **Semantic Ask finds nothing** → set `OPENAI_API_KEY`, then re-analyze the repo (old analyses aren't backfilled with embeddings).
+- **Semantic Ask finds nothing** → set `OPENAI_API_KEY`, then backfill embeddings for the already-analyzed repo with `git-it backfill-embeddings <repo>` or the **Enable semantic search** button (no need to re-analyze).
 - **New GitHub commits don't show up** → paste the repo URL again on the home page to fetch, then **+ Analyze**.
 - **PostgreSQL errors on startup** → unset `DATABASE_URL` for SQLite, or start/fix Postgres. Git It won't fall back silently.
 - **Private repo fails** → ingestion targets public GitHub HTTPS repos; `GITHUB_TOKEN` enriches metadata but is not used as clone credentials.

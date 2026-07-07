@@ -1,6 +1,6 @@
 # Feature Spec: Embedding Backfill for Previously-Analyzed Evidence
 
-**Status:** Draft
+**Status:** Implemented
 **Spec number:** 027
 **Author:** Rafael Castaño
 **Date:** 2026-07-07

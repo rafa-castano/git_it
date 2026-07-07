@@ -117,7 +117,10 @@ between what's specified and what's shipped:
   `docs/specs/005-documentation-engine.md`.
 - **Spec 027 — Embedding Backfill**: an explicit, user-triggered action that
   computes embeddings for commit analyses and discussion evidence analyzed
-  before `OPENAI_API_KEY` was configured. Not yet built. See
+  before `OPENAI_API_KEY` was configured. Implemented (batches 145–148): the
+  `EmbeddingBackfillService`, the `git-it backfill-embeddings` CLI command, the
+  `GET`/`POST /api/repos/{id}/backfill-embeddings` endpoints, and the
+  "Enable semantic search" dashboard button. See
   `docs/specs/027-embedding-backfill.md`.
 - **Spec 028 — Refresh All Repositories**: a user-triggered "refresh all"
   action that fetches new commits (fetch + extract only, no analysis) for every
