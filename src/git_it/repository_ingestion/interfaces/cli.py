@@ -16,6 +16,7 @@ from git_it.repository_ingestion.application.embedding_backfill_service import (
     EmbeddingBackfillResult,
 )
 from git_it.repository_ingestion.application.narrative_service import NarrativeResult
+from git_it.repository_ingestion.application.refresh_all_service import RefreshAllResult
 from git_it.repository_ingestion.application.service import IngestionResult
 from git_it.repository_ingestion.composition import (
     build_commit_analysis_reader,
@@ -24,6 +25,7 @@ from git_it.repository_ingestion.composition import (
     build_embedding_client,
     build_narrative_service,
     build_pattern_detection_service,
+    build_refresh_all_service,
     build_repository_analysis_service,
     build_repository_commit_query_service,
     build_repository_ingestion_service,
@@ -157,6 +159,14 @@ class BackfillFactory(Protocol):
     def __call__(self, *, project_root: Path) -> BackfillService | None: ...
 
 
+class RefreshAllServiceProtocol(Protocol):
+    def refresh_all(self) -> RefreshAllResult: ...
+
+
+class RefreshAllFactory(Protocol):
+    def __call__(self, *, project_root: Path) -> RefreshAllServiceProtocol: ...
+
+
 _DEFAULT_BUDGET_THRESHOLD = 50
 
 
@@ -258,6 +268,7 @@ def main(
     narrative_factory: NarrativeFactory = _default_narrative_factory,
     list_analyses_factory: ListAnalysesFactory = _default_list_analyses_factory,
     backfill_factory: BackfillFactory = _default_backfill_factory,
+    refresh_all_factory: RefreshAllFactory = build_refresh_all_service,
     budget_confirm_fn: Callable[[int], bool] = _default_budget_confirm,
     budget_threshold: int = _DEFAULT_BUDGET_THRESHOLD,
 ) -> int:
@@ -350,6 +361,11 @@ def main(
     backfill_embeddings_parser.add_argument("repository_url")
     backfill_embeddings_parser.add_argument(
         "--yes", action="store_true", default=False, help="Skip budget confirmation prompt"
+    )
+
+    subparsers.add_parser(
+        "refresh-all",
+        help="Fetch new commits for every already-ingested repository (spec 028)",
     )
 
     run_parser = subparsers.add_parser(
@@ -482,6 +498,12 @@ def main(
             backfill_factory=backfill_factory,
             budget_confirm_fn=budget_confirm_fn,
             budget_threshold=budget_threshold,
+        )
+
+    if args.command == "refresh-all":
+        return _run_refresh_all(
+            project_root=resolved_root,
+            refresh_all_factory=refresh_all_factory,
         )
 
     if args.command == "run":
@@ -906,6 +928,36 @@ def _print_backfill_result(result: EmbeddingBackfillResult) -> None:
     print(
         f"Backfill complete: {result.embedded} embedded, "
         f"{result.already_present} already present, {result.failed} failed."
+    )
+
+
+def _run_refresh_all(
+    *,
+    project_root: Path,
+    refresh_all_factory: RefreshAllFactory,
+) -> int:
+    service = refresh_all_factory(project_root=project_root)
+    result = service.refresh_all()
+    _print_refresh_all_result(result)
+    return 0
+
+
+def _print_refresh_all_result(result: RefreshAllResult) -> None:
+    if result.nothing_to_refresh:
+        print("No repositories to refresh — ingest one first.")
+        return
+
+    for repo in result.repositories:
+        owner_repo = repo.canonical_url.removeprefix("https://github.com/")
+        if repo.status == "completed":
+            print(f"{owner_repo}: {repo.new_commits} new commit(s)")
+        else:
+            detail = repo.safe_message or repo.error_code or "unknown error"
+            print(f"{owner_repo}: failed ({detail})")
+
+    print(
+        f"Refreshed {result.refreshed_count} repositories, "
+        f"{result.total_new_commits} new commits, {result.failed_count} failed"
     )
 
 
