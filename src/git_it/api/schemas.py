@@ -264,3 +264,19 @@ class SimilaritySearchResult(BaseModel):
 
 class SimilaritySearchResponse(BaseModel):
     results: list[SimilaritySearchResult] = []
+
+
+# ---------------------------------------------------------------------------
+# Embedding backfill (spec 027)
+# ---------------------------------------------------------------------------
+
+
+class BackfillEmbeddingsStatusResponse(BaseModel):
+    available: bool
+    missing: int
+
+
+class BackfillEmbeddingsResponse(BaseModel):
+    embedded: int
+    already_present: int
+    failed: int

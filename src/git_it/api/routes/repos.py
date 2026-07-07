@@ -22,6 +22,8 @@ from git_it.api.schemas import (
     AnalyzeRequest,
     AnalyzeResponse,
     AnalyzeStatusResponse,
+    BackfillEmbeddingsResponse,
+    BackfillEmbeddingsStatusResponse,
     CaseStudyResponse,
     ChatRequest,
     ChatResponse,
@@ -52,6 +54,7 @@ from git_it.repository_ingestion.composition import (
     build_default_branch_store,
     build_discussion_evidence_store,
     build_discussion_summarizer,
+    build_embedding_backfill_service,
     build_embedding_client,
     build_embedding_store,
     build_ingestion_run_store,
@@ -854,3 +857,63 @@ def delete_repo(
     deleter.delete_repository(repository_id)
 
     return DeleteRepoResponse(deleted=True, repository_id=repository_id)
+
+
+# ---------------------------------------------------------------------------
+# GET/POST /api/repos/{repository_id}/backfill-embeddings (spec 027)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{repository_id}/backfill-embeddings", response_model=BackfillEmbeddingsStatusResponse)
+@limiter.limit("20/minute")
+def get_backfill_embeddings_status(
+    request: Request,
+    repository_id: str,
+    project_root: ProjectRoot,
+) -> BackfillEmbeddingsStatusResponse:
+    """Availability + missing-embedding count for a repository (spec 027).
+
+    This is the signal a dashboard control uses to decide whether to show a
+    backfill button: hidden when ``available`` is false (no ``OPENAI_API_KEY``)
+    or when ``missing`` is zero (nothing left to backfill).
+    """
+    _require_repository_exists(repository_id, project_root)
+    service = build_embedding_backfill_service(project_root=project_root)
+    missing = service.estimate_backfill_calls(repository_id)
+    return BackfillEmbeddingsStatusResponse(available=service.is_available, missing=missing)
+
+
+@router.post("/{repository_id}/backfill-embeddings", response_model=BackfillEmbeddingsResponse)
+@limiter.limit("10/minute")
+def trigger_backfill_embeddings(
+    request: Request,
+    repository_id: str,
+    project_root: ProjectRoot,
+    _: None = Depends(require_api_key),
+) -> BackfillEmbeddingsResponse:
+    """Run the embedding backfill for a repository (spec 027).
+
+    Synchronous: the number of items missing an embedding is bounded by what a
+    repository has already analyzed (not the full commit history), and embedding
+    calls are cheaper than analysis calls (spec 027 open question #4), so this
+    mirrors the CLI's synchronous ``backfill()`` call rather than the analyze
+    endpoint's background-thread + progress-poll pattern.
+
+    Without ``OPENAI_API_KEY`` configured, ``service.is_available`` is false and
+    this returns 503 -- the same "feature unavailable" posture used for a
+    Postgres-unavailable failure (``api/app.py``) and for the chat assistant
+    being unavailable, never a silent/fake success (spec 027 AC 5).
+    """
+    _require_repository_exists(repository_id, project_root)
+    service = build_embedding_backfill_service(project_root=project_root)
+    if not service.is_available:
+        raise HTTPException(
+            status_code=503,
+            detail="Embedding backfill unavailable: OPENAI_API_KEY is not configured.",
+        )
+    result = service.backfill(repository_id)
+    return BackfillEmbeddingsResponse(
+        embedded=result.embedded,
+        already_present=result.already_present,
+        failed=result.failed,
+    )
