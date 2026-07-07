@@ -34,6 +34,8 @@ Spec source files live in this directory (`docs/specs/`), alongside this index.
 | 024 | LLM Call Observability (Structured Logging) | Implemented |
 | 025 | README/CHANGELOG Context for Case Study Narratives | Implemented |
 | 026 | GitHub Releases and Security Advisories as Cited Narrative Evidence | Implemented |
+| 027 | Embedding Backfill for Previously-Analyzed Evidence | Draft |
+| 028 | Refresh All Repositories | Draft |
 
 ## How specs relate to the codebase
 

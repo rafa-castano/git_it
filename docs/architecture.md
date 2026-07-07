@@ -115,3 +115,11 @@ between what's specified and what's shipped:
 - **Spec 005 — Documentation Engine**: automated generation of
   documentation from repository analysis. Not yet built. See
   `docs/specs/005-documentation-engine.md`.
+- **Spec 027 — Embedding Backfill**: an explicit, user-triggered action that
+  computes embeddings for commit analyses and discussion evidence analyzed
+  before `OPENAI_API_KEY` was configured. Not yet built. See
+  `docs/specs/027-embedding-backfill.md`.
+- **Spec 028 — Refresh All Repositories**: a user-triggered "refresh all"
+  action that fetches new commits (fetch + extract only, no analysis) for every
+  tracked repository without re-pasting each URL. No scheduler. Not yet built.
+  See `docs/specs/028-refresh-all-repositories.md`.
