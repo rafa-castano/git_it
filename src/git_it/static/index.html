@@ -89,6 +89,10 @@
       <div class="repo-cards-label">
         <span>Previously analyzed</span>
         <span id="repos-count" style="color:var(--accent);font-weight:800" aria-live="polite"></span>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
+          <span id="refresh-all-status" aria-live="polite" role="status" style="font-size:12px;color:var(--muted)"></span>
+          <button id="refresh-all-btn" class="hdr-btn" onclick="_doRefreshAll()" aria-label="Refresh all repositories" title="Fetch new commits for every tracked repository (free — no AI analysis; analyze separately)">&#8635; Refresh all</button>
+        </div>
       </div>
       <div id="repo-cards-grid" class="repo-cards-grid" role="list" aria-label="Analyzed repositories" aria-live="polite"></div>
     </div>

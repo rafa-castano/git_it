@@ -400,10 +400,7 @@ def test_static_app_css_no_leftover_accent_text_variable(tmp_path: Path) -> None
 @pytest.mark.parametrize(
     "rule_prefix",
     [
-        ".rc-open-btn {",
         ".tl-day-sep {",
-        ".overview-cs-link {",
-        ".case-study-meta a {",
         ".cs-arch-pattern-card .cs-subcard-title {",
         ".cc-rank {",
         ".contributors-top-label {",
@@ -464,6 +461,25 @@ def test_static_app_css_muted_is_brightened_for_legibility(tmp_path: Path) -> No
     light_rule = text.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
     assert "--muted: #c1c9d6;" in root_rule
     assert "--muted: #475569;" in light_rule
+
+
+def test_static_app_css_dark_mode_links_use_lighter_blue(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    root_rule = text.split(":root {", 1)[1].split("}", 1)[0]
+    light_rule = text.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
+    assert "--link: #93c5fd;" in root_rule
+    assert "--link: #2563eb;" in light_rule
+    for rule_prefix in [
+        ".rc-open-btn {",
+        ".overview-cs-link {",
+        ".case-study-meta a {",
+        ".markdown-body a {",
+        ".cc-gh-link {",
+    ]:
+        rule = text.split(rule_prefix, 1)[1].split("}", 1)[0]
+        assert "color: var(--link)" in rule
 
 
 # ---------------------------------------------------------------------------
@@ -584,6 +600,18 @@ def test_static_app_marks_analysis_updated_tabs_until_opened(tmp_path: Path) -> 
         1,
     )[0]
     assert "clearUpdatedTabs()" in select_repo_body
+
+
+def test_static_app_refreshes_overview_after_analysis_completion(tmp_path: Path) -> None:
+    # Regression: the green dot proved the analysis onDone flow ran, but Overview
+    # was only marked as updated; its charts stayed stale/empty until manual reload.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    poll_body = text.split("function _pollAnalyzeStatus(repoId)", 1)[1]
+    on_done_body = poll_body.split("onDone:", 1)[1].split("onError:", 1)[0]
+    assert "if (currentRepo === repoId) loadOverview(repoId)" in on_done_body
 
 
 def test_static_app_css_has_updated_tab_dot_indicator(tmp_path: Path) -> None:
