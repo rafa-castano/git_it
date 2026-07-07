@@ -208,6 +208,7 @@ main { flex: 1; min-width: 0; overflow-y: auto; padding: 1.25rem 1.5rem; display
 .tab-btn { padding: 0.55rem 1.2rem; border: none; background: none; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; font-family: inherit; }
 .tab-btn[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .tab-btn:hover:not([aria-selected="true"]) { color: var(--text); }
+.tab-btn.is-updated::after { content: ""; display: inline-block; width: 0.45rem; height: 0.45rem; margin-left: 0.4rem; border-radius: 999px; background: var(--green); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 18%, transparent); vertical-align: middle; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 

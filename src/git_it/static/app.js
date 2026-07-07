@@ -238,6 +238,8 @@ let patternsData = null;
 let detailLoaded = false;
 let _ingestPoll = null;
 let _analyzePrefetch = null;
+const UPDATED_ANALYSIS_TABS = new Set(['overview', 'case-study', 'commits']);
+let _updatedTabs = new Set();
 
 /* =========================================================
    Chart registry
@@ -793,21 +795,7 @@ function goHome() {
   renderRepoCards();
 }
 
-function selectRepo(repoId) {
-  if (currentRepo === repoId && document.getElementById('repo-view').classList.contains('visible')) return;
-  currentRepo = repoId;
-  patternsData = null;
-  detailLoaded = false;
-  _analyzePrefetch = null;
-  currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || null;
-
-  document.querySelectorAll('.repo-item').forEach(el =>
-    el.classList.toggle('active', el.dataset.id === repoId)
-  );
-  document.getElementById('home-view').style.display = 'none';
-  document.getElementById('repo-view').classList.add('visible');
-  document.getElementById('btn-tips').style.display = '';
-
+function renderHeaderRepoMeta() {
   const info = document.getElementById('hdr-repo-info');
   info.style.display = 'flex';
   if (currentRepoMeta) {
@@ -827,6 +815,7 @@ function selectRepo(repoId) {
     const delBtn = document.getElementById('sh-delete-btn');
     if (delBtn) delBtn.style.display = '';
   }
+}
 
 async function _loadAnalyzeEstimate(repoId, meta) {
   try {
@@ -841,6 +830,33 @@ async function _loadAnalyzeEstimate(repoId, meta) {
     }
   } catch { /* non-critical */ }
 }
+
+async function refreshCurrentRepoMeta(repoId) {
+  const data = await apiFetch('/api/repos');
+  reposCache = data.repos || [];
+  if (currentRepo === repoId) {
+    currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || currentRepoMeta;
+    renderHeaderRepoMeta();
+  }
+}
+
+function selectRepo(repoId) {
+  if (currentRepo === repoId && document.getElementById('repo-view').classList.contains('visible')) return;
+  currentRepo = repoId;
+  patternsData = null;
+  detailLoaded = false;
+  _analyzePrefetch = null;
+  clearUpdatedTabs();
+  currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || null;
+
+  document.querySelectorAll('.repo-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === repoId)
+  );
+  document.getElementById('home-view').style.display = 'none';
+  document.getElementById('repo-view').classList.add('visible');
+  document.getElementById('btn-tips').style.display = '';
+
+  renderHeaderRepoMeta();
 
   detailLoaded = true;
   switchTab('overview');
@@ -1196,6 +1212,7 @@ function switchTab(tabName) {
   document.querySelectorAll('.tab-panel').forEach(panel =>
     panel.classList.toggle('active', panel.id === 'tab-' + tabName)
   );
+  clearUpdatedTab(tabName);
 }
 document.querySelectorAll('.tab-btn').forEach(btn =>
   btn.addEventListener('click', () => {
@@ -1203,6 +1220,35 @@ document.querySelectorAll('.tab-btn').forEach(btn =>
     switchTab(btn.dataset.tab);
   })
 );
+
+function markUpdatedTabs(tabIds) {
+  tabIds.forEach(tabId => {
+    if (UPDATED_ANALYSIS_TABS.has(tabId)) _updatedTabs.add(tabId);
+  });
+  renderUpdatedTabIndicators();
+}
+
+function clearUpdatedTab(tabId) {
+  if (!_updatedTabs.delete(tabId)) return;
+  renderUpdatedTabIndicators();
+}
+
+function clearUpdatedTabs() {
+  _updatedTabs = new Set();
+  renderUpdatedTabIndicators();
+}
+
+function renderUpdatedTabIndicators() {
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    const isUpdated = _updatedTabs.has(btn.dataset.tab);
+    const label = btn.dataset.label || btn.textContent.trim();
+    btn.dataset.label = label;
+    btn.classList.toggle('is-updated', isUpdated);
+    btn.setAttribute('aria-label', isUpdated ? `${label} updated after analysis` : label);
+    if (isUpdated) btn.title = `${label} updated after analysis`;
+    else btn.removeAttribute('title');
+  });
+}
 
 /* =========================================================
    Overview
@@ -2474,17 +2520,18 @@ function _pollAnalyzeStatus(repoId) {
       btn.textContent = '✓ Done!';
       btn.style.color = 'var(--green)';
       btn.disabled = false;
-      // Update analyzed count in header
+      // Refresh /api/repos-derived metadata so the header uses the same source as reload.
       try {
+        await refreshCurrentRepoMeta(repoId);
+        renderHeaderRepoMeta();
         const updated = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/analyze/estimate?limit=9999`);
         _analyzePrefetch = updated;
-        const analyzedEl = document.getElementById('sh-analyzed');
-        if (analyzedEl) analyzedEl.textContent = (updated.analyzed_commits || 0) + ' analyzed';
       } catch {}
       // Always reload timeline so _tlAllCommits is fresh regardless of which view is active
       if (currentRepo === repoId) loadTimeline(repoId);
       // Reload case study — regenerated on backend after analysis
       if (currentRepo === repoId) loadCaseStudy(repoId);
+      if (currentRepo === repoId) markUpdatedTabs(['overview', 'case-study', 'commits']);
       // Reset button after showing Done
       setTimeout(() => {
         if (btn) { btn.textContent = '+ Analyze'; btn.style.color = ''; }

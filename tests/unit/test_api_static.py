@@ -521,3 +521,60 @@ def test_static_app_css_repo_card_stats_dont_break_mid_phrase(tmp_path: Path) ->
     assert "flex-wrap: wrap" in stats_rule
     stat_rule = text.split(".rc-stat {", 1)[1].split("}", 1)[0]
     assert "white-space: nowrap" in stat_rule
+
+
+def test_static_app_js_refreshes_current_repo_meta_after_analysis(tmp_path: Path) -> None:
+    # Regression: when analysis finishes, the top-bar "N analyzed" pill must
+    # stop reading stale currentRepoMeta from the initial /api/repos load.
+    # The completion flow should refresh /api/repos-derived metadata for the
+    # open repo, then re-render the detail header from that fresh metadata.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "async function refreshCurrentRepoMeta(" in text
+    assert "function renderHeaderRepoMeta(" in text
+
+    poll_body = text.split("function _pollAnalyzeStatus(repoId)", 1)[1]
+    on_done_body = poll_body.split("onDone:", 1)[1].split("onError:", 1)[0]
+    assert "await refreshCurrentRepoMeta(repoId)" in on_done_body
+    assert "renderHeaderRepoMeta()" in on_done_body
+
+
+def test_static_app_marks_analysis_updated_tabs_until_opened(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "const UPDATED_ANALYSIS_TABS = new Set(['overview', 'case-study', 'commits'])" in text
+    assert "function markUpdatedTabs(tabIds)" in text
+    assert "function clearUpdatedTab(tabId)" in text
+    assert "function renderUpdatedTabIndicators()" in text
+
+    poll_body = text.split("function _pollAnalyzeStatus(repoId)", 1)[1]
+    on_done_body = poll_body.split("onDone:", 1)[1].split("onError:", 1)[0]
+    assert "markUpdatedTabs(['overview', 'case-study', 'commits'])" in on_done_body
+
+    switch_tab_body = text.split("function switchTab(tabName)", 1)[1].split(
+        "function markUpdatedTabs(tabIds)",
+        1,
+    )[0]
+    assert "clearUpdatedTab(tabName)" in switch_tab_body
+
+    select_repo_body = text.split("function selectRepo(repoId)", 1)[1].split(
+        "/* =========================================================\n   Timeline",
+        1,
+    )[0]
+    assert "clearUpdatedTabs()" in select_repo_body
+
+
+def test_static_app_css_has_updated_tab_dot_indicator(tmp_path: Path) -> None:
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+
+    assert ".tab-btn.is-updated::after" in text
+    rule = text.split(".tab-btn.is-updated::after {", 1)[1].split("}", 1)[0]
+    assert 'content: ""' in rule
+    assert "border-radius: 999px" in rule
+    assert "background: var(--green)" in rule

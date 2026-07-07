@@ -17,13 +17,13 @@ class PostgresRepositoryListReader:
                     ir.repository_id,
                     ir.canonical_url,
                     ir.status,
-                    COUNT(DISTINCT cf.sha)  AS commit_count,
-                    COUNT(DISTINCT ca.id)   AS analysis_count,
-                    MAX(CASE WHEN cs.repository_id IS NOT NULL THEN 1 ELSE 0 END) AS has_case_study
+                    (SELECT COUNT(*) FROM commit_facts cf
+                        WHERE cf.repository_id = ir.repository_id) AS commit_count,
+                    (SELECT COUNT(*) FROM commit_analyses ca
+                        WHERE ca.repository_id = ir.repository_id) AS analysis_count,
+                    EXISTS(SELECT 1 FROM case_studies cs
+                        WHERE cs.repository_id = ir.repository_id) AS has_case_study
                 FROM ingestion_runs ir
-                LEFT JOIN commit_facts cf ON cf.repository_id = ir.repository_id
-                LEFT JOIN commit_analyses ca ON ca.repository_id = ir.repository_id
-                LEFT JOIN case_studies cs ON cs.repository_id = ir.repository_id
                 GROUP BY ir.repository_id, ir.canonical_url, ir.status
                 ORDER BY ir.repository_id
                 """
