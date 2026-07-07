@@ -11,6 +11,7 @@ from git_it.repository_ingestion.composition import (
     build_embedding_backfill_service,
     build_embedding_client,
     build_narrative_service,
+    build_refresh_all_service,
     build_repository_ingestion_service,
 )
 from git_it.repository_ingestion.domain.analysis import CommitAnalysis, CommitCategory, RiskLevel
@@ -285,3 +286,39 @@ def test_build_embedding_backfill_service_embedder_none_when_key_absent(
 
     assert service._embedder is None
     assert service.estimate_backfill_calls("repo-1") == 0
+
+
+# ---------------------------------------------------------------------------
+# Batch 150 — build_refresh_all_service wires the repository list reader and a
+# per-repository RepositoryIngestionService factory (spec 028, slice 1).
+# ---------------------------------------------------------------------------
+
+
+def test_build_refresh_all_service_wires_repository_list_reader(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from git_it.repository_ingestion.infrastructure.sqlite import (
+        SqliteRepositoryListReader,
+    )
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    service = build_refresh_all_service(project_root=tmp_path)
+
+    assert isinstance(service._repository_list_reader, SqliteRepositoryListReader)
+
+
+def test_build_refresh_all_service_factory_builds_ingestion_service_per_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from git_it.repository_ingestion.application.service import RepositoryIngestionService
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    service = build_refresh_all_service(project_root=tmp_path)
+    ingest_service = service._ingest_service_factory("repo-abc")
+
+    assert isinstance(ingest_service, RepositoryIngestionService)
+    assert ingest_service._repository_id == "repo-abc"

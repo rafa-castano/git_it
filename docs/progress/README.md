@@ -35,6 +35,7 @@ One file per batch, organized by feature area.
 - [Batch 132 — Project-doc capture wired into RepositoryIngestionService (spec 025, slice 3)](ingestion/batch-132-project-doc-service-wiring.md)
 - [Batch 138 — GitHub Releases and Security Advisories REST fetchers (spec 026, slice 2)](ingestion/batch-138-releases-advisories-fetchers.md)
 - [Batch 140 — Release/Advisory evidence persistence stores (spec 026, slice 4)](ingestion/batch-140-releases-advisories-stores.md)
+- [Batch 150 — RefreshAllService application service (spec 028, slice 1)](ingestion/batch-150-refresh-all-service.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

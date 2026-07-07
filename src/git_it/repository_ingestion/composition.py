@@ -28,6 +28,7 @@ from git_it.repository_ingestion.application.ports import (
     ProjectDocReader,
     ProjectDocWriter,
 )
+from git_it.repository_ingestion.application.refresh_all_service import RefreshAllService
 from git_it.repository_ingestion.application.release_summarizer import ReleaseSummarizer
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
 from git_it.repository_ingestion.infrastructure.commits import (
@@ -392,6 +393,34 @@ def build_repository_ingestion_service(
         default_branch_writer=branch_writer,
         project_doc_reader=doc_reader,
         project_doc_writer=doc_writer,
+    )
+
+
+def build_refresh_all_service(
+    *,
+    project_root: Path,
+) -> RefreshAllService:
+    """Backend-aware factory for the spec 028 refresh-all service.
+
+    Wires ``build_repository_list_reader`` (enumeration) with a per-repository
+    ``RepositoryIngestionService`` factory closure over ``build_repository_ingestion_service``
+    -- that builder requires a ``repository_id`` per call (its git cache path and run/commit
+    stores are repository-scoped), so ``RefreshAllService`` is given a callable rather than
+    one pre-built instance, mirroring how ``_ingest_bg`` builds a fresh service per ingest
+    call. This factory never wires any analysis/narrative/summarizer collaborator -- the
+    free-only lock (spec 028 Goal 3a) holds structurally, not just by convention.
+    """
+    list_reader = build_repository_list_reader(project_root=project_root)
+
+    def ingest_service_factory(repository_id: str) -> RepositoryIngestionService:
+        return build_repository_ingestion_service(
+            project_root=project_root,
+            repository_id=repository_id,
+        )
+
+    return RefreshAllService(
+        repository_list_reader=list_reader,
+        ingest_service_factory=ingest_service_factory,
     )
 
 
