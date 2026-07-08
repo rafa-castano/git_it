@@ -37,6 +37,7 @@ One file per batch, organized by feature area.
 - [Batch 140 — Release/Advisory evidence persistence stores (spec 026, slice 4)](ingestion/batch-140-releases-advisories-stores.md)
 - [Batch 150 — RefreshAllService application service (spec 028, slice 1)](ingestion/batch-150-refresh-all-service.md)
 - [Batch 151 — `refresh-all` CLI command (spec 028, slice 2)](ingestion/batch-151-refresh-all-cli.md)
+- [Batch 154 — Spec 028 closure (refresh all repositories)](ingestion/batch-154-spec-028-closure.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

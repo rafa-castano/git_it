@@ -124,5 +124,7 @@ between what's specified and what's shipped:
   `docs/specs/027-embedding-backfill.md`.
 - **Spec 028 — Refresh All Repositories**: a user-triggered "refresh all"
   action that fetches new commits (fetch + extract only, no analysis) for every
-  tracked repository without re-pasting each URL. No scheduler. Not yet built.
-  See `docs/specs/028-refresh-all-repositories.md`.
+  tracked repository without re-pasting each URL. No scheduler. Implemented
+  (batches 150–153): the `RefreshAllService`, the `git-it refresh-all` CLI
+  command, the `POST /api/repos/refresh-all` endpoint, and the "Refresh all"
+  home dashboard button. See `docs/specs/028-refresh-all-repositories.md`.

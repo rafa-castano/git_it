@@ -1,6 +1,6 @@
 # Feature Spec: Refresh All Repositories (Fetch New Commits Without Re-Pasting the URL)
 
-**Status:** Draft
+**Status:** Implemented
 **Spec number:** 028
 **Author:** Rafael Castaño
 **Date:** 2026-07-07

@@ -73,7 +73,7 @@ That's it. The two actions are deliberately separate: **Analyze on the home page
 
 ## Everyday use
 
-- **Add new commits from GitHub** — paste the same repository URL on the home page again. Git It runs `git fetch` to update the local cache, then click **+ Analyze** to process the pending commits.
+- **Add new commits from GitHub** — paste the same repository URL on the home page again. Git It runs `git fetch` to update the local cache, then click **+ Analyze** to process the pending commits. To refresh **every** tracked repository at once without re-pasting URLs, use the **Refresh all** button on the home page or `git-it refresh-all` — it fetches and re-extracts commit facts for all repos (free, no LLM calls); new commits land unanalyzed, ready for **+ Analyze**.
 - **Ask** — the Ask tab answers from stored commits, patterns, contributors and case studies (needs `ANTHROPIC_API_KEY`). Add `OPENAI_API_KEY` to also enable **semantic search** over embedded summaries. Embeddings are created *during analysis*; if you add `OPENAI_API_KEY` **after** already analyzing a repo, backfill the missing embeddings with `git-it backfill-embeddings <repo>` or the **Enable semantic search** button on the repository page — no need to re-analyze.
 - **Case study audience** — switching audience in the Case Study tab reuses a cached narrative or regenerates one (an LLM call).
 - **Delete** — removes Git It's stored analysis for a repository. It never touches the upstream GitHub repo.
