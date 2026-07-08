@@ -32,6 +32,7 @@ from git_it.api.schemas import (
     ContributorItem,
     ContributorsResponse,
     DeleteRepoResponse,
+    FilePathsResponse,
     IngestRequest,
     IngestResponse,
     PatternReportResponse,
@@ -59,6 +60,7 @@ from git_it.repository_ingestion.composition import (
     build_embedding_backfill_service,
     build_embedding_client,
     build_embedding_store,
+    build_file_tree_store,
     build_ingestion_run_store,
     build_narrative_service,
     build_refresh_all_service,
@@ -629,6 +631,30 @@ def get_commits(
         )
 
     return CommitsResponse(repository_id=repository_id, commits=commits, total=total)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/repos/{repository_id}/file-paths (spec 029, slice 2)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{repository_id}/file-paths", response_model=FilePathsResponse)
+def get_file_paths(repository_id: str, project_root: ProjectRoot) -> FilePathsResponse:
+    """A repository's verified-safe tracked file paths, fetched lazily (spec 029).
+
+    Unlike most repo-scoped reads, this never 404s on an unknown or
+    tree-less repository: a repository ingested before this feature (or never
+    refreshed) simply has no captured tree, so it returns ``{"paths": []}`` with
+    200 (spec 029 AC-05). The frontend then renders no verified file links —
+    never a broken link. The homepage ``GET /api/repos`` list stays unchanged:
+    the tree is repo-scoped and potentially large, so it rides only on this
+    lazy per-repo endpoint.
+    """
+    if not database_is_provisioned(project_root=project_root):
+        return FilePathsResponse(paths=[])
+
+    store = build_file_tree_store(project_root=project_root)
+    return FilePathsResponse(paths=store.get_file_paths(repository_id))
 
 
 # ---------------------------------------------------------------------------

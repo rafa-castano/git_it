@@ -1432,3 +1432,76 @@ def test_get_patterns_returns_200_empty_for_known_repo_with_no_data(
     assert response.status_code == 200
     body = response.json()
     assert body["hotspots"] == []
+
+
+# ---------------------------------------------------------------------------
+# GET /api/repos/{id}/file-paths (spec 029, slice 2)
+# ---------------------------------------------------------------------------
+
+
+def test_get_file_paths_returns_stored_paths(tmp_path: Path) -> None:
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteFileTreeStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    tree_store = SqliteFileTreeStore(db)
+    tree_store.initialize()
+    tree_store.save_file_paths(
+        "repo-abc",
+        [
+            "src/git_it/repository_ingestion/application/ports.py",
+            "tests/unit/test_api_repos.py",
+        ],
+    )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/file-paths")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["paths"] == [
+        "src/git_it/repository_ingestion/application/ports.py",
+        "tests/unit/test_api_repos.py",
+    ]
+
+
+def test_get_file_paths_empty_for_repo_without_tree(client_with_repo: TestClient) -> None:
+    """A repository with no stored file tree (pre-existing, never refreshed)
+    returns an empty list with 200 — not a 404 (spec 029 AC-05)."""
+    response = client_with_repo.get("/api/repos/repo-abc/file-paths")
+    assert response.status_code == 200
+    assert response.json()["paths"] == []
+
+
+def test_get_file_paths_empty_for_unknown_repo(client_empty: TestClient) -> None:
+    """An unknown repository_id returns an empty list with 200, not an error
+    (spec 029 AC-05)."""
+    response = client_empty.get("/api/repos/repo-does-not-exist/file-paths")
+    assert response.status_code == 200
+    assert response.json()["paths"] == []
+
+
+def test_list_repos_does_not_include_file_paths(tmp_path: Path) -> None:
+    """The homepage list endpoint must NOT ship file paths (spec 029 §3/AC-05):
+    the file tree is repo-scoped and potentially large, exposed lazily only."""
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteFileTreeStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db, repository_id="repo-abc")
+    tree_store = SqliteFileTreeStore(db)
+    tree_store.initialize()
+    tree_store.save_file_paths("repo-abc", ["src/main.py"])
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos")
+
+    assert response.status_code == 200
+    repo = response.json()["repos"][0]
+    assert "paths" not in repo
+    assert "file_paths" not in repo

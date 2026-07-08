@@ -988,6 +988,9 @@ function selectRepo(repoId) {
   _analyzePrefetch = null;
   clearUpdatedTabs();
   currentRepoMeta = reposCache.find(r => r.repository_id === repoId) || null;
+  // Spec 029: warm the verified file-path cache so the streaming Ask tab (which
+  // reads it synchronously) has it ready; loadCaseStudy also awaits the same call.
+  _loadFilePathSet(repoId);
 
   document.querySelectorAll('.repo-item').forEach(el =>
     el.classList.toggle('active', el.dataset.id === repoId)
@@ -2044,10 +2047,6 @@ function _linkifyCommitShas(html, canonicalUrl) {
 // rejected rather than escaped, since these strings are untrusted (LLM
 // narrative text / repository content per CODEX.md).
 const _PATH_SAFE_CHARSET = /^[A-Za-z0-9._/-]+$/;
-const _LINKABLE_EXTENSIONS = [
-  '.py', '.ts', '.tsx', '.js', '.md', '.json', '.toml', '.yml', '.yaml',
-  '.css', '.html', '.sql', '.txt', '.cfg', '.ini', '.sh'
-];
 
 function _isSafePathLikeString(text) {
   if (!text) return false;
@@ -2070,22 +2069,42 @@ function isLinkablePath(text) {
   return text.includes('/');
 }
 
-function _isFolderPath(text) {
-  if (text.endsWith('/')) return true;
-  const lower = text.toLowerCase();
-  return !_LINKABLE_EXTENSIONS.some(ext => lower.endsWith(ext));
+/** Spec 029: verify a candidate path span against the repository's verified
+ * file-path Set (the tree captured from `git ls-tree`). Returns 'file' when the
+ * span is an EXACT tree member, 'folder' when it is a strict directory prefix of
+ * at least one member (a trailing-slash span like `tests/` uses that prefix
+ * directly), or null when unverified — an unverified span stays plain <code>, so
+ * we never emit a broken link (spec 029 AC-06). */
+function _verifyTreePath(text, filePathSet) {
+  if (filePathSet.has(text)) return 'file';
+  const prefix = text.endsWith('/') ? text : `${text}/`;
+  for (const member of filePathSet) {
+    if (member.startsWith(prefix)) return 'folder';
+  }
+  return null;
 }
 
-/** Builds a GitHub blob/tree URL for a validated path-like string. Caller
- * must have already checked isLinkablePath(path) and that branch is safe. */
-function _pathToGithubUrl(path, canonicalUrl, branch) {
-  const kind = _isFolderPath(path) ? 'tree' : 'blob';
-  const encodedPath = path
+/** Visible link text: the basename (last non-empty path segment). A trailing
+ * slash is preserved so a folder span like `tests/` still reads as `tests/`,
+ * while `.../ports.py` reads as `ports.py` (spec 029 §8). */
+function _pathBasename(path) {
+  const segments = path.split('/').filter(segment => segment.length > 0);
+  const last = segments.length ? segments[segments.length - 1] : path;
+  return path.endsWith('/') ? `${last}/` : last;
+}
+
+/** Builds a GitHub blob/tree URL for a tree-verified path. `kind` comes from
+ * _verifyTreePath ('file' -> blob, 'folder' -> tree); the caller must have
+ * checked isLinkablePath(path) and that branch is safe. */
+function _pathToGithubUrl(path, canonicalUrl, branch, kind) {
+  const segment = kind === 'folder' ? 'tree' : 'blob';
+  let encodedPath = path
     .split('/')
-    .filter(segment => segment.length > 0)
+    .filter(part => part.length > 0)
     .map(encodeURIComponent)
     .join('/');
-  return `${canonicalUrl}/${kind}/${encodeURIComponent(branch)}/${encodedPath}`;
+  if (path.endsWith('/')) encodedPath += '/';
+  return `${canonicalUrl}/${segment}/${encodeURIComponent(branch)}/${encodedPath}`;
 }
 
 /** Spec 020: rewrite backtick-wrapped, path-plausible inline <code> spans into
@@ -2100,15 +2119,30 @@ function _pathToGithubUrl(path, canonicalUrl, branch) {
  * Only bare `<code>` spans are matched (marked.js renders fenced blocks as
  * `<pre><code ...>`), and the `(?<!<pre>)` guard excludes the one case where a
  * fenced block with no language hint would otherwise look identical
- * (`<pre><code>...</code></pre>`). */
-function _linkifyPaths(html, canonicalUrl, defaultBranch) {
+ * (`<pre><code>...</code></pre>`).
+ *
+ * Spec 029: `filePathSet` is the repository's verified file-path Set (from
+ * GET /api/repos/{id}/file-paths). A span links ONLY when it (a) still passes
+ * isLinkablePath AND (b) is tree-verified by _verifyTreePath (exact member =>
+ * file/blob, directory prefix of a member => folder/tree). Unverified spans stay
+ * plain <code> — never a broken link. The visible text is shortened to the
+ * basename and the full path goes in title= (both escaped via esc()). If the
+ * set is empty/absent, or the branch/URL are unusable, the html is returned
+ * unchanged (AC-07). */
+function _linkifyPaths(html, canonicalUrl, defaultBranch, filePathSet) {
   if (!canonicalUrl || !canonicalUrl.includes('github.com')) return html;
   if (!defaultBranch || !_isSafePathLikeString(defaultBranch)) return html;
+  if (!filePathSet || filePathSet.size === 0) return html;
   return html.replace(/(?<!<pre>)<code>([^<]*)<\/code>/g, (match, text) => {
     if (!isLinkablePath(text)) return match;
-    const url = _pathToGithubUrl(text, canonicalUrl, defaultBranch);
-    const kindLabel = _isFolderPath(text) ? 'folder' : 'file';
-    return `<a href="${url}" target="_blank" rel="noopener" title="View ${kindLabel} on GitHub" style="font-family:monospace">${esc(text)}</a>`;
+    const kind = _verifyTreePath(text, filePathSet);
+    if (!kind) return match;
+    // Defense in depth (spec 029 §12): re-validate the safe charset before the
+    // verified path is interpolated into a URL, even though the tree set was
+    // already charset-filtered server-side.
+    if (!_isSafePathLikeString(text)) return match;
+    const url = _pathToGithubUrl(text, canonicalUrl, defaultBranch, kind);
+    return `<a href="${url}" target="_blank" rel="noopener" title="${esc(text)}" style="font-family:monospace">${esc(_pathBasename(text))}</a>`;
   });
 }
 
@@ -2119,7 +2153,37 @@ function _linkifyPaths(html, canonicalUrl, defaultBranch) {
 function _linkifyAskAnswerHtml(html) {
   const canonicalUrl = currentRepoMeta ? currentRepoMeta.canonical_url : null;
   const defaultBranch = currentRepoMeta ? currentRepoMeta.default_branch : null;
-  return _linkifyPaths(_linkifyCommitShas(html, canonicalUrl), canonicalUrl, defaultBranch);
+  const filePathSet = _getFilePathSet(currentRepo);
+  return _linkifyPaths(_linkifyCommitShas(html, canonicalUrl), canonicalUrl, defaultBranch, filePathSet);
+}
+
+/* =========================================================
+   Spec 029: verified file-path set (lazy per-repo fetch + cache)
+   ========================================================= */
+const _filePathSetCache = {};
+
+/** Lazily fetch and cache the repository's verified file-path Set from
+ * GET /api/repos/{id}/file-paths. Fetched once per repo and reused on every
+ * re-render (no refetch). A failed or empty response caches an empty Set, so
+ * path-linking degrades to plain code (spec 029 AC-07) instead of erroring. */
+async function _loadFilePathSet(repoId) {
+  if (_filePathSetCache[repoId]) return _filePathSetCache[repoId];
+  let paths = [];
+  try {
+    const data = await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/file-paths`);
+    paths = Array.isArray(data.paths) ? data.paths : [];
+  } catch {
+    paths = [];
+  }
+  const set = new Set(paths);
+  _filePathSetCache[repoId] = set;
+  return set;
+}
+
+/** The cached verified file-path Set for a repo, or an empty Set if it has not
+ * been loaded yet (synchronous callers such as streaming Ask answers). */
+function _getFilePathSet(repoId) {
+  return _filePathSetCache[repoId] || new Set();
 }
 
 async function loadCaseStudy(repoId) {
@@ -2192,10 +2256,14 @@ async function loadCaseStudy(repoId) {
   // Spec 020: linkify file/folder paths in <code> spans — must run AFTER SHA
   // linking (see _linkifyPaths' doc comment for why the order matters).
   const defaultBranch = currentRepoMeta ? currentRepoMeta.default_branch : null;
+  // Spec 029: lazily fetch (once) and cache the repo's verified file-path set so
+  // _linkifyPaths only links tree-verified paths. Empty set => no links (AC-07).
+  const filePathSet = await _loadFilePathSet(repoId);
   const linkedTabPanels = _linkifyPaths(
     _linkifyCommitShas(tabPanels, canonicalUrl),
     canonicalUrl,
-    defaultBranch
+    defaultBranch,
+    filePathSet
   );
 
   el.innerHTML = `

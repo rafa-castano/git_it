@@ -93,6 +93,11 @@ History, or Security Advisories blocks must repeat the exact `source:` URL given
 item, and you must not state a claim derived from any of those blocks for which no source URL \
 was provided.
 
+When you reference a file or folder, write it as its full repository-relative \
+path in backticks exactly as it appears in the repository data (for example, \
+`src/git_it/repository_ingestion/application/ports.py`, not `ports.py`). Use a \
+bare filename only when the full path is genuinely unknown.
+
 {synopsis_instruction}"""
 
 _BASE_INCREMENTAL_PROMPT = """\
@@ -119,6 +124,11 @@ commit. Do not overstate intent. Any claim derived from the Discussion Evidence,
 History, or Security Advisories blocks must repeat the exact `source:` URL given for that \
 item, and you must not state a claim derived from any of those blocks for which no source URL \
 was provided.
+
+When you reference a file or folder, write it as its full repository-relative \
+path in backticks exactly as it appears in the repository data (for example, \
+`src/git_it/repository_ingestion/application/ports.py`, not `ports.py`). Use a \
+bare filename only when the full path is genuinely unknown.
 
 {synopsis_instruction}"""
 

@@ -328,6 +328,27 @@ def test_delete_repo_removes_default_branch_row(tmp_path: Path) -> None:
     assert branch_store.get_default_branch("repo-abc") is None
 
 
+def test_delete_repo_removes_file_tree_rows(tmp_path: Path) -> None:
+    """DELETE removes the repository's repository_files rows too (spec 029)."""
+    from git_it.api.app import create_app
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteFileTreeStore
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_ingestion_run(db)
+    tree_store = SqliteFileTreeStore(db)
+    tree_store.initialize()
+    tree_store.save_file_paths("repo-abc", ["README.md", "src/app.py"])
+    assert tree_store.get_file_paths("repo-abc") != []
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+
+    response = client.delete("/api/repos/repo-abc")
+    assert response.status_code == 200
+    assert tree_store.get_file_paths("repo-abc") == []
+
+
 def test_delete_repo_with_minimal_db_succeeds(tmp_path: Path) -> None:
     """DELETE succeeds when only ingestion_runs exists (no optional tables).
 

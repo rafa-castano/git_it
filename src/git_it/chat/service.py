@@ -122,6 +122,11 @@ directly (for example, never write "backed by evidence.The next commit", write
 "backed by evidence. The next commit" instead). Do not leave more than one
 blank line between paragraphs, list items, or headings.
 
+FILE REFERENCES: When you mention a file or folder, write it as its full
+repository-relative path in backticks exactly as it appears in the tool results
+(for example, `src/git_it/repository_ingestion/application/ports.py`, not
+`ports.py`). Use a bare filename only when the full path is genuinely unknown.
+
 If you use search_similar_commits, always cite each result's evidence_ref when
 reporting it.
 """

@@ -96,6 +96,21 @@ tests, a deterministic safety net also runs:
   streaming path. The two implementations must stay in sync; each carries a
   code comment pointing at the other.
 
+## File-path reference rule (spec 029, AC-09)
+
+> FILE REFERENCES: When you mention a file or folder, write it as its full
+> repository-relative path in backticks exactly as it appears in the tool
+> results (for example, `src/git_it/repository_ingestion/application/ports.py`,
+> not `ports.py`). Use a bare filename only when the full path is genuinely
+> unknown.
+
+This grounds spec 029's tree-verified linking: the frontend links a backtick
+path span only when that exact path is a member of the repository's captured
+file tree, so a bare basename for a nested file never becomes a link (it would
+otherwise mislink to the repo root — a 404). The instruction's presence in
+`SYSTEM_PROMPT` is asserted offline by
+`tests/unit/test_chat_service.py::test_system_prompt_requests_full_repository_relative_file_paths`.
+
 ## Semantic-search citation rule (spec 023)
 
 > If you use search_similar_commits, always cite each result's evidence_ref

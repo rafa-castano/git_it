@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import Literal
 
 import pytest
 
@@ -68,7 +69,7 @@ def _make_item(
 def _make_discussion_evidence(
     discussion_id: str = "d1",
     discussion_url: str = "https://github.com/owner/repo/discussions/1",
-    claim_type: str = "design_rationale",
+    claim_type: Literal["design_rationale", "pain_point"] = "design_rationale",
     summary: str = "The team chose SQLite for local dev simplicity.",
 ) -> DiscussionEvidence:
     return DiscussionEvidence(
@@ -707,6 +708,50 @@ def test_both_system_prompts_instruct_discussion_source_url_fidelity() -> None:
     incremental_lowered = incremental_system_text.lower()
     assert "discussion evidence" in incremental_lowered
     assert "source" in incremental_lowered
+
+
+def test_both_system_prompts_request_full_repository_relative_file_paths() -> None:
+    # Spec 029 AC-09: both the initial and incremental narrative prompts must
+    # instruct the model to reference files as their full repository-relative
+    # path in backticks, not a bare basename.
+    service, client = _make_service(items=[_make_item()])
+    service.generate("repo-1")
+    system_text = next(m.content for m in client.calls[0] if m.role == "system")
+    assert "full repository-relative" in system_text.lower()
+    assert "`ports.py`" in system_text  # the discouraged bare-basename example
+    assert "genuinely unknown" in system_text.lower()
+
+    incremental_client = FakeLLMClient()
+    incremental_service = NarrativeService(
+        temporal_reader=FakeTemporalReader(
+            [
+                _make_item(date="2024-01-01T00:00:00"),
+                _make_item(sha="def5678", date="2024-06-01T00:00:00"),
+            ]
+        ),
+        pattern_service=FakePatternService(),
+        llm_client=incremental_client,
+    )
+    existing = CaseStudyRecord(
+        repository_id="repo-1",
+        narrative="Existing narrative",
+        commit_count=1,
+        hotspot_count=0,
+        generated_at="2024-01-02T00:00:00",
+        audience="beginner",
+    )
+    incremental_service._generate_incremental(
+        "repo-1",
+        new_items=[_make_item(sha="def5678", date="2024-06-01T00:00:00")],
+        existing=existing,
+    )
+    incremental_system_text = next(
+        m.content for m in incremental_client.calls[0] if m.role == "system"
+    )
+    incremental_lowered = incremental_system_text.lower()
+    assert "full repository-relative" in incremental_lowered
+    assert "`ports.py`" in incremental_system_text
+    assert "genuinely unknown" in incremental_lowered
 
 
 # ---------------------------------------------------------------------------

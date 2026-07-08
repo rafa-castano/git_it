@@ -703,3 +703,80 @@ def test_static_app_js_arch_pattern_highlight_excludes_engineering_lessons(
     assert "_renderSectionCards(s.content, s.title)" in text
     # The isArchPattern computation is gated by the section title.
     assert "sectionTitle !== 'Engineering Lessons'" in text
+
+
+def test_static_app_js_linkify_paths_takes_file_path_set(tmp_path: Path) -> None:
+    # Spec 029 AC-06/AC-07: _linkifyPaths now receives the repo's verified
+    # file-path Set as a fourth argument, and an empty/absent set disables linking.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "function _linkifyPaths(html, canonicalUrl, defaultBranch, filePathSet)" in text
+    # AC-07: no set (or empty) => html returned unchanged, no links.
+    assert "if (!filePathSet || filePathSet.size === 0) return html;" in text
+
+
+def test_static_app_js_linkify_paths_verifies_against_tree(tmp_path: Path) -> None:
+    # Spec 029 AC-06: a file span must be an EXACT member of the set; a folder
+    # span must be a directory prefix of at least one member. Unverified => plain.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    verify = text.split("function _verifyTreePath(text, filePathSet) {", 1)[1].split(
+        "\n}",
+        1,
+    )[0]
+    # Exact set membership => 'file'.
+    assert "filePathSet.has(text)" in verify
+    assert "return 'file';" in verify
+    # Directory prefix of a member => 'folder' (trailing-slash spans reuse the prefix).
+    assert "text.endsWith('/') ? text : `${text}/`" in verify
+    assert "member.startsWith(prefix)" in verify
+    assert "return 'folder';" in verify
+
+    # _linkifyPaths only links when _verifyTreePath returns a kind; else plain code.
+    linkify = text.split("function _linkifyPaths(", 1)[1]
+    assert "const kind = _verifyTreePath(text, filePathSet);" in linkify
+    assert "if (!kind) return match;" in linkify
+
+
+def test_static_app_js_linkify_paths_shows_basename_with_full_path_title(
+    tmp_path: Path,
+) -> None:
+    # Spec 029 AC-06/§12: visible text is the basename, the full path goes in
+    # title=, and BOTH are escaped via esc() (escaping must not be weakened).
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    basename = text.split("function _pathBasename(path) {", 1)[1].split("\n}", 1)[0]
+    assert "segments[segments.length - 1]" in basename
+    # Trailing slash preserved so `tests/` still reads as `tests/`.
+    assert "path.endsWith('/') ? `${last}/` : last;" in basename
+
+    # The anchor renders the escaped basename as text and the escaped full path in title=.
+    assert 'title="${esc(text)}"' in text
+    assert "${esc(_pathBasename(text))}</a>" in text
+
+
+def test_static_app_js_fetches_and_caches_file_paths_per_repo(tmp_path: Path) -> None:
+    # Spec 029: the file-path set is fetched lazily from /file-paths once per repo
+    # and cached client-side keyed by repository id (no refetch on re-render).
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "/file-paths" in text
+    loader = text.split("async function _loadFilePathSet(repoId) {", 1)[1].split(
+        "\n}",
+        1,
+    )[0]
+    # Return the cached set if already loaded (per-repo cache, no refetch).
+    assert "if (_filePathSetCache[repoId]) return _filePathSetCache[repoId];" in loader
+    assert "await apiFetch(`/api/repos/${encodeURIComponent(repoId)}/file-paths`)" in loader
+    assert "new Set(paths)" in loader
+    assert "_filePathSetCache[repoId] = set;" in loader
+    # loadCaseStudy awaits the set and passes it into _linkifyPaths.
+    assert "const filePathSet = await _loadFilePathSet(repoId);" in text

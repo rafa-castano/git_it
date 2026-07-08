@@ -48,6 +48,8 @@ __all__ = [
     "FileFactReader",
     "FileFactWriter",
     "FileOwnershipRecord",
+    "FileTreeReader",
+    "FileTreeWriter",
     "GitGateway",
     "GitGatewayError",
     "GithubContext",
@@ -142,6 +144,24 @@ class DefaultBranchReader(Protocol):
 
 class DefaultBranchWriter(Protocol):
     def save_default_branch(self, repository_id: str, default_branch: str) -> None: ...
+
+
+class FileTreeReader(Protocol):
+    """Reads a repository's tracked file paths from its local clone (spec 029).
+
+    Lists the paths at the default-branch tip via ``git ls-tree`` — token-
+    independent, no GitHub API call. Every path is filtered against the fixed
+    safe charset before it is returned (repository content is untrusted input).
+    Never raises — every failure mode (missing/corrupt clone, git error)
+    degrades to an empty list, matching the "no tree -> no linking" acceptable
+    degradation documented in the spec.
+    """
+
+    def read_file_paths(self) -> list[str]: ...
+
+
+class FileTreeWriter(Protocol):
+    def save_file_paths(self, repository_id: str, paths: list[str]) -> None: ...
 
 
 class ProjectDocReader(Protocol):

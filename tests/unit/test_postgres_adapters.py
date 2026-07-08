@@ -36,6 +36,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresDiscussionEvidenceStore,
     PostgresEmbeddingStore,
     PostgresFileFactStore,
+    PostgresFileTreeStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
     PostgresProjectDocStore,
@@ -411,6 +412,29 @@ def test_postgres_default_branch_store_upsert_overwrites(conninfo: str) -> None:
     store.save_default_branch("pg-repo-18", "main")
     store.save_default_branch("pg-repo-18", "develop")
     assert store.get_default_branch("pg-repo-18") == "develop"
+
+
+# ---------------------------------------------------------------------------
+# Spec 029 — file tree store
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_file_tree_store_returns_empty_when_absent(conninfo: str) -> None:
+    store = PostgresFileTreeStore(conninfo)
+    assert store.get_file_paths("pg-repo-ft-1") == []
+
+
+def test_postgres_file_tree_store_roundtrips(conninfo: str) -> None:
+    store = PostgresFileTreeStore(conninfo)
+    store.save_file_paths("pg-repo-ft-2", ["README.md", "src/app.py"])
+    assert set(store.get_file_paths("pg-repo-ft-2")) == {"README.md", "src/app.py"}
+
+
+def test_postgres_file_tree_store_replaces_previous_snapshot(conninfo: str) -> None:
+    store = PostgresFileTreeStore(conninfo)
+    store.save_file_paths("pg-repo-ft-3", ["old/gone.py", "keep.py"])
+    store.save_file_paths("pg-repo-ft-3", ["keep.py", "new/added.py"])
+    assert set(store.get_file_paths("pg-repo-ft-3")) == {"keep.py", "new/added.py"}
 
 
 # ---------------------------------------------------------------------------

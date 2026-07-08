@@ -152,6 +152,23 @@ own enum) rather than `claim_type` — deliberately, so a prompt-injected adviso
 cannot inflate or deflate the reported severity by construction. When there is no evidence (no
 reader configured, or the reader returns an empty list), the block is omitted entirely.
 
+## File-path reference rule (spec 029, AC-09)
+
+Both `_BASE_PROMPT` and `_BASE_INCREMENTAL_PROMPT` instruct the model that, when it references a
+file or folder, it must write it as its **full repository-relative path** in backticks, exactly
+as the path appears in the `[REPOSITORY DATA]` (the `## Hotspot Files` block injects the full
+`file_path` values) — for example `` `src/git_it/repository_ingestion/application/ports.py` ``,
+not `` `ports.py` ``. A bare filename is allowed only when the full path is genuinely unknown.
+
+This grounds spec 029's tree-verified linking: the frontend links a backtick path span only when
+that exact path is a member of the repository's captured file tree, so a bare basename for a
+nested file never becomes a link (it would otherwise mislink to the repo root — a 404). Because
+prompt text alone cannot be verified by unit tests, the instruction's presence in both prompts is
+asserted offline by `tests/unit/test_narrative_service.py`
+(`test_both_system_prompts_request_full_repository_relative_file_paths`), and its effect on real
+LLM output is measured by the live-LLM eval `evals/file_path_linking_eval.py`
+(referenced files appear as full paths; no banned bare-basename backtick span).
+
 ## Rule
 
 The LLM may synthesize and explain, but every major claim must cite at least one supporting

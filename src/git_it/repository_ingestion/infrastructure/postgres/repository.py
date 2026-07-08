@@ -70,6 +70,7 @@ class PostgresRepositoryDeleter:
                 "repository_synopsis",
                 "repo_metadata",
                 "default_branch_metadata",
+                "repository_files",
                 "project_docs",
                 "discussion_evidence",
                 "embedding_vectors",

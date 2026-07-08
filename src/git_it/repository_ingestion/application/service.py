@@ -9,6 +9,8 @@ from git_it.repository_ingestion.application.ports import (
     DefaultBranchReader,
     DefaultBranchWriter,
     FileFactWriter,
+    FileTreeReader,
+    FileTreeWriter,
     GitGateway,
     GitGatewayError,
     IngestionRunRecord,
@@ -52,6 +54,8 @@ class RepositoryIngestionService:
         clock: Callable[[], str] | None = None,
         default_branch_reader: DefaultBranchReader | None = None,
         default_branch_writer: DefaultBranchWriter | None = None,
+        file_tree_reader: FileTreeReader | None = None,
+        file_tree_writer: FileTreeWriter | None = None,
         project_doc_reader: ProjectDocReader | None = None,
         project_doc_writer: ProjectDocWriter | None = None,
     ) -> None:
@@ -65,6 +69,8 @@ class RepositoryIngestionService:
         self._clock = clock or (lambda: datetime.now(UTC).isoformat())
         self._default_branch_reader = default_branch_reader
         self._default_branch_writer = default_branch_writer
+        self._file_tree_reader = file_tree_reader
+        self._file_tree_writer = file_tree_writer
         self._project_doc_reader = project_doc_reader
         self._project_doc_writer = project_doc_writer
 
@@ -118,6 +124,11 @@ class RepositoryIngestionService:
                 self._default_branch_writer.save_default_branch(
                     self._repository_id or "", default_branch
                 )
+
+        if self._file_tree_reader is not None:
+            file_paths = self._file_tree_reader.read_file_paths()
+            if self._file_tree_writer is not None:
+                self._file_tree_writer.save_file_paths(self._repository_id or "", file_paths)
 
         if self._project_doc_reader is not None:
             project_docs = self._project_doc_reader.get_project_docs(self._repository_id or "")

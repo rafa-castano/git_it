@@ -61,6 +61,17 @@ class CommitsResponse(BaseModel):
     total: int
 
 
+class FilePathsResponse(BaseModel):
+    """A repository's verified-safe tracked file paths (spec 029, slice 2).
+
+    Fetched lazily per repository via ``GET /api/repos/{id}/file-paths`` — kept
+    off the ``GET /api/repos`` homepage list because the file tree is repo-scoped
+    and potentially large. An absent/never-captured tree yields ``paths == []``.
+    """
+
+    paths: list[str] = []
+
+
 class HotspotItem(BaseModel):
     file_path: str
     commit_count: int

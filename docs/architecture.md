@@ -128,3 +128,11 @@ between what's specified and what's shipped:
   (batches 150–153): the `RefreshAllService`, the `git-it refresh-all` CLI
   command, the `POST /api/repos/refresh-all` endpoint, and the "Refresh all"
   home dashboard button. See `docs/specs/028-refresh-all-repositories.md`.
+- **Spec 029 — Verified File/Folder Path Linking**: grounds case-study and chat
+  file links in the repository's real file tree (captured via `git ls-tree` at
+  ingest/refresh) so a span links only when the path actually exists — superseding
+  spec 020's "link optimistically" posture with tree-verified, no-broken-link
+  linking. Implemented (batch 157): the `FileTreeReader`/`FileTreeWriter` ports +
+  `repository_files` store, `GET /api/repos/{id}/file-paths`, the tree-verified
+  `_linkifyPaths` frontend, and the full-repo-relative-path prompt rule. See
+  `docs/specs/029-verified-file-path-linking.md`.

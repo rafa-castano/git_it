@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS default_branch_metadata (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS repository_files (
+    repository_id TEXT NOT NULL,
+    path          TEXT NOT NULL,
+    PRIMARY KEY (repository_id, path)
+);
+
 CREATE TABLE IF NOT EXISTS project_docs (
     repository_id       TEXT PRIMARY KEY,
     readme_text         TEXT,

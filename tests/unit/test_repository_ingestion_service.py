@@ -471,6 +471,106 @@ def test_ingestion_service_persists_git_gateway_failure() -> None:
 
 
 # ---------------------------------------------------------------------------
+# File-tree capture (spec 029)
+# ---------------------------------------------------------------------------
+
+
+class FakeFileTreeReader:
+    def __init__(self, *, paths: list[str]) -> None:
+        self.paths = paths
+        self.call_count = 0
+
+    def read_file_paths(self) -> list[str]:
+        self.call_count += 1
+        return self.paths
+
+
+class RecordingFileTreeWriter:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, list[str]]] = []
+
+    def save_file_paths(self, repository_id: str, paths: list[str]) -> None:
+        self.calls.append((repository_id, paths))
+
+
+def test_ingestion_service_persists_file_tree_after_successful_clone() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeFileTreeReader(paths=["README.md", "src/app.py"])
+    writer = RecordingFileTreeWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        file_tree_reader=reader,
+        file_tree_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.call_count == 1
+    assert writer.calls == [("repo-1", ["README.md", "src/app.py"])]
+
+
+def test_ingestion_service_saves_empty_file_tree_snapshot() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeFileTreeReader(paths=[])
+    writer = RecordingFileTreeWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        file_tree_reader=reader,
+        file_tree_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.call_count == 1
+    assert writer.calls == [("repo-1", [])]
+
+
+def test_ingestion_service_skips_file_tree_reader_without_wiring() -> None:
+    git_gateway = SpyGitGateway()
+    service = RepositoryIngestionService(git_gateway=git_gateway, repository_id="repo-1")
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    assert result.status == "COMPLETED"
+
+
+def test_ingestion_service_does_not_read_file_tree_on_gateway_failure() -> None:
+    git_gateway = FailingGitGateway(error_code="CLONE_TIMEOUT")
+    reader = FakeFileTreeReader(paths=["README.md"])
+    writer = RecordingFileTreeWriter()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        file_tree_reader=reader,
+        file_tree_writer=writer,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.call_count == 0
+    assert writer.calls == []
+
+
+def test_ingestion_service_does_not_write_file_tree_without_writer() -> None:
+    git_gateway = SpyGitGateway()
+    reader = FakeFileTreeReader(paths=["README.md"])
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        repository_id="repo-1",
+        file_tree_reader=reader,
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    # Reader is invoked, but with no writer wired nothing is persisted and the
+    # ingestion still completes cleanly.
+    assert reader.call_count == 1
+    assert result.status == "COMPLETED"
+
+
+# ---------------------------------------------------------------------------
 # Project-doc capture (spec 025)
 # ---------------------------------------------------------------------------
 

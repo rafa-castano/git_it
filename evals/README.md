@@ -210,3 +210,58 @@ The eval exits non-zero only if the deterministic checks (no raw-text
 leakage, citation completeness, severity intact) fail; the qualitative
 severity/confidence-independence observation is reported but never fails
 the run.
+
+---
+
+## File-path linking eval (spec 029)
+
+Checks that case-study narratives reference files whose **full repository-
+relative path** is present in the prompt context (the `## Hotspot Files` block,
+which injects full `file_path` values) as **full paths** — not bare basenames —
+per `docs/specs/029-verified-file-path-linking.md` AC-09. Full paths are what
+spec 029's tree-verified linking needs: the frontend links a backtick path span
+only when that exact path is a member of the repository's captured file tree, so
+a bare basename for a nested file never becomes a link (it would otherwise
+mislink to the repo root — a 404).
+
+### How to run
+
+```bash
+uv run python evals/file_path_linking_eval.py
+```
+
+Options:
+
+```
+--model MODEL     LiteLLM model string  (default: anthropic/claude-haiku-4-5-20251001)
+--verbose         Print the full generated narrative
+```
+
+Requires an API key for the selected model (e.g. `ANTHROPIC_API_KEY`). If no key
+is configured, the eval prints a "skipped" message and exits `0` — it never
+hard-fails an environment with no LLM configured.
+
+### What it checks
+
+1. **Full-path usage** — the fixture seeds three hotspots with genuinely nested
+   paths (e.g. `src/git_it/repository_ingestion/application/ports.py`). For each
+   hotspot whose basename appears in the narrative (a proxy for "this file was
+   referenced"), the file's full path must also appear. A reference that only
+   ever names the basename fails.
+2. **No bare-basename backticks** — the banned "root basename" pattern: a
+   backtick-wrapped bare basename (e.g. `` `ports.py` ``) for a nested file must
+   not appear anywhere in the narrative. That is exactly the span spec 020 would
+   have mislinked to the repo root.
+
+Both checks are deterministic given a real LLM response — the eval exits
+non-zero if either fails.
+
+### Offline guarantee
+
+Because prompt text alone cannot be verified by unit tests, this eval requires a
+live LLM. The always-checkable offline guarantee — that the full-path
+instruction is present in **both** narrative system prompts and the chat
+`SYSTEM_PROMPT` — lives in the deterministic unit suite:
+`tests/unit/test_narrative_service.py::test_both_system_prompts_request_full_repository_relative_file_paths`
+and
+`tests/unit/test_chat_service.py::test_system_prompt_requests_full_repository_relative_file_paths`.

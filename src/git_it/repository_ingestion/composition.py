@@ -24,6 +24,8 @@ from git_it.repository_ingestion.application.ports import (
     DefaultBranchReader,
     DefaultBranchWriter,
     FileFactWriter,
+    FileTreeReader,
+    FileTreeWriter,
     LLMClient,
     ProjectDocReader,
     ProjectDocWriter,
@@ -34,6 +36,7 @@ from git_it.repository_ingestion.application.service import RepositoryIngestionS
 from git_it.repository_ingestion.infrastructure.commits import (
     GitPythonCommitExtractor,
     GitPythonDefaultBranchReader,
+    GitPythonFileTreeReader,
 )
 from git_it.repository_ingestion.infrastructure.git import (
     GitCommandRunner,
@@ -63,6 +66,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresEmbeddingStore,
     PostgresFileFactReader,
     PostgresFileFactStore,
+    PostgresFileTreeStore,
     PostgresGithubContextCache,
     PostgresIngestionRunStore,
     PostgresProjectDocStore,
@@ -90,6 +94,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteEmbeddingStore,
     SqliteFileFactReader,
     SqliteFileFactStore,
+    SqliteFileTreeStore,
     SqliteGithubContextCache,
     SqliteIngestionRunStore,
     SqliteProjectDocStore,
@@ -194,6 +199,19 @@ def build_default_branch_store(
         return PostgresDefaultBranchStore(conninfo)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteDefaultBranchStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_file_tree_store(
+    *,
+    project_root: Path,
+) -> SqliteFileTreeStore | PostgresFileTreeStore:
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresFileTreeStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteFileTreeStore(db_path)
     store.initialize()
     return store
 
@@ -328,6 +346,8 @@ def build_repository_ingestion_service(
     file_fact_writer: FileFactWriter | None = None,
     default_branch_reader: DefaultBranchReader | None = None,
     default_branch_writer: DefaultBranchWriter | None = None,
+    file_tree_reader: FileTreeReader | None = None,
+    file_tree_writer: FileTreeWriter | None = None,
     project_doc_reader: ProjectDocReader | None = None,
     project_doc_writer: ProjectDocWriter | None = None,
 ) -> RepositoryIngestionService:
@@ -372,6 +392,16 @@ def build_repository_ingestion_service(
         if default_branch_writer is not None
         else build_default_branch_store(project_root=project_root)
     )
+    tree_reader = (
+        file_tree_reader
+        if file_tree_reader is not None
+        else GitPythonFileTreeReader(cache_path=cache_path)
+    )
+    tree_writer = (
+        file_tree_writer
+        if file_tree_writer is not None
+        else build_file_tree_store(project_root=project_root)
+    )
     doc_reader = (
         project_doc_reader
         if project_doc_reader is not None
@@ -391,6 +421,8 @@ def build_repository_ingestion_service(
         run_writer=run_store,
         default_branch_reader=branch_reader,
         default_branch_writer=branch_writer,
+        file_tree_reader=tree_reader,
+        file_tree_writer=tree_writer,
         project_doc_reader=doc_reader,
         project_doc_writer=doc_writer,
     )

@@ -376,6 +376,15 @@ def test_system_prompt_requires_sentence_spacing_and_short_paragraphs() -> None:
     assert "short paragraph" in lowered or "markdown list" in lowered
 
 
+def test_system_prompt_requests_full_repository_relative_file_paths() -> None:
+    # Spec 029 AC-09: the chat prompt must ask the model to reference files as
+    # their full repository-relative path in backticks, not a bare basename.
+    lowered = SYSTEM_PROMPT.lower()
+    assert "repository-relative path" in lowered
+    assert "`ports.py`" in SYSTEM_PROMPT  # the discouraged bare-basename example
+    assert "genuinely unknown" in lowered
+
+
 def test_chat_normalizes_run_on_sentences_in_final_reply(tmp_path: Path) -> None:
     db = _db_path(tmp_path)
     _init_db(db)
