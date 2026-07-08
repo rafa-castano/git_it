@@ -267,6 +267,21 @@ def test_static_app_css_tl_day_sep_is_visually_prominent(tmp_path: Path) -> None
     assert "background: color-mix(in srgb, var(--accent)" in rule
 
 
+def test_static_app_css_scrollbars_are_theme_aware(tmp_path: Path) -> None:
+    # Dark mode: the app never styled scrollbars, so they fell back to the UA
+    # default (light-gray track/thumb) that ignored the theme — visible in the
+    # Ask tab after several exchanges. Now themed via theme vars so both
+    # scrollbar-color (Firefox) and ::-webkit-scrollbar (Chromium/WebKit) read
+    # --border/--muted and adapt to the [data-theme="light"] override for free.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.css").text
+    assert "scrollbar-color: var(--muted) transparent" in text
+    thumb = text.split("::-webkit-scrollbar-thumb {", 1)[1].split("}", 1)[0]
+    assert "background: var(--muted)" in thumb
+    assert "border-radius" in thumb
+
+
 def test_static_app_js_day_groups_default_closed_and_toggle(tmp_path: Path) -> None:
     # Commits tab: day blocks render closed by default; clicking the day
     # separator (tlDayToggle) rolls them out. Mirrors the existing tlToggle

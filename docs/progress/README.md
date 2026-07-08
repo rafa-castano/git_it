@@ -179,3 +179,4 @@ One file per batch, organized by feature area.
 - [Batch 148 — Embedding backfill dashboard button (spec 027, slice 4 — final)](ui/batch-148-backfill-embeddings-button.md)
 - [Batch 153 — "Refresh all" home dashboard button (spec 028, slice 4 — final)](ui/batch-153-refresh-all-button.md)
 - [Batch 156 — Case-study rendering fixes (SHA-attribute linkify, path linking, lessons highlight)](ui/batch-156-case-study-rendering-fixes.md)
+- [Batch 158 — Theme-aware scrollbars (dark mode)](ui/batch-158-dark-mode-scrollbar.md)

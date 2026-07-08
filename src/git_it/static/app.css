@@ -42,6 +42,16 @@
 ::placeholder { color: var(--muted); opacity: 1; }
 body { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; line-height: 1.6; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s, color 0.2s; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+/* Themed scrollbars. Unstyled, the UA-default scrollbar renders as a light-gray
+   track/thumb that ignores our dark theme (most visible in the Ask tab after a
+   long conversation). Driving both scrollbar-color (Firefox) and the
+   ::-webkit-scrollbar pseudo-elements (Chromium/WebKit) off theme vars means the
+   [data-theme="light"] override recolors them for free — no second rule set. */
+* { scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text); }
 
 /* ── Header ── */
 header { background: var(--surface); padding: 0 1.25rem; height: 52px; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 2px solid var(--accent); }
