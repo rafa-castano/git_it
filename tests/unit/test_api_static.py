@@ -659,3 +659,47 @@ def test_static_app_css_has_updated_tab_dot_indicator(tmp_path: Path) -> None:
     assert 'content: ""' in rule
     assert "border-radius: 999px" in rule
     assert "background: var(--green)" in rule
+
+
+def test_static_app_js_linkify_commit_shas_is_tag_aware(tmp_path: Path) -> None:
+    # Batch 156, bug 2: a blind whole-string replace injected an <a> into tag
+    # attribute values (e.g. a timeline node's title="...c0dab29..."), corrupting the
+    # markup. _linkifyCommitShas must now split on tags so attributes are never touched.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    # New tag-aware split: match a whole tag OR a run of non-tag text, and only
+    # linkify inside the non-tag text segments.
+    assert "/<[^>]*>|[^<]+/g" in text
+    # The old blind whole-string replace with the href-only lookbehind must be gone.
+    assert "(?<!href=" not in text
+
+
+def test_static_app_js_linkable_path_requires_a_slash(tmp_path: Path) -> None:
+    # Batch 156, bug 3: linking a bare basename like `ports.py` to /blob/<branch>/ports.py
+    # 404s when the real file is nested. Only real relative paths (containing a separator)
+    # are linkable now.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    body = text.split("function isLinkablePath(text) {", 1)[1].split("}", 1)[0]
+    assert "hasSlash || hasKnownExtension" not in body
+    assert "text.includes('/')" in body
+
+
+def test_static_app_js_arch_pattern_highlight_excludes_engineering_lessons(
+    tmp_path: Path,
+) -> None:
+    # Batch 156, bug 4: Engineering Lessons point 7 ("Streaming Changes the Architecture...")
+    # matched /architect/i and was wrongly highlighted as an architectural-pattern card.
+    # The highlight is now scoped out of the 'Engineering Lessons' section.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    # loadCaseStudy passes the section title through to _renderSectionCards.
+    assert "_renderSectionCards(s.content, s.title)" in text
+    # The isArchPattern computation is gated by the section title.
+    assert "sectionTitle !== 'Engineering Lessons'" in text

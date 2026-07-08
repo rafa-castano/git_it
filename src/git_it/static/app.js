@@ -1786,7 +1786,7 @@ function _iconForHeading(title) {
   return '📄';
 }
 
-function _renderSectionCards(content) {
+function _renderSectionCards(content, sectionTitle) {
   const lines = (content || '').split('\n');
   const cards = [];
   let current = null;
@@ -1808,8 +1808,11 @@ function _renderSectionCards(content) {
 
   return cards.map((card, i) => {
     const cleanTitle = card.title.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
-    // Fix 5: Detect architectural pattern section for special styling
-    const isArchPattern = /architect|key pattern|design pattern|structural pattern/i.test(cleanTitle);
+    // Fix 5: Detect architectural pattern section for special styling.
+    // Batch 156, bug 4: scoped out of 'Engineering Lessons' so a lesson title like
+    // "Streaming Changes the Architecture..." isn't wrongly highlighted as a pattern card.
+    const isArchPattern = sectionTitle !== 'Engineering Lessons'
+      && /architect|key pattern|design pattern|structural pattern/i.test(cleanTitle);
     const icon = isArchPattern ? '🏛' : _iconForHeading(cleanTitle);
     const body = card.lines.join('\n').trim();
     const html = renderMarkdown(body);
@@ -2023,10 +2026,15 @@ function _csSwitchTab(idx) {
 // Fix 6: Linkify commit SHAs in case study HTML
 function _linkifyCommitShas(html, canonicalUrl) {
   if (!canonicalUrl || !canonicalUrl.includes('github.com')) return html;
-  // Match 7-40 char hex strings not already inside an href attribute
-  return html.replace(/(?<!href=["'][^"']{0,200})\b([0-9a-f]{7,40})\b/gi, (match, sha) => {
-    const ghUrl = `${canonicalUrl}/commit/${sha}`;
-    return `<a href="${ghUrl}" target="_blank" rel="noopener" title="View commit ${sha} on GitHub" style="font-family:monospace;color:var(--text);text-decoration:underline">${sha}</a>`;
+  // Only linkify hex in text BETWEEN tags — never inside a tag or its attributes
+  // (e.g. a timeline node's title="…c0dab29…"). A blind whole-string replace would
+  // inject an <a> into the attribute value and corrupt the markup.
+  return html.replace(/<[^>]*>|[^<]+/g, (segment) => {
+    if (segment.charAt(0) === '<') return segment; // a tag — leave attributes untouched
+    return segment.replace(/\b([0-9a-f]{7,40})\b/gi, (match, sha) => {
+      const ghUrl = `${canonicalUrl}/commit/${sha}`;
+      return `<a href="${ghUrl}" target="_blank" rel="noopener" title="View commit ${sha} on GitHub" style="font-family:monospace;color:var(--text);text-decoration:underline">${sha}</a>`;
+    });
   });
 }
 
@@ -2056,10 +2064,10 @@ function _isSafePathLikeString(text) {
  * spans are ever considered — no free-text path detection. */
 function isLinkablePath(text) {
   if (!_isSafePathLikeString(text)) return false;
-  const hasSlash = text.includes('/');
-  const lower = text.toLowerCase();
-  const hasKnownExtension = _LINKABLE_EXTENSIONS.some(ext => lower.endsWith(ext));
-  return hasSlash || hasKnownExtension;
+  // Only link real relative paths (containing a separator). A bare basename like
+  // `ports.py` cannot be located in the repo tree — linking it to /blob/<branch>/ports.py
+  // 404s when the file is nested. Conservative per spec 020.
+  return text.includes('/');
 }
 
 function _isFolderPath(text) {
@@ -2171,7 +2179,7 @@ async function loadCaseStudy(repoId) {
       const isTl = s.title === 'Timeline';
       const body = isArch ? _renderArchTransition(s.content)
         : isTl ? _renderCsTimeline(s.content)
-        : (useCards ? _renderSectionCards(s.content) : `<div class="markdown-body">${renderMarkdown(s.content)}</div>`);
+        : (useCards ? _renderSectionCards(s.content, s.title) : `<div class="markdown-body">${renderMarkdown(s.content)}</div>`);
       tabBtns += `<button class="cs-tab-btn${i === 0 ? ' active' : ''}" onclick="_csSwitchTab(${i})" role="tab" aria-selected="${i === 0}" aria-controls="cs-sec-${i}" id="cs-btn-${i}">${esc(s.title)}</button>`;
       tabPanels += `<div class="cs-section${i === 0 ? ' active' : ''}" id="cs-sec-${i}" role="tabpanel" aria-labelledby="cs-btn-${i}" tabindex="0">${body}</div>`;
     });
