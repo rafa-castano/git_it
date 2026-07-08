@@ -155,8 +155,21 @@ class EmbeddingBackfillService:
     ) -> tuple[list[CommitAnalysis], list[DiscussionEvidence], int]:
         """Return (missing analyses, missing evidence, count already embedded)."""
         existing_keys = self._existing_keys(repository_id)
-        analyses = self._commit_analysis_reader.list_analyses(repository_id, limit=None)
-        evidence = self._discussion_evidence_reader.get_discussion_evidence(repository_id)
+        # Exclude blank/whitespace-only summaries: they are structurally non-embeddable
+        # (the embedder returns None for empty input), so counting them as "missing" made
+        # the dashboard's "Enable semantic search (N)" button reappear with the same N
+        # after every backfill. ``embed_commit_analysis`` embeds ``analysis.summary`` and
+        # ``embed_discussion_evidence`` embeds ``evidence.summary``, so we filter on those.
+        analyses = [
+            analysis
+            for analysis in self._commit_analysis_reader.list_analyses(repository_id, limit=None)
+            if (analysis.summary or "").strip()
+        ]
+        evidence = [
+            item
+            for item in self._discussion_evidence_reader.get_discussion_evidence(repository_id)
+            if (item.summary or "").strip()
+        ]
         missing_analyses = [
             analysis
             for analysis in analyses

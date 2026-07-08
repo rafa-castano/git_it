@@ -129,6 +129,7 @@ One file per batch, organized by feature area.
 - [Batch 142 — Cite release and advisory evidence in the case-study narrative (spec 026, slice 6)](analysis/batch-142-releases-advisories-narrative.md)
 - [Batch 145 — EmbeddingBackfillService and composition wiring (spec 027, slice 1)](analysis/batch-145-embedding-backfill-service.md)
 - [Batch 146 — `backfill-embeddings` CLI command (spec 027, slice 2)](analysis/batch-146-backfill-embeddings-cli.md)
+- [Batch 155 — Skip non-embeddable blank-summary items in embedding backfill count](analysis/batch-155-skip-blank-summary-backfill.md)
 
 ## Evals
 - [Batch 61 — Evaluation harness for LLM commit classification accuracy](evals/batch-61-evaluation-harness.md)

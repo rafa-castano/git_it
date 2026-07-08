@@ -310,6 +310,76 @@ def test_is_available_reflects_embedder_presence() -> None:
     assert without_embedder.is_available is False
 
 
+def test_blank_summary_commit_analysis_is_not_counted_or_embedded() -> None:
+    """Blank/whitespace-only summaries are structurally non-embeddable.
+
+    Regression (batch 155): the embedder returns None for empty input, so a blank-summary
+    item stays "missing" forever and the dashboard's "Enable semantic search (N)" button
+    reappears with the same N after every backfill. Such items must be excluded from both
+    the estimate and the embed pass.
+    """
+    repo = "repo-1"
+    analyses = [
+        _make_analysis(commit_sha="sha-blank", summary="   "),
+        _make_analysis(commit_sha="sha-real", summary="A real summary worth embedding."),
+    ]
+    store = _FakeEmbeddingStore()
+    embedder = _FakeEmbedder()
+    service = EmbeddingBackfillService(
+        commit_analysis_reader=_StubCommitAnalysisReader({repo: analyses}),
+        discussion_evidence_reader=_StubDiscussionEvidenceReader({repo: []}),
+        embedding_reader=store,
+        embedding_writer=store,
+        embedder=embedder,
+    )
+
+    assert service.estimate_backfill_calls(repo) == 1
+
+    result = service.backfill(repo)
+
+    assert embedder.commit_calls == ["sha-real"]
+    assert result.embedded == 1
+    assert {chunk.source_id for chunk in store.get_all_embeddings(repo)} == {"sha-real"}
+
+
+def test_blank_summary_discussion_evidence_is_not_counted_or_embedded() -> None:
+    """Same blank-summary exclusion (batch 155) for discussion evidence.
+
+    Confirmed in production: status permanently reported missing: 2, which were 2
+    discussion_evidence rows with blank summaries that can never be embedded.
+    """
+    repo = "repo-1"
+    evidence = [
+        _make_evidence(
+            discussion_url="https://github.com/owner/repo/discussions/1",
+            summary="  \n  ",
+        ),
+        _make_evidence(
+            discussion_url="https://github.com/owner/repo/discussions/2",
+            summary="We chose X for Y reasons.",
+        ),
+    ]
+    store = _FakeEmbeddingStore()
+    embedder = _FakeEmbedder()
+    service = EmbeddingBackfillService(
+        commit_analysis_reader=_StubCommitAnalysisReader({repo: []}),
+        discussion_evidence_reader=_StubDiscussionEvidenceReader({repo: evidence}),
+        embedding_reader=store,
+        embedding_writer=store,
+        embedder=embedder,
+    )
+
+    assert service.estimate_backfill_calls(repo) == 1
+
+    result = service.backfill(repo)
+
+    assert embedder.evidence_calls == ["https://github.com/owner/repo/discussions/2"]
+    assert result.embedded == 1
+    assert {chunk.source_id for chunk in store.get_all_embeddings(repo)} == {
+        "https://github.com/owner/repo/discussions/2"
+    }
+
+
 def test_missing_item_in_one_repository_does_not_affect_another() -> None:
     repo_a = "repo-a"
     repo_b = "repo-b"
