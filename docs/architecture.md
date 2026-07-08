@@ -136,3 +136,16 @@ between what's specified and what's shipped:
   `repository_files` store, `GET /api/repos/{id}/file-paths`, the tree-verified
   `_linkifyPaths` frontend, and the full-repo-relative-path prompt rule. See
   `docs/specs/029-verified-file-path-linking.md`.
+- **Spec 030 — Incremental Commit Extraction**: makes ingest re-extract only the
+  commits it does not already have. The service reads the stored commit SHAs
+  through a new lightweight `StoredCommitShaReader` port and passes them to the
+  extractor as a skip-set; `GitPythonCommitExtractor` skips both the
+  `ExtractedCommit` build and the expensive per-commit `git diff`
+  (`commit.stats`) for any skipped SHA, so **Refresh all** and re-ingest cost
+  tracks the number of new commits, not total history size. Append-only: stored
+  facts after an incremental ingest are identical to a full ingest of the same
+  history (orphan commits from upstream history rewrites are tolerated, not
+  pruned). Implemented (batch 159): the `StoredCommitShaReader` port,
+  `Sqlite`/`PostgresStoredCommitShaReader` adapters, the extractor skip-set, and
+  the AC-11 degrade-to-full-extraction fallback. See
+  `docs/specs/030-incremental-commit-extraction.md`.

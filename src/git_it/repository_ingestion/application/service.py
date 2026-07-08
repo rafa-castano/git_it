@@ -17,6 +17,7 @@ from git_it.repository_ingestion.application.ports import (
     IngestionRunWriter,
     ProjectDocReader,
     ProjectDocWriter,
+    StoredCommitShaReader,
 )
 from git_it.repository_ingestion.domain.failure_mapping import failure_for_error_code
 from git_it.repository_ingestion.domain.url_contract import (
@@ -58,6 +59,7 @@ class RepositoryIngestionService:
         file_tree_writer: FileTreeWriter | None = None,
         project_doc_reader: ProjectDocReader | None = None,
         project_doc_writer: ProjectDocWriter | None = None,
+        stored_commit_sha_reader: StoredCommitShaReader | None = None,
     ) -> None:
         self._git_gateway = git_gateway
         self._commit_extractor = commit_extractor
@@ -73,6 +75,7 @@ class RepositoryIngestionService:
         self._file_tree_writer = file_tree_writer
         self._project_doc_reader = project_doc_reader
         self._project_doc_writer = project_doc_writer
+        self._stored_commit_sha_reader = stored_commit_sha_reader
 
     def ingest(self, raw_url: str) -> IngestionResult:
         run_id = self._next_run_id()
@@ -140,15 +143,29 @@ class RepositoryIngestionService:
         files_inserted: int | None = None
         files_reused: int | None = None
         if self._commit_extractor is not None:
-            extracted = self._commit_extractor.extract_commits()
             repo_id = self._repository_id or ""
+            # Spec 030: read already-stored SHAs so the extractor can skip the
+            # per-commit ``git diff`` for commits we already have. A failing
+            # reader must never abort ingest (AC-11) — degrade to full extraction.
+            skip_shas: frozenset[str] = frozenset()
+            if self._stored_commit_sha_reader is not None:
+                try:
+                    skip_shas = frozenset(self._stored_commit_sha_reader.read_stored_shas(repo_id))
+                except Exception:
+                    skip_shas = frozenset()
+            extracted = self._commit_extractor.extract_commits(skip_shas)
             if self._commit_fact_writer is not None:
                 cp = self._commit_fact_writer.save_commit_facts(
                     extracted,
                     repository_id=repo_id,
                 )
                 commits_inserted = cp.inserted
-                commits_reused = cp.reused
+                # When the skip-set is in play the writer only ever sees new
+                # commits, so the meaningful "reused" count is the skip-set size
+                # (AC-07); without a reader, fall back to the writer's tally.
+                commits_reused = (
+                    len(skip_shas) if self._stored_commit_sha_reader is not None else cp.reused
+                )
             if self._file_fact_writer is not None:
                 fp = self._file_fact_writer.save_file_facts(
                     extracted,

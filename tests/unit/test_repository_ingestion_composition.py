@@ -31,7 +31,7 @@ class RecordingGitCommandRunner:
 
 
 class NullCommitExtractor:
-    def extract_commits(self) -> list[ExtractedCommit]:
+    def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
         return []
 
 
@@ -151,6 +151,24 @@ def test_build_repository_ingestion_service_wires_gitpython_extractor_by_default
     assert result.commits_reused == 0
     assert result.files_inserted is not None
     assert result.files_inserted >= 2
+
+
+def test_build_repository_ingestion_service_wires_stored_commit_sha_reader_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteStoredCommitShaReader
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    service = build_repository_ingestion_service(
+        project_root=tmp_path,
+        repository_id="repo-123",
+        runner=RecordingGitCommandRunner(),
+        commit_extractor=NullCommitExtractor(),
+    )
+
+    assert isinstance(service._stored_commit_sha_reader, SqliteStoredCommitShaReader)
 
 
 # ---------------------------------------------------------------------------

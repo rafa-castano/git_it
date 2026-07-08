@@ -180,7 +180,7 @@ def integration_client(
     # (4) Return deterministic fake commits without touching a git bare repo.
     monkeypatch.setattr(
         "git_it.repository_ingestion.infrastructure.commits.GitPythonCommitExtractor.extract_commits",
-        lambda self: FAKE_COMMITS,
+        lambda self, skip_shas=frozenset(): FAKE_COMMITS,
     )
 
     # (5) Reset the shared in-memory rate limiter before and after each test.

@@ -13,6 +13,7 @@ from .commits import (
     SqliteCommitFactStore,
     SqliteCommitReader,
     SqliteCommitWithAnalysisReader,
+    SqliteStoredCommitShaReader,
 )
 from .contributors import SqliteContributorReader
 from .discussions import SqliteDiscussionEvidenceStore
@@ -47,5 +48,6 @@ __all__ = [
     "SqliteRepoMetadataStore",
     "SqliteRepositoryDeleter",
     "SqliteRepositoryListReader",
+    "SqliteStoredCommitShaReader",
     "SqliteSynopsisStore",
 ]

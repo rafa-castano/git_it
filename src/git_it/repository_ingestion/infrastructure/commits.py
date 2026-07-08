@@ -43,10 +43,15 @@ class GitPythonCommitExtractor:
     def __init__(self, *, cache_path: Path) -> None:
         self._cache_path = cache_path
 
-    def extract_commits(self) -> list[ExtractedCommit]:
+    def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
         repo = git.Repo(str(self._cache_path))
         result = []
         for commit in repo.iter_commits():
+            # Spec 030: for a commit already stored, skip both the ExtractedCommit
+            # build AND the expensive per-commit ``git diff`` (commit.stats) that
+            # ``_extract_file_changes`` triggers. ``commit.hexsha`` is cheap metadata.
+            if commit.hexsha in skip_shas:
+                continue
             result.append(
                 ExtractedCommit(
                     sha=commit.hexsha,

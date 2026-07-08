@@ -29,6 +29,7 @@ from git_it.repository_ingestion.application.ports import (
     LLMClient,
     ProjectDocReader,
     ProjectDocWriter,
+    StoredCommitShaReader,
 )
 from git_it.repository_ingestion.application.refresh_all_service import RefreshAllService
 from git_it.repository_ingestion.application.release_summarizer import ReleaseSummarizer
@@ -74,6 +75,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
     PostgresRepositoryListReader,
+    PostgresStoredCommitShaReader,
     PostgresSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
@@ -102,6 +104,7 @@ from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteRepoMetadataStore,
     SqliteRepositoryDeleter,
     SqliteRepositoryListReader,
+    SqliteStoredCommitShaReader,
     SqliteSynopsisStore,
 )
 from git_it.repository_ingestion.infrastructure.workspace import (
@@ -350,6 +353,7 @@ def build_repository_ingestion_service(
     file_tree_writer: FileTreeWriter | None = None,
     project_doc_reader: ProjectDocReader | None = None,
     project_doc_writer: ProjectDocWriter | None = None,
+    stored_commit_sha_reader: StoredCommitShaReader | None = None,
 ) -> RepositoryIngestionService:
     backend, conninfo = _get_db_backend()
     cache_path = repository_cache_path(project_root, repository_id=repository_id)
@@ -365,6 +369,7 @@ def build_repository_ingestion_service(
         )
         commit_store: SqliteCommitFactStore | PostgresCommitStore = PostgresCommitStore(conninfo)
         file_store: SqliteFileFactStore | PostgresFileFactStore = PostgresFileFactStore(conninfo)
+        sha_reader: StoredCommitShaReader = PostgresStoredCommitShaReader(conninfo)
     else:
         db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
         sqlite_run_store = SqliteIngestionRunStore(db_path)
@@ -376,6 +381,7 @@ def build_repository_ingestion_service(
         sqlite_file_store = SqliteFileFactStore(db_path)
         sqlite_file_store.initialize()
         file_store = sqlite_file_store
+        sha_reader = SqliteStoredCommitShaReader(db_path)
 
     extractor = (
         commit_extractor
@@ -425,6 +431,9 @@ def build_repository_ingestion_service(
         file_tree_writer=tree_writer,
         project_doc_reader=doc_reader,
         project_doc_writer=doc_writer,
+        stored_commit_sha_reader=(
+            stored_commit_sha_reader if stored_commit_sha_reader is not None else sha_reader
+        ),
     )
 
 

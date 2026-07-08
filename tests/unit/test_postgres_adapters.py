@@ -43,6 +43,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresReleaseEvidenceStore,
     PostgresRepoMetadataStore,
     PostgresRepositoryDeleter,
+    PostgresStoredCommitShaReader,
     initialize,
 )
 
@@ -131,6 +132,30 @@ def test_postgres_commit_store_marks_duplicates_as_reused(conninfo: str) -> None
 
     assert result.inserted == 0
     assert result.reused == 1
+
+
+# ---------------------------------------------------------------------------
+# Spec 030 — stored commit SHA reader (incremental extraction skip-set source)
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_stored_commit_sha_reader_returns_stored_shas_as_a_set(conninfo: str) -> None:
+    PostgresCommitStore(conninfo).save_commit_facts(
+        [_make_commit("pg-sha-scr-1"), _make_commit("pg-sha-scr-2")],
+        repository_id="pg-repo-scr-1",
+    )
+
+    reader = PostgresStoredCommitShaReader(conninfo)
+
+    assert reader.read_stored_shas("pg-repo-scr-1") == {"pg-sha-scr-1", "pg-sha-scr-2"}
+
+
+def test_postgres_stored_commit_sha_reader_returns_empty_set_for_unknown_repo(
+    conninfo: str,
+) -> None:
+    reader = PostgresStoredCommitShaReader(conninfo)
+
+    assert reader.read_stored_shas("pg-repo-scr-unknown") == set()
 
 
 # ---------------------------------------------------------------------------

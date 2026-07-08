@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +11,12 @@ from git_it.repository_ingestion.application.ports import (
     ProjectDocContent,
 )
 from git_it.repository_ingestion.application.service import RepositoryIngestionService
+from git_it.repository_ingestion.domain.commits import ExtractedFileChange
+from git_it.repository_ingestion.infrastructure.sqlite import (
+    SqliteCommitFactStore,
+    SqliteFileFactStore,
+    SqliteStoredCommitShaReader,
+)
 
 
 class SpyGitGateway:
@@ -129,7 +136,7 @@ def test_ingestion_service_calls_extractor_after_successful_clone_or_fetch() -> 
         def __init__(self) -> None:
             self.call_count = 0
 
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             self.call_count += 1
             return [_make_commit("sha1"), _make_commit("sha2"), _make_commit("sha3")]
 
@@ -148,7 +155,7 @@ def test_ingestion_service_persists_commits_and_reports_inserted_reused() -> Non
     git_gateway = SpyGitGateway()
 
     class FakeCommitExtractor:
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             return [_make_commit("sha1"), _make_commit("sha2"), _make_commit("sha3")]
 
     class FakeCommitFactWriter:
@@ -174,7 +181,7 @@ def test_ingestion_service_does_not_report_counts_without_fact_writer() -> None:
     git_gateway = SpyGitGateway()
 
     class FakeCommitExtractor:
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             return [_make_commit("sha1")]
 
     service = RepositoryIngestionService(
@@ -203,7 +210,7 @@ def test_ingestion_service_does_not_extract_commits_on_gateway_failure() -> None
         def __init__(self) -> None:
             self.call_count = 0
 
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             self.call_count += 1
             return []
 
@@ -311,7 +318,7 @@ def test_ingestion_service_persists_file_facts_and_reports_counts() -> None:
     git_gateway = SpyGitGateway()
 
     class FakeCommitExtractor:
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             return [_make_commit("sha1"), _make_commit("sha2")]
 
     class FakeCommitFactWriter:
@@ -344,7 +351,7 @@ def test_ingestion_service_does_not_report_file_counts_without_file_fact_writer(
     git_gateway = SpyGitGateway()
 
     class FakeCommitExtractor:
-        def extract_commits(self) -> list[ExtractedCommit]:
+        def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
             return [_make_commit("sha1")]
 
     service = RepositoryIngestionService(
@@ -662,3 +669,209 @@ def test_ingestion_service_does_not_read_project_docs_on_gateway_failure() -> No
 
     assert reader.calls == []
     assert writer.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Incremental commit extraction (spec 030)
+# ---------------------------------------------------------------------------
+
+
+class RecordingCommitExtractor:
+    def __init__(self, commits: list[ExtractedCommit]) -> None:
+        self._commits = commits
+        self.received_skip_shas: frozenset[str] | None = None
+
+    def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
+        self.received_skip_shas = skip_shas
+        return [commit for commit in self._commits if commit.sha not in skip_shas]
+
+
+class FakeStoredCommitShaReader:
+    def __init__(self, *, shas: set[str]) -> None:
+        self._shas = set(shas)
+        self.calls: list[str] = []
+
+    def read_stored_shas(self, repository_id: str) -> set[str]:
+        self.calls.append(repository_id)
+        return set(self._shas)
+
+
+class RaisingStoredCommitShaReader:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def read_stored_shas(self, repository_id: str) -> set[str]:
+        self.calls.append(repository_id)
+        raise RuntimeError("storage unavailable")
+
+
+def test_ingestion_service_reads_and_passes_skip_set_to_extractor_when_reader_wired() -> None:
+    git_gateway = SpyGitGateway()
+    extractor = RecordingCommitExtractor([_make_commit("a"), _make_commit("b")])
+    reader = FakeStoredCommitShaReader(shas={"a"})
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+        repository_id="repo-1",
+        stored_commit_sha_reader=reader,
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert reader.calls == ["repo-1"]
+    assert extractor.received_skip_shas == frozenset({"a"})
+
+
+def test_ingestion_service_passes_empty_skip_set_when_no_reader_is_wired() -> None:
+    git_gateway = SpyGitGateway()
+    extractor = RecordingCommitExtractor([_make_commit("a")])
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+        repository_id="repo-1",
+    )
+
+    service.ingest("https://github.com/owner/repo")
+
+    assert extractor.received_skip_shas == frozenset()
+
+
+def test_ingestion_service_reports_skip_set_size_as_reused_count() -> None:
+    git_gateway = SpyGitGateway()
+    extractor = RecordingCommitExtractor([_make_commit("a"), _make_commit("b"), _make_commit("c")])
+    reader = FakeStoredCommitShaReader(shas={"a", "b"})
+
+    class CountingCommitFactWriter:
+        def save_commit_facts(
+            self, commits: list[ExtractedCommit], *, repository_id: str
+        ) -> CommitPersistenceResult:
+            # Writer only ever sees NEW commits now; all are inserted.
+            return CommitPersistenceResult(inserted=len(commits), reused=0)
+
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+        commit_fact_writer=CountingCommitFactWriter(),
+        repository_id="repo-1",
+        stored_commit_sha_reader=reader,
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    # Only "c" is new -> inserted 1; skip-set of 2 -> reused 2 (AC-07).
+    assert result.commits_inserted == 1
+    assert result.commits_reused == 2
+
+
+def test_ingestion_service_degrades_to_full_extraction_when_reader_raises() -> None:
+    git_gateway = SpyGitGateway()
+    extractor = RecordingCommitExtractor([_make_commit("a"), _make_commit("b")])
+    reader = RaisingStoredCommitShaReader()
+    service = RepositoryIngestionService(
+        git_gateway=git_gateway,
+        commit_extractor=extractor,
+        repository_id="repo-1",
+        stored_commit_sha_reader=reader,
+    )
+
+    result = service.ingest("https://github.com/owner/repo")
+
+    # AC-11: a failing reader never crashes ingest; it degrades to full extraction.
+    assert result.status == "COMPLETED"
+    assert reader.calls == ["repo-1"]
+    assert extractor.received_skip_shas == frozenset()
+
+
+def _commit_with_file(sha: str) -> ExtractedCommit:
+    return ExtractedCommit(
+        sha=sha,
+        committed_at="2026-01-01T00:00:00Z",
+        message=f"commit {sha}",
+        author_name="Author",
+        committer_name="Committer",
+        parent_shas=(),
+        file_changes=(ExtractedFileChange(path=f"{sha}.py", insertions=3, deletions=1),),
+    )
+
+
+class HistoryCommitExtractor:
+    """Models a fixed git history that honours the skip-set, like GitPython does."""
+
+    def __init__(self, history: list[ExtractedCommit]) -> None:
+        self._history = history
+
+    def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]:
+        return [commit for commit in self._history if commit.sha not in skip_shas]
+
+
+def _read_commit_rows(db_path: Path) -> list[tuple[object, ...]]:
+    import sqlite3
+
+    with sqlite3.connect(db_path) as conn:
+        return sorted(
+            conn.execute(
+                "SELECT repository_id, sha, committed_at, message, author_name, "
+                "committer_name, parent_shas, author_email FROM commit_facts"
+            ).fetchall()
+        )
+
+
+def _read_file_rows(db_path: Path) -> list[tuple[object, ...]]:
+    import sqlite3
+
+    with sqlite3.connect(db_path) as conn:
+        return sorted(
+            conn.execute(
+                "SELECT repository_id, commit_sha, file_path, insertions, deletions FROM file_facts"
+            ).fetchall()
+        )
+
+
+def test_incremental_ingest_stores_identical_rows_to_a_full_ingest(tmp_path: Path) -> None:
+    history = [_commit_with_file("aaa"), _commit_with_file("bbb"), _commit_with_file("ccc")]
+
+    # --- Full ingest (no reader wired -> empty skip-set) ---
+    full_db = tmp_path / "full.sqlite3"
+    full_commit_store = SqliteCommitFactStore(full_db)
+    full_commit_store.initialize()
+    full_file_store = SqliteFileFactStore(full_db)
+    full_file_store.initialize()
+    full_service = RepositoryIngestionService(
+        git_gateway=SpyGitGateway(),
+        commit_extractor=HistoryCommitExtractor(history),
+        commit_fact_writer=full_commit_store,
+        file_fact_writer=full_file_store,
+        repository_id="repo-1",
+    )
+    full_service.ingest("https://github.com/owner/repo")
+
+    # --- Incremental ingest: seed a partial history, then ingest the full
+    #     history with the reader wired so the seeded commits are skipped. ---
+    inc_db = tmp_path / "inc.sqlite3"
+    inc_commit_store = SqliteCommitFactStore(inc_db)
+    inc_commit_store.initialize()
+    inc_file_store = SqliteFileFactStore(inc_db)
+    inc_file_store.initialize()
+
+    seed_service = RepositoryIngestionService(
+        git_gateway=SpyGitGateway(),
+        commit_extractor=HistoryCommitExtractor(history[:2]),
+        commit_fact_writer=inc_commit_store,
+        file_fact_writer=inc_file_store,
+        repository_id="repo-1",
+    )
+    seed_service.ingest("https://github.com/owner/repo")
+
+    incremental_service = RepositoryIngestionService(
+        git_gateway=SpyGitGateway(),
+        commit_extractor=HistoryCommitExtractor(history),
+        commit_fact_writer=inc_commit_store,
+        file_fact_writer=inc_file_store,
+        repository_id="repo-1",
+        stored_commit_sha_reader=SqliteStoredCommitShaReader(inc_db),
+    )
+    incremental_service.ingest("https://github.com/owner/repo")
+
+    # AC-04: append-only incremental store == full store for the same history.
+    assert _read_commit_rows(inc_db) == _read_commit_rows(full_db)
+    assert _read_file_rows(inc_db) == _read_file_rows(full_db)

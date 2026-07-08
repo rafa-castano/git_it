@@ -68,6 +68,7 @@ __all__ = [
     "RepoContextReader",
     "RepositoryListReader",
     "RepositoryRecord",
+    "StoredCommitShaReader",
     "TemporalAnalysisReader",
     "TimestampedAnalysis",
 ]
@@ -124,7 +125,19 @@ class GitGatewayError(Exception):
 
 
 class CommitExtractor(Protocol):
-    def extract_commits(self) -> list[ExtractedCommit]: ...
+    def extract_commits(self, skip_shas: frozenset[str] = frozenset()) -> list[ExtractedCommit]: ...
+
+
+class StoredCommitShaReader(Protocol):
+    """Reads the set of commit SHAs already persisted for a repository (spec 030).
+
+    A lightweight ``SELECT sha FROM commit_facts WHERE repository_id = ?`` used
+    by the ingestion service to build the extractor's skip-set, so already-stored
+    commits are not re-diffed on every ingest. Returns an empty set for an unknown
+    repository. Implementations should be fast and side-effect free.
+    """
+
+    def read_stored_shas(self, repository_id: str) -> set[str]: ...
 
 
 class GitGateway(Protocol):

@@ -18,6 +18,7 @@ from .commits import (
     PostgresCommitReader,
     PostgresCommitStore,
     PostgresCommitWithAnalysisReader,
+    PostgresStoredCommitShaReader,
 )
 from .contributors import PostgresContributorReader
 from .discussions import PostgresDiscussionEvidenceStore
@@ -56,6 +57,7 @@ __all__ = [
     "PostgresRepoMetadataStore",
     "PostgresRepositoryDeleter",
     "PostgresRepositoryListReader",
+    "PostgresStoredCommitShaReader",
     "PostgresSynopsisStore",
     "initialize",
 ]

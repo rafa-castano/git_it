@@ -52,6 +52,26 @@ class PostgresCommitStore:
         return CommitPersistenceResult(inserted=inserted, reused=reused)
 
 
+class PostgresStoredCommitShaReader:
+    """Reads the set of already-stored commit SHAs for a repository (spec 030).
+
+    PostgreSQL mirror of ``SqliteStoredCommitShaReader``: a lightweight
+    ``SELECT sha FROM commit_facts WHERE repository_id = %s``. Returns an empty
+    set for an unknown repository.
+    """
+
+    def __init__(self, conninfo: str) -> None:
+        self._conninfo = conninfo
+
+    def read_stored_shas(self, repository_id: str) -> set[str]:
+        with psycopg.connect(self._conninfo) as conn:
+            rows = conn.execute(
+                "SELECT sha FROM commit_facts WHERE repository_id = %s",
+                (repository_id,),
+            ).fetchall()
+        return {str(row[0]) for row in rows}
+
+
 class PostgresCommitReader:
     def __init__(self, conninfo: str) -> None:
         self._conninfo = conninfo

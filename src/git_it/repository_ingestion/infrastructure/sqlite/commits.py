@@ -90,6 +90,26 @@ class SqliteCommitFactStore:
         return sqlite3.connect(self._database_path)
 
 
+class SqliteStoredCommitShaReader:
+    """Reads the set of already-stored commit SHAs for a repository (spec 030).
+
+    Backs the incremental-extraction skip-set: a lightweight
+    ``SELECT sha FROM commit_facts WHERE repository_id = ?``. Returns an empty
+    set for an unknown repository.
+    """
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def read_stored_shas(self, repository_id: str) -> set[str]:
+        with sqlite3.connect(self._database_path) as connection:
+            rows = connection.execute(
+                "SELECT sha FROM commit_facts WHERE repository_id = ?",
+                (repository_id,),
+            ).fetchall()
+        return {str(row[0]) for row in rows}
+
+
 class SqliteCommitReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
