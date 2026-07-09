@@ -179,3 +179,18 @@ between what's specified and what's shipped:
   already asks for full paths). Implemented (batch 161): the `_basenameIndex` +
   `_resolveUniqueBasename` helpers and the `_linkifyPaths` bare-basename branch in
   `static/app.js`. See `docs/specs/032-unambiguous-basename-path-linking.md`.
+- **Spec 033 — Automatic Silent Background Refresh on Startup**: replaces the
+  manual home-view "Refresh all" button with an automatic, invisible refresh. Once
+  per server process, the served app spawns a background **daemon thread** that
+  runs the existing spec-028 `RefreshAllService.refresh_all()` a single time —
+  never blocking startup or any request, never surfacing anything in the UI. The
+  only observable effect is up-to-date commit counts on the next home load.
+  Feasible now because of spec 030 (incremental extraction makes a per-startup
+  refresh cheap). Failure-isolated (errors logged by type name only), single-flight
+  (a process lock), and opt-in (`create_app(enable_startup_refresh=True)`, enabled
+  only on the served module-level app, so the test suite never spawns a refresh
+  thread). The manual button and its `_doRefreshAll` handler are removed; the
+  `POST /api/repos/refresh-all` endpoint is retained as a programmatic action.
+  Implemented (batch 162): `api/startup.py` (`run_startup_refresh` /
+  `start_background_refresh` / `resolve_startup_project_root`) and the conditional
+  lifespan in `api/app.py`. See `docs/specs/033-automatic-startup-refresh.md`.

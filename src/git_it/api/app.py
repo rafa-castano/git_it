@@ -1,4 +1,6 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -18,6 +20,7 @@ from starlette.requests import Request  # noqa: E402
 from starlette.responses import Response  # noqa: E402
 from starlette.types import ASGIApp  # noqa: E402
 
+from git_it.api import startup  # noqa: E402
 from git_it.api.limiter import limiter  # noqa: E402
 from git_it.api.routes.repos import router as repos_router  # noqa: E402
 
@@ -58,15 +61,32 @@ class _NoCacheStaticMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def create_app(project_root: Path | None = None) -> FastAPI:
+def create_app(
+    project_root: Path | None = None,
+    *,
+    enable_startup_refresh: bool = False,
+) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Args:
         project_root: Optional path override for the data directory.  When
             ``None`` the app reads :envvar:`GIT_IT_DATA_DIR` at request time
             (see :mod:`git_it.api.deps`).
+        enable_startup_refresh: When ``True`` (only the served module-level app),
+            register an ASGI startup lifespan that kicks off the spec-033
+            automatic silent background refresh once per process.  Off by default
+            so tests and ad-hoc ``create_app`` calls never spawn a refresh thread.
     """
-    app = FastAPI(title="Git It API", version="0.1.0")
+    lifespan = None
+    if enable_startup_refresh:
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: F811
+            # Non-blocking: spawns a daemon thread and returns immediately (spec 033).
+            startup.start_background_refresh(startup.resolve_startup_project_root(project_root))
+            yield
+
+    app = FastAPI(title="Git It API", version="0.1.0", lifespan=lifespan)
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
@@ -96,5 +116,6 @@ def create_app(project_root: Path | None = None) -> FastAPI:
 
 
 # Module-level app instance — used by `uvicorn git_it.api.app:app`
-# and by `git-it serve`.  Reads GIT_IT_DATA_DIR at request time.
-app = create_app()
+# and by `git-it serve`.  Reads GIT_IT_DATA_DIR at request time.  This is the ONLY
+# instance with the spec-033 automatic startup refresh enabled.
+app = create_app(enable_startup_refresh=True)

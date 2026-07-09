@@ -786,57 +786,12 @@ function _pollForRepo(canonicalUrl) {
 }
 
 /* =========================================================
-   Refresh all (spec 028) — home-view collection action.
-   POSTs to /api/repos/refresh-all: a free git-fetch + commit-fact
-   re-extraction for EVERY already-ingested repository (no LLM calls; new
-   commits land unanalyzed, mirroring _doBackfillEmbeddings's busy/result
-   style). Always available on the home view — with zero tracked
-   repositories the endpoint already returns a zeroed response
-   (total_repositories: 0), so no client-side visibility gating is needed;
-   that case is simply reported as "nothing to refresh" below.
+   Refresh all (spec 028 → spec 033): the manual home-view "Refresh all" button
+   was removed. Every tracked repository is now refreshed automatically and
+   silently in a background thread at server startup (see api/startup.py); the
+   only visible effect is up-to-date commit counts on the next home load. The
+   POST /api/repos/refresh-all endpoint is retained as a programmatic action.
    ========================================================= */
-async function _doRefreshAll() {
-  const btn = document.getElementById('refresh-all-btn');
-  const statusEl = document.getElementById('refresh-all-status');
-  if (!btn) return;
-  btn.disabled = true;
-  if (statusEl) {
-    statusEl.textContent = 'Refreshing…';
-    statusEl.style.color = 'var(--yellow)';
-  }
-  let res;
-  try {
-    res = await fetch('/api/repos/refresh-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch {
-    if (statusEl) {
-      statusEl.textContent = 'Refresh failed — check the server and try again.';
-      statusEl.style.color = 'var(--red)';
-    }
-    btn.disabled = false;
-    return;
-  }
-  if (!res.ok) {
-    if (statusEl) {
-      statusEl.textContent = `Refresh failed (HTTP ${res.status}) — try again.`;
-      statusEl.style.color = 'var(--red)';
-    }
-    btn.disabled = false;
-    return;
-  }
-  const data = await res.json();
-  if (statusEl) {
-    statusEl.textContent = data.total_repositories === 0
-      ? 'Nothing to refresh yet — add a repository first.'
-      : `Refreshed ${data.refreshed_count} of ${data.total_repositories} repositories · ${data.total_new_commits} new commits · ${data.failed_count} failed`;
-    statusEl.style.color = data.failed_count > 0 ? 'var(--yellow)' : 'var(--green)';
-  }
-  btn.disabled = false;
-  await loadRepos();
-  renderRepoCards();
-}
 
 /* =========================================================
    Navigation
