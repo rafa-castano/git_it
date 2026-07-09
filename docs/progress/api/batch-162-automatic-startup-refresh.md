@@ -66,6 +66,29 @@ Additionally verified out-of-band by entering the served module app's lifespan a
 empty data dir: lifespan enters in ~0.015s (non-blocking), the index is served (200), and
 the button is absent.
 
+### Production / PostgreSQL (verified backend-agnostic)
+
+The auto-refresh applies to production (PostgreSQL) with **no code change** — it runs
+entirely through the existing backend-selecting composition seam:
+
+- `run_startup_refresh` → `build_refresh_all_service` → `build_repository_list_reader` **and**
+  `build_repository_ingestion_service`, both of which switch SQLite vs PostgreSQL via
+  `_get_db_backend()` (`DATABASE_URL`). No SQLite-only path exists.
+- `database_is_provisioned` returns `True` for PostgreSQL (`composition.py:137-140`), so the
+  refresh proceeds against Postgres rather than skipping.
+- Production is Postgres (`docker-compose.yml` `DATABASE_URL=postgresql://…`) served by a
+  **single** uvicorn worker (`Dockerfile` CMD has no `--workers`) → one refresh per container
+  start. `resolve_startup_project_root(None)` and `deps.get_project_root` both resolve to the
+  process CWD (`/app`) — no `GIT_IT_DATA_DIR` set, `app.state.project_root` unset on the module
+  app — so the startup refresh and request handling agree on the git-cache location.
+- The SQLite write/read contention note (§11) is **SQLite-only**; PostgreSQL MVCC does not block
+  concurrent reads during the refresh's writes.
+
+Two documented production caveats (spec 033 §11, not bugs): a multi-worker/replica deployment
+would fan out to one refresh per process (idempotent but redundant — the single-flight guard is
+per-process); and the container's git cache is ephemeral (only `pgdata` is volumed), so the
+first refresh after a restart re-clones each repo once (spec 030 still avoids re-diffing).
+
 ### Gotchas
 
 - The auto-refresh is **opt-in** and enabled on exactly one instance (the module-level

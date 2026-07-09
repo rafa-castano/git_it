@@ -193,4 +193,11 @@ between what's specified and what's shipped:
   `POST /api/repos/refresh-all` endpoint is retained as a programmatic action.
   Implemented (batch 162): `api/startup.py` (`run_startup_refresh` /
   `start_background_refresh` / `resolve_startup_project_root`) and the conditional
-  lifespan in `api/app.py`. See `docs/specs/033-automatic-startup-refresh.md`.
+  lifespan in `api/app.py`. **Backend-agnostic**: the refresh runs through the same
+  `_get_db_backend()` composition seam, so it applies to the PostgreSQL production
+  backend (`docker-compose.yml` `DATABASE_URL`) exactly as to local SQLite — the
+  SQLite write/read contention note is SQLite-only (Postgres MVCC does not block).
+  Production runs a single uvicorn worker (`Dockerfile` CMD has no `--workers`), so
+  one refresh fires per container start; a multi-worker/replica deployment would fan
+  out to one refresh per process (idempotent but redundant — a documented follow-up).
+  See `docs/specs/033-automatic-startup-refresh.md`.

@@ -52,6 +52,12 @@ benefit.
   enabled only on the served module-level app. Existing tests build apps with an explicit
   `project_root` and default `enable_startup_refresh=False`, so the suite never spawns a
   refresh thread.
+- **Backend-agnostic (works in production / PostgreSQL)**: the refresh runs entirely through
+  the existing composition seam — `build_refresh_all_service` → `build_repository_list_reader`
+  and `build_repository_ingestion_service`, both of which select SQLite vs PostgreSQL via
+  `_get_db_backend()` (`DATABASE_URL`). There is no SQLite-only path. `database_is_provisioned`
+  returns `True` for PostgreSQL, so the startup refresh proceeds normally against the
+  production Postgres backend (`docker-compose.yml` sets `DATABASE_URL=postgresql://…`).
 
 ## 4. Non-goals
 
@@ -143,12 +149,27 @@ benefit.
 - **DB not provisioned / zero repos** → no-op (AC-06).
 - **Double startup / re-entrancy** → single-flight guard makes the second call a no-op
   (AC-05).
-- **DB contention with page-load reads**: the refresh writes with `INSERT OR IGNORE` while
-  page loads read the same SQLite database. This concurrency already occurs today (the
-  manual button ran the identical refresh over HTTP while the page was open) with no
-  reported locking, and spec 030 keeps per-startup writes minimal when nothing changed.
-  WAL/pragma tuning is out of scope for this spec; if contention is later observed it is a
-  separate follow-up.
+- **SQLite DB contention with page-load reads** (local/dev only): the refresh writes with
+  `INSERT OR IGNORE` while page loads read the same SQLite file. This concurrency already
+  occurs today (the manual button ran the identical refresh over HTTP while the page was
+  open) with no reported locking, and spec 030 keeps per-startup writes minimal when
+  nothing changed. WAL/pragma tuning is out of scope for this spec; if contention is later
+  observed it is a separate follow-up. **This mode is SQLite-specific** — the PostgreSQL
+  production backend uses MVCC, so concurrent page-load reads during the refresh's writes do
+  not block (§3 "Backend-agnostic"; production is Postgres, single-worker).
+- **Multi-worker / multi-replica fan-out**: the single-flight guard is **per process**. The
+  current production deployment runs a **single** uvicorn worker (`Dockerfile` CMD has no
+  `--workers`), so exactly one refresh fires per container start. If the deployment is ever
+  scaled to multiple workers/replicas, each process would run its own startup refresh — N
+  concurrent refreshes. That stays correct (idempotent `ON CONFLICT` / `INSERT OR IGNORE`,
+  no LLM cost) but is redundant; a cross-process lock or a leader-only trigger would be the
+  follow-up. Out of scope while the deployment is single-worker.
+- **Ephemeral git cache on container restart**: production persists PostgreSQL (a `pgdata`
+  volume) but not the bare-clone git cache under the working directory. After a container
+  restart the tracked repositories are still known (from PostgreSQL), so the first startup
+  refresh re-clones each repo once; spec 030's skip-set still avoids re-diffing already-
+  stored commits. Inherent to the persistent-DB + ephemeral-FS setup, not specific to this
+  spec (the manual button behaved identically).
 
 ## 12. Security considerations
 
