@@ -692,9 +692,11 @@ def test_static_app_js_linkify_commit_shas_is_tag_aware(tmp_path: Path) -> None:
 
 
 def test_static_app_js_linkable_path_requires_a_slash(tmp_path: Path) -> None:
-    # Batch 156, bug 3: linking a bare basename like `ports.py` to /blob/<branch>/ports.py
-    # 404s when the real file is nested. Only real relative paths (containing a separator)
-    # are linkable now.
+    # Batch 156, bug 3: linking a bare basename like `ports.py` blindly to
+    # /blob/<branch>/ports.py 404s when the real file is nested. isLinkablePath itself
+    # still gates the SLASHED-path branch on a separator. Spec 032 handles bare basenames
+    # separately in _linkifyPaths (safe, via unique tree resolution) — NOT by relaxing
+    # this predicate.
     app = create_app(project_root=tmp_path)
     client = TestClient(app)
     text = client.get("/static/app.js").text
@@ -753,7 +755,7 @@ def test_static_app_js_linkify_paths_verifies_against_tree(tmp_path: Path) -> No
 
     # _linkifyPaths only links when _verifyTreePath returns a kind; else plain code.
     linkify = text.split("function _linkifyPaths(", 1)[1]
-    assert "const kind = _verifyTreePath(text, filePathSet);" in linkify
+    assert "kind = _verifyTreePath(text, filePathSet);" in linkify
     assert "if (!kind) return match;" in linkify
 
 
@@ -772,8 +774,10 @@ def test_static_app_js_linkify_paths_shows_basename_with_full_path_title(
     assert "path.endsWith('/') ? `${last}/` : last;" in basename
 
     # The anchor renders the escaped basename as text and the escaped full path in title=.
-    assert 'title="${esc(text)}"' in text
-    assert "${esc(_pathBasename(text))}</a>" in text
+    # Spec 032: both derive from the resolved full path (linkPath), not the raw span text,
+    # so a bare-basename span shows its verified full path in title=.
+    assert 'title="${esc(linkPath)}"' in text
+    assert "${esc(_pathBasename(linkPath))}</a>" in text
 
 
 def test_static_app_js_fetches_and_caches_file_paths_per_repo(tmp_path: Path) -> None:
@@ -795,3 +799,69 @@ def test_static_app_js_fetches_and_caches_file_paths_per_repo(tmp_path: Path) ->
     assert "_filePathSetCache[repoId] = set;" in loader
     # loadCaseStudy awaits the set and passes it into _linkifyPaths.
     assert "const filePathSet = await _loadFilePathSet(repoId);" in text
+
+
+def test_static_app_js_basename_index_keys_only_extensioned_and_marks_ambiguous(
+    tmp_path: Path,
+) -> None:
+    # Spec 032 AC-01/AC-02/AC-04/AC-08: _basenameIndex maps basename -> full path, built
+    # once from the verified tree. Only basenames containing '.' (extensioned files) are
+    # indexed (tool/function names and bare folder words are excluded), and a basename
+    # shared by two-or-more members is marked ambiguous (null sentinel).
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "function _basenameIndex(filePathSet) {" in text
+    index = text.split("function _basenameIndex(filePathSet) {", 1)[1].split("\n}", 1)[0]
+    # Basename is the last path segment.
+    assert "member.split('/').pop()" in index
+    # Only extensioned basenames are indexed.
+    assert "base.includes('.')" in index
+    # Second occurrence => ambiguity sentinel (null); first => the full path.
+    assert "index.set(base, null)" in index
+    assert "index.set(base, member)" in index
+
+
+def test_static_app_js_resolve_unique_basename_only_for_no_slash_unique(
+    tmp_path: Path,
+) -> None:
+    # Spec 032 AC-01/AC-02/AC-03: _resolveUniqueBasename returns the full path only for a
+    # no-slash span mapped to a non-null (unique) value; null for slashed, unknown, or
+    # ambiguous spans.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    assert "function _resolveUniqueBasename(text, basenameIndex) {" in text
+    resolve = text.split("function _resolveUniqueBasename(text, basenameIndex) {", 1)[1].split(
+        "\n}", 1
+    )[0]
+    # A slashed span is never resolved here (that is the spec-029 branch).
+    assert "if (text.includes('/')) return null;" in resolve
+    # Only a unique (string) mapping resolves; the ambiguity sentinel (null) does not.
+    assert "typeof resolved === 'string' ? resolved : null" in resolve
+
+
+def test_static_app_js_linkify_paths_resolves_bare_basename_as_file(
+    tmp_path: Path,
+) -> None:
+    # Spec 032 AC-01/AC-05/AC-06/AC-08: _linkifyPaths builds the basename index ONCE
+    # (outside replace), branches slashed->_verifyTreePath vs bare->_resolveUniqueBasename
+    # (kind='file'), and always feeds the RESOLVED full path (linkPath) into the URL —
+    # never the raw span.
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    text = client.get("/static/app.js").text
+
+    linkify = text.split("function _linkifyPaths(", 1)[1].split("\nfunction ", 1)[0]
+    # Index built once, before the replace loop.
+    assert "const basenameIndex = _basenameIndex(filePathSet);" in linkify
+    assert linkify.index("_basenameIndex(filePathSet)") < linkify.index(".replace(")
+    # Bare-basename branch resolves to a file link.
+    assert "linkPath = _resolveUniqueBasename(text, basenameIndex);" in linkify
+    assert "if (!linkPath) return match;" in linkify
+    assert "kind = 'file';" in linkify
+    # The resolved path (not the raw span) is charset-revalidated and fed to the URL.
+    assert "if (!_isSafePathLikeString(linkPath)) return match;" in linkify
+    assert "_pathToGithubUrl(linkPath, canonicalUrl, defaultBranch, kind)" in linkify

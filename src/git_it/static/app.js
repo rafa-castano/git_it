@@ -2107,6 +2107,35 @@ function _pathToGithubUrl(path, canonicalUrl, branch, kind) {
   return `${canonicalUrl}/${segment}/${encodeURIComponent(branch)}/${encodedPath}`;
 }
 
+/** Spec 032: build a `basename -> full path` index from the verified tree, once per
+ * _linkifyPaths call. Only basenames containing a '.' (extensioned files) are indexed,
+ * so tool/function names (`manage_mcp`) and bare folder words (`interfaces`) are never
+ * basename-resolved. A basename shared by two-or-more members maps to `null` (the
+ * ambiguity sentinel) — ambiguous basenames never link (spec 032 AC-02/AC-04/AC-08). */
+function _basenameIndex(filePathSet) {
+  const index = new Map();
+  for (const member of filePathSet) {
+    const base = member.split('/').pop();
+    if (!base || !base.includes('.')) continue;
+    if (index.has(base)) {
+      index.set(base, null); // seen on a second member => ambiguous
+    } else {
+      index.set(base, member);
+    }
+  }
+  return index;
+}
+
+/** Spec 032: resolve a bare basename span (no '/') to its unique full path via the
+ * basename index. Returns null for a slashed span (handled by the spec-029 branch), an
+ * unknown basename (zero members), or an ambiguous one (the null sentinel) —
+ * spec 032 AC-01/AC-02/AC-03. */
+function _resolveUniqueBasename(text, basenameIndex) {
+  if (text.includes('/')) return null;
+  const resolved = basenameIndex.get(text);
+  return typeof resolved === 'string' ? resolved : null;
+}
+
 /** Spec 020: rewrite backtick-wrapped, path-plausible inline <code> spans into
  * links to the file/folder on GitHub. Must run AFTER _linkifyCommitShas on the
  * same HTML (see spec 020 Security considerations) — running it first would
@@ -2133,16 +2162,31 @@ function _linkifyPaths(html, canonicalUrl, defaultBranch, filePathSet) {
   if (!canonicalUrl || !canonicalUrl.includes('github.com')) return html;
   if (!defaultBranch || !_isSafePathLikeString(defaultBranch)) return html;
   if (!filePathSet || filePathSet.size === 0) return html;
+  // Spec 032: build the basename -> full-path index ONCE per call (not per span).
+  const basenameIndex = _basenameIndex(filePathSet);
   return html.replace(/(?<!<pre>)<code>([^<]*)<\/code>/g, (match, text) => {
-    if (!isLinkablePath(text)) return match;
-    const kind = _verifyTreePath(text, filePathSet);
-    if (!kind) return match;
-    // Defense in depth (spec 029 §12): re-validate the safe charset before the
-    // verified path is interpolated into a URL, even though the tree set was
-    // already charset-filtered server-side.
     if (!_isSafePathLikeString(text)) return match;
-    const url = _pathToGithubUrl(text, canonicalUrl, defaultBranch, kind);
-    return `<a href="${url}" target="_blank" rel="noopener" title="${esc(text)}" style="font-family:monospace">${esc(_pathBasename(text))}</a>`;
+    let kind;
+    let linkPath;
+    if (isLinkablePath(text)) {
+      // Spec 029: a slashed span must be tree-verified (exact member => file/blob,
+      // directory prefix => folder/tree); unverified spans stay plain <code>.
+      kind = _verifyTreePath(text, filePathSet);
+      if (!kind) return match;
+      linkPath = text;
+    } else {
+      // Spec 032: a bare basename (no slash) links only when it resolves to a single
+      // verified tree member; ambiguous or unknown basenames stay plain <code>.
+      linkPath = _resolveUniqueBasename(text, basenameIndex);
+      if (!linkPath) return match;
+      kind = 'file';
+    }
+    // Defense in depth (spec 029 §12 / spec 032 §12): the RESOLVED tree path — never the
+    // raw span — feeds the URL and the visible text; re-validate the safe charset before
+    // it is interpolated, even though the tree set was already charset-filtered server-side.
+    if (!_isSafePathLikeString(linkPath)) return match;
+    const url = _pathToGithubUrl(linkPath, canonicalUrl, defaultBranch, kind);
+    return `<a href="${url}" target="_blank" rel="noopener" title="${esc(linkPath)}" style="font-family:monospace">${esc(_pathBasename(linkPath))}</a>`;
   });
 }
 

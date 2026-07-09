@@ -165,3 +165,17 @@ between what's specified and what's shipped:
   `Sqlite`/`PostgresAuthorLoginStore` adapters (`author_logins` table), the
   `_fetch_and_store_commit_author_logins` hook, and the contributor-reader
   precedence. See `docs/specs/031-contributor-github-login-resolution.md`.
+- **Spec 032 — Unambiguous Basename Path Linking**: makes a backtick-wrapped
+  **bare basename** (`` `ports.py` ``, no slash) link to the real file when it
+  resolves to exactly **one** member of the verified file-path set (spec 029).
+  This closes an observed inconsistency: the narrative LLM writes a file's first
+  mention as a full path (which links) but shortens repeated mentions to the bare
+  basename, which the `/`-required `isLinkablePath` rule rejected. Resolution is
+  confirmatory-only — an ambiguous basename (shared by two-or-more tree members),
+  an unknown/removed one, or a bare token without an extension stays plain
+  `<code>`, so no broken or guessed links. The raw span is used only as a lookup
+  key; the linked path, visible text, and `title` all derive from the verified
+  tree. No backend/prompt change (the `/file-paths` set already exists; the prompt
+  already asks for full paths). Implemented (batch 161): the `_basenameIndex` +
+  `_resolveUniqueBasename` helpers and the `_linkifyPaths` bare-basename branch in
+  `static/app.js`. See `docs/specs/032-unambiguous-basename-path-linking.md`.

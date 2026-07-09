@@ -182,3 +182,4 @@ One file per batch, organized by feature area.
 - [Batch 153 — "Refresh all" home dashboard button (spec 028, slice 4 — final)](ui/batch-153-refresh-all-button.md)
 - [Batch 156 — Case-study rendering fixes (SHA-attribute linkify, path linking, lessons highlight)](ui/batch-156-case-study-rendering-fixes.md)
 - [Batch 158 — Theme-aware scrollbars (dark mode)](ui/batch-158-dark-mode-scrollbar.md)
+- [Batch 161 — Unambiguous basename path linking (spec 032)](ui/batch-161-unambiguous-basename-path-linking.md)
