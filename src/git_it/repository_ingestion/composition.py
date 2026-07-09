@@ -55,6 +55,7 @@ from git_it.repository_ingestion.infrastructure.llm import (
 )
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresAdvisoryEvidenceStore,
+    PostgresAuthorLoginStore,
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
     PostgresCommitCountReader,
@@ -84,6 +85,7 @@ from git_it.repository_ingestion.infrastructure.postgres import (
 from git_it.repository_ingestion.infrastructure.project_docs import GitPythonProjectDocReader
 from git_it.repository_ingestion.infrastructure.sqlite import (
     SqliteAdvisoryEvidenceStore,
+    SqliteAuthorLoginStore,
     SqliteCaseStudyStore,
     SqliteCommitAnalysisStore,
     SqliteCommitCountReader,
@@ -189,6 +191,25 @@ def build_repo_metadata_store(
         return PostgresRepoMetadataStore(conninfo)
     db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
     store = SqliteRepoMetadataStore(db_path)
+    store.initialize()
+    return store
+
+
+def build_author_login_store(
+    *,
+    project_root: Path,
+) -> SqliteAuthorLoginStore | PostgresAuthorLoginStore:
+    """Backend-aware factory for the spec 031 author-login store.
+
+    Mirrors ``build_repo_metadata_store``: SQLite gets ``initialize()`` (the
+    ``author_logins`` table is created on demand); PostgreSQL relies on
+    ``migrations/001_initial.sql`` having provisioned the table.
+    """
+    backend, conninfo = _get_db_backend()
+    if backend == "postgres":
+        return PostgresAuthorLoginStore(conninfo)
+    db_path = ingestion_workspace_root(project_root) / "git-it.sqlite3"
+    store = SqliteAuthorLoginStore(db_path)
     store.initialize()
     return store
 

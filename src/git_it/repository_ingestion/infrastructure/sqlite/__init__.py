@@ -8,6 +8,7 @@ keeps working unchanged.
 
 from .advisories import SqliteAdvisoryEvidenceStore
 from .analysis import SqliteCaseStudyStore, SqliteCommitAnalysisStore, SqliteSynopsisStore
+from .author_logins import SqliteAuthorLoginStore
 from .commits import (
     SqliteCommitCountReader,
     SqliteCommitFactStore,
@@ -28,6 +29,7 @@ from .repository import SqliteRepositoryDeleter, SqliteRepositoryListReader
 
 __all__ = [
     "SqliteAdvisoryEvidenceStore",
+    "SqliteAuthorLoginStore",
     "SqliteCaseStudyStore",
     "SqliteCommitAnalysisStore",
     "SqliteCommitCountReader",

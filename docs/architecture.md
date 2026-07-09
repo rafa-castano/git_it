@@ -149,3 +149,19 @@ between what's specified and what's shipped:
   `Sqlite`/`PostgresStoredCommitShaReader` adapters, the extractor skip-set, and
   the AC-11 degrade-to-full-extraction fallback. See
   `docs/specs/030-incremental-commit-extraction.md`.
+- **Spec 031 — Contributor GitHub Login Resolution**: makes a contributor card
+  link to the real GitHub **profile** (`github.com/{login}`) instead of a user
+  search page. The login is resolved from the REST **List commits** endpoint
+  (top-level `author.login` paired with `commit.author.email`, for commits GitHub
+  can match to an account) and stored per repository as an `author_email → login`
+  map; the contributor read model prefers a stored login over the noreply-email
+  heuristic, so the frontend links to the profile with no change. Resolution is
+  incremental (only never-attempted emails are queried; `null`-author emails get a
+  stored "attempted, no match" marker) and token-gated, best-effort, and
+  failure-isolated — it runs only in the `_ingest_bg` enrichment block, so
+  "Refresh all" incurs zero login-resolution calls. Resolved logins are
+  charset-validated (`^[A-Za-z0-9-]+$`) as untrusted input. Implemented (batch
+  160): the `GithubCommitAuthorsFetcher`, the `AuthorLoginStore` port +
+  `Sqlite`/`PostgresAuthorLoginStore` adapters (`author_logins` table), the
+  `_fetch_and_store_commit_author_logins` hook, and the contributor-reader
+  precedence. See `docs/specs/031-contributor-github-login-resolution.md`.

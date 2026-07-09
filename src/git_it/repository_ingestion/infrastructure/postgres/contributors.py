@@ -13,7 +13,24 @@ class PostgresContributorReader:
     def __init__(self, conninfo: str) -> None:
         self._conninfo = conninfo
 
+    def _load_login_map(self, repository_id: str) -> dict[str, str | None]:
+        """Read the spec 031 ``author_email -> github_login`` map for this repository.
+
+        Uses its own connection so a missing ``author_logins`` table degrades to an
+        empty map without aborting the main contributor-stats transaction.
+        """
+        try:
+            with psycopg.connect(self._conninfo) as conn:
+                rows = conn.execute(
+                    "SELECT author_email, github_login FROM author_logins WHERE repository_id = %s",
+                    (repository_id,),
+                ).fetchall()
+        except psycopg.Error:
+            return {}
+        return {str(row[0]): (str(row[1]) if row[1] is not None else None) for row in rows}
+
     def list_contributors(self, repository_id: str) -> list[ContributorRecord]:
+        login_map = self._load_login_map(repository_id)
         with psycopg.connect(self._conninfo) as conn:
             cur = conn.cursor()
 
@@ -89,7 +106,9 @@ class PostgresContributorReader:
                 last_commit=(last[:10] if last else None),
                 is_bot=bool(_BOT_PATTERN.search(name or "")),
                 active_days=active_days,
-                github_username=_extract_github_username(email or ""),
+                github_username=(
+                    login_map.get(email or "") or _extract_github_username(email or "")
+                ),
                 category_counts=cat_by_author.get(name, {}),
                 top_files=files_by_author.get(name, []),
             )

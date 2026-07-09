@@ -89,6 +89,14 @@ CREATE TABLE IF NOT EXISTS default_branch_metadata (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS author_logins (
+    repository_id TEXT NOT NULL,
+    author_email  TEXT NOT NULL,
+    github_login  TEXT,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (repository_id, author_email)
+);
+
 CREATE TABLE IF NOT EXISTS repository_files (
     repository_id TEXT NOT NULL,
     path          TEXT NOT NULL,

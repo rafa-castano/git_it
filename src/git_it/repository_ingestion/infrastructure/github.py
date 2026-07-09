@@ -10,7 +10,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from typing import Protocol
+from typing import Protocol, TypeGuard
 
 from git_it.repository_ingestion.domain.advisories import SecurityAdvisory
 from git_it.repository_ingestion.domain.discussions import Discussion
@@ -38,6 +38,23 @@ DISCUSSION_MAX_PAGES = int(os.environ.get("DISCUSSION_MAX_PAGES", "10"))
 # env-var-backed, following the same batch-74 convention.
 RELEASE_MAX_SUMMARIZED = int(os.environ.get("RELEASE_MAX_SUMMARIZED", "10"))
 ADVISORY_MAX_SUMMARIZED = int(os.environ.get("ADVISORY_MAX_SUMMARIZED", "10"))
+
+# Spec 031 (Contributor GitHub login resolution) config constants — env-var-backed,
+# same convention. List commits endpoint caps per_page at 100; MAX_PAGES bounds the
+# worst case for a repository whose needed author emails never resolve.
+COMMIT_AUTHORS_PAGE_SIZE = int(os.environ.get("COMMIT_AUTHORS_PAGE_SIZE", "100"))
+COMMIT_AUTHORS_MAX_PAGES = int(os.environ.get("COMMIT_AUTHORS_MAX_PAGES", "100"))
+
+# GitHub's own login charset: alphanumerics and single hyphens, max 39 chars.
+# A resolved login is untrusted repository/API content (CODEX §7), so it is
+# validated against this before being stored or used (spec 031 AC-09).
+_GITHUB_LOGIN_RE = re.compile(r"^[A-Za-z0-9-]{1,39}$")
+
+
+def _is_valid_github_login(login: object) -> TypeGuard[str]:
+    """Return True only for a value matching GitHub's login charset (spec 031 AC-09)."""
+    return isinstance(login, str) and _GITHUB_LOGIN_RE.match(login) is not None
+
 
 _GRAPHQL_URL = "https://api.github.com/graphql"
 
@@ -284,6 +301,90 @@ class GithubRepoMetadataFetcher:
         return raw
 
 
+class GithubCommitAuthorsFetcher:
+    """Resolves ``commit.author.email -> author.login`` from the List commits endpoint.
+
+    The GitHub REST List commits endpoint (``GET /repos/{owner}/{repo}/commits``)
+    returns, per commit, a top-level ``author`` object (the matched GitHub account,
+    ``Simple User | null`` — ``null`` when GitHub cannot match the commit email to an
+    account) and a ``commit.author`` object carrying the git ``name``/``email``. This
+    fetcher pairs the two, building ``{email: login}`` only for commits whose top-level
+    ``author`` is non-null AND whose git author email is in ``needed_emails`` (spec 031).
+
+    Best-effort and failure-isolated, matching the other fetchers in this module:
+    returns ``{}`` on missing token, empty needed set, non-GitHub URL, or any HTTP/
+    network/parse error (logs type-name only — never the token or URL); on a mid-run
+    error it returns whatever was resolved so far. Pagination stops early once every
+    needed email resolves, a short/empty page is seen, or ``COMMIT_AUTHORS_MAX_PAGES``
+    is reached.
+    """
+
+    def __init__(self, *, token: str | None = None) -> None:
+        self._token = token
+
+    def fetch_author_logins(self, canonical_url: str, needed_emails: set[str]) -> dict[str, str]:
+        if self._token is None:
+            _logger.debug("commit author logins fetch skipped: no token")
+            return {}
+        if not needed_emails:
+            return {}
+
+        parsed = _parse_owner_repo(canonical_url)
+        if parsed is None:
+            _logger.debug(
+                "commit author logins fetch skipped: not a GitHub URL (%s)", canonical_url
+            )
+            return {}
+        owner, repo = parsed
+
+        resolved: dict[str, str] = {}
+        remaining = set(needed_emails)
+        for page in range(1, COMMIT_AUTHORS_MAX_PAGES + 1):
+            url = (
+                f"https://api.github.com/repos/{owner}/{repo}/commits"
+                f"?per_page={COMMIT_AUTHORS_PAGE_SIZE}&page={page}"
+            )
+            items = self._get_commits_page(url)
+            if not items:
+                break
+            for item in items:
+                login = _extract_top_level_login(item)
+                email = _extract_commit_author_email(item)
+                if login is None or email is None:
+                    continue
+                if email in remaining:
+                    resolved[email] = login
+                    remaining.discard(email)
+            if not remaining:
+                break
+            if len(items) < COMMIT_AUTHORS_PAGE_SIZE:
+                break
+        return resolved
+
+    def _get_commits_page(self, url: str) -> list[dict[str, object]] | None:
+        """GET one page of the List commits array. Logs type-name only (spec 031 §12)."""
+        req = urllib.request.Request(url)
+        req.add_header("Accept", "application/vnd.github+json")
+        req.add_header("Authorization", f"Bearer {self._token}")
+        req.add_header("User-Agent", "git-it/1.0")
+        try:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # type: ignore[arg-type]
+                raw = json.loads(resp.read())
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:
+            _logger.warning("github commit authors api error: %s", type(exc).__name__)
+            return None
+        if not isinstance(raw, list):
+            _logger.warning("github commit authors api returned non-array payload")
+            return None
+        return [item for item in raw if isinstance(item, dict)]
+
+
 class GithubDiscussionsFetcher:
     """Fetches a bounded, ranked subset of a repository's GitHub Discussions.
 
@@ -515,6 +616,36 @@ def _parse_node(node: object) -> Discussion:
         comment_count=comment_count,
         updated_at=str(node.get("updatedAt", "")),
     )
+
+
+def _extract_top_level_login(item: dict[str, object]) -> str | None:
+    """Return the matched GitHub account login, or None (spec 031).
+
+    ``item["author"]`` is the top-level ``Simple User | null`` object. ``null``
+    means GitHub could not match the commit email to an account. The login is
+    charset-validated (untrusted API content) before it is returned.
+    """
+    author = item.get("author")
+    if not isinstance(author, dict):
+        return None
+    login = author.get("login")
+    if not _is_valid_github_login(login):
+        return None
+    return login
+
+
+def _extract_commit_author_email(item: dict[str, object]) -> str | None:
+    """Return the git author email from ``item["commit"]["author"]["email"]`` (spec 031)."""
+    commit = item.get("commit")
+    if not isinstance(commit, dict):
+        return None
+    commit_author = commit.get("author")
+    if not isinstance(commit_author, dict):
+        return None
+    email = commit_author.get("email")
+    if not isinstance(email, str) or not email:
+        return None
+    return email
 
 
 def _parse_owner_repo(canonical_url: str) -> tuple[str, str] | None:

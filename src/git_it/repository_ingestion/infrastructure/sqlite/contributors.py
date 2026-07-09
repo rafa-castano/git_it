@@ -15,7 +15,25 @@ class SqliteContributorReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
 
+    def _load_login_map(self, repository_id: str) -> dict[str, str | None]:
+        """Read the spec 031 ``author_email -> github_login`` map for this repository.
+
+        Tolerates a missing ``author_logins`` table (a DB ingested before spec 031,
+        or a read-only caller that never provisioned it) by degrading to an empty map
+        — reads must never create tables as a side effect.
+        """
+        try:
+            with sqlite3.connect(self._database_path) as conn:
+                rows = conn.execute(
+                    "SELECT author_email, github_login FROM author_logins WHERE repository_id = ?",
+                    (repository_id,),
+                ).fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        return {str(row[0]): (str(row[1]) if row[1] is not None else None) for row in rows}
+
     def list_contributors(self, repository_id: str) -> list[ContributorRecord]:
+        login_map = self._load_login_map(repository_id)
         with sqlite3.connect(self._database_path) as conn:
             cur = conn.cursor()
 
@@ -91,7 +109,9 @@ class SqliteContributorReader:
                 last_commit=(last[:10] if last else None),
                 is_bot=bool(_BOT_PATTERN.search(name or "")),
                 active_days=active_days,
-                github_username=_extract_github_username(email or ""),
+                github_username=(
+                    login_map.get(email or "") or _extract_github_username(email or "")
+                ),
                 category_counts=cat_by_author.get(name, {}),
                 top_files=files_by_author.get(name, []),
             )

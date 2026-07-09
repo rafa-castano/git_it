@@ -40,6 +40,7 @@ One file per batch, organized by feature area.
 - [Batch 154 — Spec 028 closure (refresh all repositories)](ingestion/batch-154-spec-028-closure.md)
 - [Batch 157 — Verified file/folder path linking, tree-grounded (spec 029)](ingestion/batch-157-verified-file-path-linking.md)
 - [Batch 159 — Incremental commit extraction (spec 030)](ingestion/batch-159-incremental-commit-extraction.md)
+- [Batch 160 — Contributor GitHub login resolution (spec 031)](ingestion/batch-160-contributor-github-login-resolution.md)
 
 ## Analysis
 - [Batch 24 — Provider-agnostic LLM client and `git-it analyze` command](analysis/batch-24-provider-agnostic-llm-client.md)

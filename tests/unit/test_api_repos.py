@@ -1505,3 +1505,181 @@ def test_list_repos_does_not_include_file_paths(tmp_path: Path) -> None:
     repo = response.json()["repos"][0]
     assert "paths" not in repo
     assert "file_paths" not in repo
+
+
+# ---------------------------------------------------------------------------
+# _fetch_and_store_commit_author_logins — ingestion-time hook (spec 031)
+# ---------------------------------------------------------------------------
+
+
+def _seed_commit_facts_emails(tmp_path: Path, repository_id: str, emails: list[str]) -> None:
+    """Insert commit_facts rows so the login hook can compute distinct author emails."""
+    from git_it.repository_ingestion.infrastructure.sqlite import SqliteCommitFactStore
+
+    db = tmp_path / ".data" / "git-it" / "ingestion" / "git-it.sqlite3"
+    SqliteCommitFactStore(db).initialize()
+    with sqlite3.connect(db) as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO commit_facts (repository_id, sha, committed_at, message,"
+            " author_name, committer_name, parent_shas, author_email)"
+            " VALUES (?, ?, '2024-01-01', 'm', 'A', 'A', '[]', ?)",
+            [(repository_id, f"sha{i}", email) for i, email in enumerate(emails)],
+        )
+        conn.commit()
+
+
+def test_commit_author_logins_skips_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_commit_author_logins
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with mock.patch("git_it.api.routes.repos.GithubCommitAuthorsFetcher") as mock_cls:
+        _fetch_and_store_commit_author_logins(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_cls.assert_not_called()
+
+
+def test_commit_author_logins_skips_api_when_needed_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_commit_author_logins
+    from git_it.repository_ingestion.composition import build_author_login_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    _seed_commit_facts_emails(tmp_path, "repo-abc", ["alice@example.com"])
+    # Pre-mark the only author email as attempted -> needed set becomes empty.
+    build_author_login_store(project_root=tmp_path).save_author_logins(
+        "repo-abc", {"alice@example.com": None}
+    )
+
+    with mock.patch("git_it.api.routes.repos.GithubCommitAuthorsFetcher") as mock_cls:
+        _fetch_and_store_commit_author_logins(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    mock_cls.assert_not_called()
+
+
+def test_commit_author_logins_queries_only_needed_and_stores(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_commit_author_logins
+    from git_it.repository_ingestion.composition import build_author_login_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    _seed_commit_facts_emails(tmp_path, "repo-abc", ["alice@example.com", "bob@example.com"])
+    store = build_author_login_store(project_root=tmp_path)
+    store.save_author_logins("repo-abc", {"alice@example.com": None})  # already attempted
+
+    with mock.patch("git_it.api.routes.repos.GithubCommitAuthorsFetcher") as mock_cls:
+        mock_cls.return_value.fetch_author_logins.return_value = {"bob@example.com": "bob-gh"}
+        _fetch_and_store_commit_author_logins(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+
+    # Only the never-attempted email was queried (incremental — AC-04).
+    _, called_needed = mock_cls.return_value.fetch_author_logins.call_args.args
+    assert called_needed == {"bob@example.com"}
+    # alice's null marker is preserved; bob is now resolved.
+    assert store.get_author_logins("repo-abc") == {
+        "alice@example.com": None,
+        "bob@example.com": "bob-gh",
+    }
+
+
+def test_commit_author_logins_stores_null_for_unresolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_commit_author_logins
+    from git_it.repository_ingestion.composition import build_author_login_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    _seed_commit_facts_emails(tmp_path, "repo-abc", ["alice@example.com", "ghost@example.com"])
+    with mock.patch("git_it.api.routes.repos.GithubCommitAuthorsFetcher") as mock_cls:
+        mock_cls.return_value.fetch_author_logins.return_value = {"alice@example.com": "alice-gh"}
+        _fetch_and_store_commit_author_logins(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    store = build_author_login_store(project_root=tmp_path)
+    assert store.get_author_logins("repo-abc") == {
+        "alice@example.com": "alice-gh",
+        "ghost@example.com": None,  # attempted, no match
+    }
+
+
+def test_commit_author_logins_failure_isolated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from git_it.api.routes.repos import _fetch_and_store_commit_author_logins
+    from git_it.repository_ingestion.composition import build_author_login_store
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    _seed_commit_facts_emails(tmp_path, "repo-abc", ["alice@example.com"])
+    with mock.patch("git_it.api.routes.repos.GithubCommitAuthorsFetcher") as mock_cls:
+        mock_cls.return_value.fetch_author_logins.side_effect = RuntimeError("boom")
+        # Must not raise — enrichment is best-effort (AC-07).
+        _fetch_and_store_commit_author_logins(
+            repository_id="repo-abc",
+            canonical_url="https://github.com/owner/repo",
+            project_root=tmp_path,
+        )
+    assert build_author_login_store(project_root=tmp_path).get_author_logins("repo-abc") == {}
+
+
+def test_refresh_all_makes_zero_login_resolution_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-06: 'Refresh all' bypasses the enrichment path — no login-resolution API calls."""
+    from git_it.repository_ingestion.application.refresh_all_service import RefreshAllService
+    from git_it.repository_ingestion.application.service import IngestionResult
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+
+    class _FakeIngest:
+        def ingest(self, raw_url: str) -> IngestionResult:
+            return IngestionResult(
+                status="COMPLETED",
+                error_code=None,
+                stage="persist",
+                retryable=False,
+                safe_message=None,
+                commits_inserted=1,
+            )
+
+    class _FakeListReader:
+        def list_repositories(self) -> list[Any]:
+            from git_it.repository_ingestion.application.ports import RepositoryRecord
+
+            return [
+                RepositoryRecord(
+                    repository_id="repo-abc",
+                    canonical_url="https://github.com/owner/repo",
+                    status="COMPLETED",
+                    commit_count=1,
+                    analysis_count=0,
+                    has_case_study=False,
+                )
+            ]
+
+    service = RefreshAllService(
+        repository_list_reader=_FakeListReader(),
+        ingest_service_factory=lambda _rid: _FakeIngest(),
+    )
+
+    with mock.patch(
+        "git_it.repository_ingestion.infrastructure.github."
+        "GithubCommitAuthorsFetcher.fetch_author_logins"
+    ) as mock_fetch:
+        result = service.refresh_all()
+
+    assert result.refreshed_count == 1
+    mock_fetch.assert_not_called()

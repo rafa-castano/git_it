@@ -49,6 +49,7 @@ from git_it.repository_ingestion.application.ports import DEFAULT_AUDIENCE
 from git_it.repository_ingestion.composition import (
     build_advisory_evidence_store,
     build_advisory_summarizer,
+    build_author_login_store,
     build_case_study_store,
     build_commit_analysis_service,
     build_commit_count_reader,
@@ -77,6 +78,7 @@ from git_it.repository_ingestion.domain.url_contract import (
     parse_repository_url,
 )
 from git_it.repository_ingestion.infrastructure.github import (
+    GithubCommitAuthorsFetcher,
     GithubDiscussionsFetcher,
     GithubReleasesFetcher,
     GithubRepoMetadataFetcher,
@@ -271,6 +273,50 @@ def _fetch_and_store_advisory_evidence(
         )
 
 
+def _fetch_and_store_commit_author_logins(
+    *, repository_id: str, canonical_url: str, project_root: Path
+) -> None:
+    """Best-effort GitHub contributor-login resolution, run once after a successful ingest.
+
+    Resolves ``author_email -> github_login`` from the GitHub List commits endpoint so a
+    contributor card links to the real profile instead of a user search (spec 031).
+    Incremental: only author emails not yet attempted are queried; every needed email
+    that does not resolve is stored with a ``null`` marker so it is never re-queried.
+    Never raises: no token, empty needed set, HTTP/network error, or malformed payload
+    all degrade to "no logins stored" — the ingest still reports COMPLETED, and links
+    fall back to the existing search behavior.
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return
+    try:
+        store = build_author_login_store(project_root=project_root)
+        distinct_emails = store.read_distinct_author_emails(repository_id)
+        attempted = set(store.get_author_logins(repository_id).keys())
+        needed = distinct_emails - attempted
+        if not needed:
+            return
+        fetcher = GithubCommitAuthorsFetcher(token=token)
+        resolved = fetcher.fetch_author_logins(canonical_url, needed)
+        # Persist a null marker for every needed-but-unresolved email so it is
+        # never re-queried on a later ingest (incremental resolution).
+        mapping: dict[str, str | None] = {email: resolved.get(email) for email in needed}
+        store.save_author_logins(repository_id, mapping)
+        _logger.info(
+            "commit author logins: needed=%d resolved=%d attempted_null=%d",
+            len(needed),
+            len(resolved),
+            len(needed) - len(resolved),
+            extra={"repository_id": repository_id},
+        )
+    except Exception as e:
+        _logger.warning(
+            "commit author logins fetch failed: %s",
+            type(e).__name__,
+            extra={"repository_id": repository_id},
+        )
+
+
 def _ingest_bg(url: str, project_root: Path) -> None:
     _logger.info("[INGEST] started url=%s project_root=%s", url, project_root)
     try:
@@ -322,6 +368,11 @@ def _ingest_bg(url: str, project_root: Path) -> None:
                 project_root=project_root,
             )
             _fetch_and_store_advisory_evidence(
+                repository_id=repository_id,
+                canonical_url=parsed.canonical_url,
+                project_root=project_root,
+            )
+            _fetch_and_store_commit_author_logins(
                 repository_id=repository_id,
                 canonical_url=parsed.canonical_url,
                 project_root=project_root,

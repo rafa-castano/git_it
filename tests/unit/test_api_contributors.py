@@ -297,6 +297,104 @@ def test_contributors_active_days_counts_distinct_days(tmp_path: Path) -> None:
     assert contributor["active_days"] == 2
 
 
+def _insert_author_login(
+    db: Path,
+    *,
+    repository_id: str = "repo-abc",
+    author_email: str,
+    github_login: str | None,
+) -> None:
+    """Create the author_logins table (spec 031) if needed and upsert one row."""
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS author_logins (
+                repository_id TEXT NOT NULL,
+                author_email  TEXT NOT NULL,
+                github_login  TEXT,
+                updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (repository_id, author_email)
+            )
+            """
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO author_logins"
+            " (repository_id, author_email, github_login, updated_at)"
+            " VALUES (?, ?, ?, datetime('now'))",
+            (repository_id, author_email, github_login),
+        )
+        conn.commit()
+
+
+def test_contributors_stored_login_wins_over_noreply_heuristic(tmp_path: Path) -> None:
+    """AC-02: a stored GitHub login takes precedence over the noreply-email heuristic."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(
+        db,
+        sha="s001",
+        author_name="Alice",
+        author_email="12345678+alice@users.noreply.github.com",
+    )
+    _insert_author_login(
+        db, author_email="12345678+alice@users.noreply.github.com", github_login="alice-real"
+    )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/contributors")
+
+    assert response.status_code == 200
+    contributor = response.json()["contributors"][0]
+    # Heuristic alone would yield "alice"; the stored login wins.
+    assert contributor["github_username"] == "alice-real"
+
+
+def test_contributors_stored_login_resolves_regular_email(tmp_path: Path) -> None:
+    """AC-02: a regular-email author gets a profile login from the store."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(db, sha="s002", author_name="Bob", author_email="bob@gmail.com")
+    _insert_author_login(db, author_email="bob@gmail.com", github_login="bob-gh")
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/contributors")
+
+    assert response.status_code == 200
+    contributor = response.json()["contributors"][0]
+    assert contributor["github_username"] == "bob-gh"
+
+
+def test_contributors_stored_null_falls_back_to_heuristic(tmp_path: Path) -> None:
+    """AC-03: a stored null marker falls through to the noreply-email heuristic."""
+    from git_it.api.app import create_app
+
+    db = _db_path(tmp_path)
+    _init_db(db)
+    _insert_commit(
+        db,
+        sha="s003",
+        author_name="Alice",
+        author_email="12345678+alice@users.noreply.github.com",
+    )
+    _insert_author_login(
+        db, author_email="12345678+alice@users.noreply.github.com", github_login=None
+    )
+
+    app = create_app(project_root=tmp_path)
+    client = TestClient(app)
+    response = client.get("/api/repos/repo-abc/contributors")
+
+    assert response.status_code == 200
+    contributor = response.json()["contributors"][0]
+    assert contributor["github_username"] == "alice"
+
+
 def test_contributors_migration_guard_survives_existing_column(tmp_path: Path) -> None:
     """Endpoint must not 500 when author_email column already exists in DB."""
     from git_it.api.app import create_app

@@ -16,6 +16,7 @@ DEFAULT_AUDIENCE = "beginner"  # canonical audience default used across all laye
 __all__ = [
     "AdvisoryEvidence",
     "AdvisoryEvidenceReader",
+    "AuthorLoginStore",
     "CaseStudyRecord",
     "CaseStudyStore",
     "CommitAnalysis",
@@ -469,3 +470,23 @@ class ContributorRecord:
 
 class ContributorReader(Protocol):
     def list_contributors(self, repository_id: str) -> list[ContributorRecord]: ...
+
+
+# ---------------------------------------------------------------------------
+# Author-login resolution port (spec 031)
+# ---------------------------------------------------------------------------
+
+
+class AuthorLoginStore(Protocol):
+    """Persists the per-repository ``author_email -> github_login | null`` mapping (spec 031).
+
+    A ``null`` login value is an "attempted, no match" marker: GitHub was asked and
+    returned no matching account for that email. Storing it (rather than leaving the
+    row absent) is what makes resolution incremental — an attempted email is never
+    re-queried on a later ingest. ``get_author_logins`` returns the full mapping
+    including those ``null`` markers; an unknown repository yields an empty mapping.
+    """
+
+    def save_author_logins(self, repository_id: str, mapping: dict[str, str | None]) -> None: ...
+
+    def get_author_logins(self, repository_id: str) -> dict[str, str | None]: ...

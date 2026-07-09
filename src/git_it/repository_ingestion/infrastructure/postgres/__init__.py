@@ -13,6 +13,7 @@ keeps working unchanged.
 from ._common import initialize
 from .advisories import PostgresAdvisoryEvidenceStore
 from .analysis import PostgresCaseStudyStore, PostgresCommitAnalysisStore, PostgresSynopsisStore
+from .author_logins import PostgresAuthorLoginStore
 from .commits import (
     PostgresCommitCountReader,
     PostgresCommitReader,
@@ -37,6 +38,7 @@ from .repository import PostgresRepositoryDeleter, PostgresRepositoryListReader
 
 __all__ = [
     "PostgresAdvisoryEvidenceStore",
+    "PostgresAuthorLoginStore",
     "PostgresCaseStudyStore",
     "PostgresCommitAnalysisStore",
     "PostgresCommitCountReader",

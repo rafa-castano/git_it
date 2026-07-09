@@ -28,10 +28,12 @@ from git_it.repository_ingestion.domain.releases import ReleaseEvidence
 from git_it.repository_ingestion.domain.repo_metadata import LanguageBreakdown, RepoMetadata
 from git_it.repository_ingestion.infrastructure.postgres import (
     PostgresAdvisoryEvidenceStore,
+    PostgresAuthorLoginStore,
     PostgresCaseStudyStore,
     PostgresCommitAnalysisStore,
     PostgresCommitStore,
     PostgresCommitWithAnalysisReader,
+    PostgresContributorReader,
     PostgresDefaultBranchStore,
     PostgresDiscussionEvidenceStore,
     PostgresEmbeddingStore,
@@ -725,3 +727,50 @@ def test_postgres_advisory_evidence_store_upsert_overwrites(conninfo: str) -> No
     assert len(result) == 1
     assert result[0].summary == "second summary"
     assert result[0].confidence == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Author-login store roundtrip + contributor precedence (spec 031, AC-08/02/03)
+# ---------------------------------------------------------------------------
+
+
+def test_postgres_author_login_store_roundtrips_including_null_markers(conninfo: str) -> None:
+    store = PostgresAuthorLoginStore(conninfo)
+    assert store.get_author_logins("pg-repo-al-unknown") == {}
+
+    mapping: dict[str, str | None] = {
+        "alice@example.com": "alice-gh",
+        "nomatch@example.com": None,
+    }
+    store.save_author_logins("pg-repo-al-1", mapping)
+    assert store.get_author_logins("pg-repo-al-1") == mapping
+
+    # Re-save overwrites the null marker with a resolved login (idempotent upsert).
+    store.save_author_logins("pg-repo-al-1", {"nomatch@example.com": "found-gh"})
+    assert store.get_author_logins("pg-repo-al-1")["nomatch@example.com"] == "found-gh"
+
+
+def test_postgres_contributor_reader_prefers_stored_login(conninfo: str) -> None:
+    """AC-02/AC-03: stored login > noreply heuristic > None (Postgres mirror)."""
+    commit_store = PostgresCommitStore(conninfo)
+    commit_store.save_commit_facts(
+        [
+            ExtractedCommit(
+                sha="pg-al-c1",
+                committed_at="2026-01-01T00:00:00+00:00",
+                message="m",
+                author_name="Alice",
+                committer_name="Alice",
+                parent_shas=(),
+                author_email="12345678+alice@users.noreply.github.com",
+            )
+        ],
+        repository_id="pg-repo-contrib-al",
+    )
+    PostgresAuthorLoginStore(conninfo).save_author_logins(
+        "pg-repo-contrib-al", {"12345678+alice@users.noreply.github.com": "alice-real"}
+    )
+
+    contributors = PostgresContributorReader(conninfo).list_contributors("pg-repo-contrib-al")
+    assert len(contributors) == 1
+    assert contributors[0].github_username == "alice-real"
